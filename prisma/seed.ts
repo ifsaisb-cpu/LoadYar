@@ -1,4 +1,5 @@
 import { PrismaPg } from '@prisma/adapter-pg';
+import * as bcrypt from 'bcryptjs';
 import { PrismaClient } from '../generated/prisma/client';
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
@@ -36,7 +37,7 @@ const CHECKLIST_ITEMS: { itemNumber: number; labelEn: string; labelUr: string }[
   { itemNumber: 28, labelEn: 'Nose/bonnet cover', labelUr: 'ناپ کور' },
 ];
 
-async function main() {
+async function seedChecklistItems() {
   for (const item of CHECKLIST_ITEMS) {
     await prisma.checklistItemDefinition.upsert({
       where: { itemNumber: item.itemNumber },
@@ -45,6 +46,71 @@ async function main() {
     });
   }
   console.log(`Seeded ${CHECKLIST_ITEMS.length} checklist item definitions.`);
+}
+
+// Minimal test data (CLAUDE.md working style). One test carrier + driver so
+// the driver/carrier portal logins have profiles for row-level scoping.
+// Test-only credentials — replace before any real deployment.
+const TEST_PASSWORD = 'Test1234!';
+
+async function seedTestUsers() {
+  const passwordHash = await bcrypt.hash(TEST_PASSWORD, 10);
+
+  const carrier = await prisma.carrier.upsert({
+    where: { id: '00000000-0000-4000-8000-000000000001' },
+    update: {},
+    create: {
+      id: '00000000-0000-4000-8000-000000000001',
+      companyName: 'Test Carrier Co',
+      contactName: 'Test Carrier Contact',
+      contactPhone: '0300-0000000',
+      payType: 'flat_rate',
+    },
+  });
+
+  const driver = await prisma.driver.upsert({
+    where: { id: '00000000-0000-4000-8000-000000000002' },
+    update: {},
+    create: {
+      id: '00000000-0000-4000-8000-000000000002',
+      carrierId: carrier.id,
+      name: 'Test Driver',
+      licenseNumber: 'TEST-LIC-001',
+      phone: '0300-0000001',
+    },
+  });
+
+  const users: {
+    email: string;
+    role: 'admin' | 'dispatcher' | 'driver' | 'carrier';
+    driverId?: string;
+    carrierId?: string;
+  }[] = [
+    { email: 'admin@test.local', role: 'admin' },
+    { email: 'dispatcher@test.local', role: 'dispatcher' },
+    { email: 'driver@test.local', role: 'driver', driverId: driver.id },
+    { email: 'carrier@test.local', role: 'carrier', carrierId: carrier.id },
+  ];
+
+  for (const u of users) {
+    await prisma.user.upsert({
+      where: { email: u.email },
+      update: { role: u.role, driverId: u.driverId, carrierId: u.carrierId },
+      create: {
+        email: u.email,
+        passwordHash,
+        role: u.role,
+        driverId: u.driverId,
+        carrierId: u.carrierId,
+      },
+    });
+  }
+  console.log(`Seeded ${users.length} test users (password: ${TEST_PASSWORD}).`);
+}
+
+async function main() {
+  await seedChecklistItems();
+  await seedTestUsers();
 }
 
 main()
