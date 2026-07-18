@@ -1,0 +1,921 @@
+// Muslim United CRM — Prisma schema
+// Source of truth: docs/CRM-DESIGN.md (§4 entities, §5 resolved decisions)
+// Conventions: every table has created_at/updated_at/created_by/updated_by;
+// business entities additionally have deleted_at (soft delete, no hard deletes from the API).
+// created_by/updated_by are plain UUID columns (not Prisma relations) to avoid a
+// User model fanning out into 25+ back-relations for pure audit trail purposes —
+// see ASSUMPTION note on the User model below.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// =========================================================================
+// ENUMS
+// =========================================================================
+
+// Required by CLAUDE.md as a fixed Postgres enum (not free text).
+enum Role {
+  admin
+  dispatcher
+  driver
+  carrier
+
+  @@map("role")
+}
+
+enum EntryMode {
+  digital
+  manual_logged
+
+  @@map("entry_mode")
+}
+
+enum PayType {
+  flat_rate
+  cost_plus
+
+  @@map("pay_type")
+}
+
+enum ReturnLoadType {
+  paid
+  empty_reposition
+  none
+
+  @@map("return_load_type")
+}
+
+// 3-state value per checklist item, §5.3.
+enum ChecklistItemState {
+  present
+  missing
+  damaged
+
+  @@map("checklist_item_state")
+}
+
+enum ChecklistStage {
+  pickup
+  delivery
+
+  @@map("checklist_stage")
+}
+
+enum ClaimType {
+  damage
+  missing_part
+  delay
+  other
+
+  @@map("claim_type")
+}
+
+enum ClaimStatus {
+  open
+  under_review
+  settled
+  rejected
+
+  @@map("claim_status")
+}
+
+enum CostBearer {
+  carrier
+  insurance
+  company
+  client
+
+  @@map("cost_bearer")
+}
+
+enum PaymentMethod {
+  cash
+  bank_transfer
+  cheque
+  online
+  other
+
+  @@map("payment_method")
+}
+
+// ASSUMPTION: not in design doc §4/§5 explicitly — added because "Delivery
+// status updates" is a named capability in the §5.2 permission matrix, so
+// Trip needs a status field for it to act on.
+enum TripDeliveryStatus {
+  pending
+  in_transit
+  delivered
+
+  @@map("trip_delivery_status")
+}
+
+// ASSUMPTION: design doc only says ClientRateAgreement has a "status" field
+// without enumerating values.
+enum RateAgreementStatus {
+  active
+  inactive
+  expired
+
+  @@map("rate_agreement_status")
+}
+
+// ASSUMPTION: design doc lists diesel/tolls/extra-delivery-costs as expense
+// kinds in prose, not as a named enum. Modeled as one since it's a small
+// fixed categorical set (spirit of the "never free-text for enums" rule).
+enum TripExpenseType {
+  diesel
+  toll
+  extra_delivery
+  other
+
+  @@map("trip_expense_type")
+}
+
+// ASSUMPTION: same reasoning as TripExpenseType, derived from §4's
+// ClearingAgentCharges prose ("NOC processing... port clearance,
+// documentation, misc").
+enum ClearingChargeType {
+  noc_processing
+  port_clearance
+  documentation
+  misc
+
+  @@map("clearing_charge_type")
+}
+
+// ASSUMPTION: derived from §4's Vendors prose ("Tyre shops, repair shops,
+// oil/filter suppliers").
+enum VendorType {
+  tyre_shop
+  repair_shop
+  oil_filter_supplier
+  other
+
+  @@map("vendor_type")
+}
+
+// ASSUMPTION: needed to track an invoice through its lifecycle; not
+// enumerated in the design doc.
+enum InvoiceStatus {
+  draft
+  sent
+  partially_paid
+  paid
+  overdue
+  cancelled
+
+  @@map("invoice_status")
+}
+
+// ASSUMPTION: shared status enum for CarrierPayable and VendorPayable,
+// needed for partial-payment tracking (§5.3) but not named in the doc.
+enum PayableStatus {
+  open
+  partially_paid
+  paid
+
+  @@map("payable_status")
+}
+
+// =========================================================================
+// AUTH / USERS
+// ASSUMPTION: CLAUDE.md build order lists "Auth + roles + row-level scoping"
+// as step 2, separate from the step-1 schema. But every other table's
+// created_by/updated_by needs a conceptual target, and Driver/Carrier portal
+// logins need a Users table to exist at all — so the table is included now.
+// Step 2 is expected to add the actual auth logic (password hashing, JWT
+// issuance, guards) on top of this, not the table itself.
+// =========================================================================
+
+model User {
+  id           String  @id @default(uuid()) @db.Uuid
+  email        String  @unique
+  passwordHash String  @map("password_hash")
+  role         Role
+  isActive     Boolean @default(true) @map("is_active")
+
+  // Set when role = driver / carrier, linking the login to its portal-scoped profile.
+  driverId  String?  @map("driver_id") @db.Uuid
+  driver    Driver?  @relation(fields: [driverId], references: [id])
+  carrierId String?  @map("carrier_id") @db.Uuid
+  carrier   Carrier? @relation(fields: [carrierId], references: [id])
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("users")
+}
+
+// =========================================================================
+// CUSTOMERS
+// =========================================================================
+
+model Customer {
+  id                     String  @id @default(uuid()) @db.Uuid
+  companyName            String  @map("company_name")
+  billingContactName     String? @map("billing_contact_name")
+  billingContactPhone    String? @map("billing_contact_phone")
+  billingContactEmail    String? @map("billing_contact_email")
+  operationsContactName  String? @map("operations_contact_name")
+  operationsContactPhone String? @map("operations_contact_phone")
+  operationsContactEmail String? @map("operations_contact_email")
+
+  plantLocations CustomerPlantLocation[]
+  deliveryPoints CustomerDeliveryPoint[]
+  rateAgreements ClientRateAgreement[]
+  bookings       Booking[]
+  trips          Trip[]
+  invoices       Invoice[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("customers")
+}
+
+model CustomerPlantLocation {
+  id         String   @id @default(uuid()) @db.Uuid
+  customerId String   @map("customer_id") @db.Uuid
+  customer   Customer @relation(fields: [customerId], references: [id])
+  name       String
+  address    String
+  city       String
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("customer_plant_locations")
+}
+
+// Dealer network delivery point for a customer/OEM.
+model CustomerDeliveryPoint {
+  id         String   @id @default(uuid()) @db.Uuid
+  customerId String   @map("customer_id") @db.Uuid
+  customer   Customer @relation(fields: [customerId], references: [id])
+  dealerName String   @map("dealer_name")
+  address    String
+  city       String
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("customer_delivery_points")
+}
+
+// =========================================================================
+// RATE AGREEMENTS
+// =========================================================================
+
+model ClientRateAgreement {
+  id         String   @id @default(uuid()) @db.Uuid
+  customerId String   @map("customer_id") @db.Uuid
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  originCity      String @map("origin_city")
+  destinationCity String @map("destination_city")
+  // ASSUMPTION: design doc says "vehicle type/category" without an
+  // enumerated list of car-carrier categories — kept as free text rather
+  // than inventing a fixed enum.
+  vehicleCategory String @map("vehicle_category")
+
+  ratePerVehicle      Decimal             @map("rate_per_vehicle") @db.Decimal(14, 2)
+  validFrom           DateTime            @map("valid_from")
+  validTo             DateTime            @map("valid_to")
+  fuelSurchargeClause String?             @map("fuel_surcharge_clause")
+  status              RateAgreementStatus @default(active)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([customerId, originCity, destinationCity, vehicleCategory])
+  @@map("client_rate_agreements")
+}
+
+// =========================================================================
+// BOOKINGS
+// =========================================================================
+
+model Booking {
+  id                  String   @id @default(uuid()) @db.Uuid
+  customerId          String   @map("customer_id") @db.Uuid
+  customer            Customer @relation(fields: [customerId], references: [id])
+  bookingDate         DateTime @map("booking_date")
+  originCity          String   @map("origin_city")
+  destinationCity     String   @map("destination_city")
+  requestedPickupDate DateTime @map("requested_pickup_date")
+
+  trips Trip[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("bookings")
+}
+
+// =========================================================================
+// CARRIERS & DRIVERS
+// =========================================================================
+
+model Carrier {
+  id           String  @id @default(uuid()) @db.Uuid
+  companyName  String  @map("company_name")
+  contactName  String? @map("contact_name")
+  contactPhone String? @map("contact_phone")
+  contactEmail String? @map("contact_email")
+  // Confirmed §4: pay type depends on the carrier, so it's a per-carrier field.
+  payType      PayType @map("pay_type")
+
+  drivers      Driver[]
+  users        User[]
+  trips        Trip[]
+  tripExpenses TripExpense[]
+  checklists   VehicleConditionChecklist[]
+  payables     CarrierPayable[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("carriers")
+}
+
+model Driver {
+  id            String   @id @default(uuid()) @db.Uuid
+  // ASSUMPTION: design doc doesn't state whether every driver belongs to
+  // exactly one carrier; modeled as optional to also allow independent
+  // drivers not yet affiliated with a carrier record.
+  carrierId     String?  @map("carrier_id") @db.Uuid
+  carrier       Carrier? @relation(fields: [carrierId], references: [id])
+  name          String
+  licenseNumber String   @map("license_number")
+  phone         String?
+
+  users        User[]
+  trips        Trip[]
+  tripExpenses TripExpense[]
+  checklists   VehicleConditionChecklist[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("drivers")
+}
+
+// =========================================================================
+// TRIPS / BILTY
+// =========================================================================
+
+model Trip {
+  id String @id @default(uuid()) @db.Uuid
+
+  // ASSUMPTION: NOT a DB-level unique constraint. §5.3 requires digital
+  // bilty numbers to be strictly unique but manual/paper duplicates to only
+  // warn, never block — a single DB unique constraint can't express that
+  // split. Uniqueness for entry_mode = digital is enforced in the service
+  // layer (build step 4); this column is indexed (non-unique) for lookup.
+  biltyNumber String @map("bilty_number")
+
+  entryMode EntryMode @map("entry_mode")
+
+  bookingId String?  @map("booking_id") @db.Uuid
+  booking   Booking? @relation(fields: [bookingId], references: [id])
+
+  tripDate         DateTime @map("trip_date")
+  destination      String
+  consignerId      String   @map("consigner_customer_id") @db.Uuid
+  consigner        Customer @relation(fields: [consignerId], references: [id])
+  consigneeName    String   @map("consignee_name")
+  consigneeAddress String   @map("consignee_address")
+
+  carrierId   String   @map("carrier_id") @db.Uuid
+  carrier     Carrier  @relation(fields: [carrierId], references: [id])
+  driverId    String   @map("driver_id") @db.Uuid
+  driver      Driver   @relation(fields: [driverId], references: [id])
+  bookingTime DateTime @map("booking_time")
+
+  returnLoadType ReturnLoadType @map("return_load_type")
+
+  // Freight folds in the "Driving" charge — confirmed §4, not a separate line.
+  freightAmount          Decimal  @map("freight_amount") @db.Decimal(14, 2)
+  // Suggested value from the matching ClientRateAgreement, §5.1. Null if no
+  // agreement matched (blank-for-manual-entry, no blocking/error).
+  suggestedFreightAmount Decimal? @map("suggested_freight_amount") @db.Decimal(14, 2)
+  freightOverridden      Boolean  @default(false) @map("freight_overridden")
+
+  deliveryStatus TripDeliveryStatus @default(pending) @map("delivery_status")
+
+  cargoVehicles        CargoVehicle[]
+  freightOverrideLogs  FreightOverrideLog[]
+  tripExpenses         TripExpense[]
+  clearingAgentCharges ClearingAgentCharge[]
+  vendorTransactions   VendorTransaction[]
+  invoices             Invoice[]
+  carrierPayables      CarrierPayable[]
+  vendorPayables       VendorPayable[]
+  claims               Claim[]
+  media                TripMedia[]
+  checklists           VehicleConditionChecklist[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([biltyNumber])
+  @@index([carrierId])
+  @@index([driverId])
+  @@map("trips")
+}
+
+// Audit trail for freight overrides — §5.1 "overrides logged for audit".
+model FreightOverrideLog {
+  id             String   @id @default(uuid()) @db.Uuid
+  tripId         String   @map("trip_id") @db.Uuid
+  trip           Trip     @relation(fields: [tripId], references: [id])
+  previousAmount Decimal? @map("previous_amount") @db.Decimal(14, 2)
+  newAmount      Decimal  @map("new_amount") @db.Decimal(14, 2)
+  overriddenBy   String   @map("overridden_by") @db.Uuid
+  overriddenAt   DateTime @map("overridden_at")
+  note           String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  @@map("freight_override_logs")
+}
+
+// =========================================================================
+// CARGO VEHICLE
+// =========================================================================
+
+// ASSUMPTION: design doc says CargoVehicle is "linked to its trip" without
+// stating cardinality. Modeled as many-per-trip since car carriers typically
+// haul multiple vehicles in one trip; each cargo vehicle gets its own
+// chassis/engine number and condition checklist.
+model CargoVehicle {
+  id                 String  @id @default(uuid()) @db.Uuid
+  tripId             String  @map("trip_id") @db.Uuid
+  trip               Trip    @relation(fields: [tripId], references: [id])
+  make               String
+  vehicleType        String  @map("vehicle_type")
+  chassisNumber      String  @map("chassis_number")
+  engineNumber       String  @map("engine_number")
+  condition          String?
+  colour             String?
+  model              String?
+  registrationNumber String? @map("registration_number")
+
+  checklists VehicleConditionChecklist[]
+  claims     Claim[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([tripId])
+  @@map("cargo_vehicles")
+}
+
+// =========================================================================
+// VEHICLE CONDITION CHECKLIST (28 fixed items, §4)
+// =========================================================================
+
+// Static reference data — the 28 fixed checklist items, seeded once.
+model ChecklistItemDefinition {
+  id         String @id @default(uuid()) @db.Uuid
+  itemNumber Int    @unique @map("item_number")
+  labelEn    String @map("label_en")
+  labelUr    String @map("label_ur")
+
+  results         ChecklistItemResult[]
+  claimReferences ClaimChecklistItem[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("checklist_item_definitions")
+}
+
+// ASSUMPTION: design doc literally says "one row per trip per stage", but
+// the 28 items (AC, radio, spare wheel, etc.) describe a single car's
+// features — with CargoVehicle modeled as many-per-trip, the checklist
+// header is keyed per cargo vehicle + stage instead of per trip + stage.
+// tripId/carrierId/driverId are denormalized here so the query layer can
+// row-level-scope a driver's own-trip checklist entries without a join
+// through CargoVehicle -> Trip.
+model VehicleConditionChecklist {
+  id             String         @id @default(uuid()) @db.Uuid
+  cargoVehicleId String         @map("cargo_vehicle_id") @db.Uuid
+  cargoVehicle   CargoVehicle   @relation(fields: [cargoVehicleId], references: [id])
+  tripId         String         @map("trip_id") @db.Uuid
+  trip           Trip           @relation(fields: [tripId], references: [id])
+  carrierId      String?        @map("carrier_id") @db.Uuid
+  carrier        Carrier?       @relation(fields: [carrierId], references: [id])
+  driverId       String?        @map("driver_id") @db.Uuid
+  driver         Driver?        @relation(fields: [driverId], references: [id])
+  stage          ChecklistStage
+  recordedAt     DateTime       @map("recorded_at")
+
+  items ChecklistItemResult[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@unique([cargoVehicleId, stage])
+  @@index([tripId])
+  @@index([carrierId])
+  @@index([driverId])
+  @@map("vehicle_condition_checklists")
+}
+
+// One row per checklist item per checklist header (28 per header).
+model ChecklistItemResult {
+  id               String                    @id @default(uuid()) @db.Uuid
+  checklistId      String                    @map("checklist_id") @db.Uuid
+  checklist        VehicleConditionChecklist @relation(fields: [checklistId], references: [id])
+  itemDefinitionId String                    @map("item_definition_id") @db.Uuid
+  itemDefinition   ChecklistItemDefinition   @relation(fields: [itemDefinitionId], references: [id])
+  state            ChecklistItemState
+  note             String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@unique([checklistId, itemDefinitionId])
+  @@map("checklist_item_results")
+}
+
+// =========================================================================
+// TRIP EXPENSES
+// =========================================================================
+
+model TripExpense {
+  id        String   @id @default(uuid()) @db.Uuid
+  tripId    String   @map("trip_id") @db.Uuid
+  trip      Trip     @relation(fields: [tripId], references: [id])
+  // Denormalized for row-level scoping — drivers enter expenses for own trips only.
+  carrierId String?  @map("carrier_id") @db.Uuid
+  carrier   Carrier? @relation(fields: [carrierId], references: [id])
+  driverId  String?  @map("driver_id") @db.Uuid
+  driver    Driver?  @relation(fields: [driverId], references: [id])
+
+  expenseType          TripExpenseType @map("expense_type")
+  dieselQuantityLiters Decimal?        @map("diesel_quantity_liters") @db.Decimal(10, 2)
+  pricePerUnit         Decimal?        @map("price_per_unit") @db.Decimal(14, 2)
+  amount               Decimal         @map("amount") @db.Decimal(14, 2)
+  odometerReading      Int?            @map("odometer_reading")
+  location             String?
+  expenseDate          DateTime        @map("expense_date")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([tripId])
+  @@index([carrierId])
+  @@index([driverId])
+  @@map("trip_expenses")
+}
+
+// =========================================================================
+// CLEARING AGENTS
+// =========================================================================
+
+model ClearingAgent {
+  id           String  @id @default(uuid()) @db.Uuid
+  name         String
+  contactName  String? @map("contact_name")
+  contactPhone String? @map("contact_phone")
+  city         String?
+  port         String?
+
+  charges ClearingAgentCharge[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("clearing_agents")
+}
+
+model ClearingAgentCharge {
+  id              String             @id @default(uuid()) @db.Uuid
+  clearingAgentId String             @map("clearing_agent_id") @db.Uuid
+  clearingAgent   ClearingAgent      @relation(fields: [clearingAgentId], references: [id])
+  tripId          String?            @map("trip_id") @db.Uuid
+  trip            Trip?              @relation(fields: [tripId], references: [id])
+  chargeType      ClearingChargeType @map("charge_type")
+  amount          Decimal            @db.Decimal(14, 2)
+  referenceNumber String?            @map("reference_number")
+  chargeDate      DateTime           @map("charge_date")
+
+  vendorPayables VendorPayable[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([tripId])
+  @@map("clearing_agent_charges")
+}
+
+// =========================================================================
+// VENDORS
+// =========================================================================
+
+model Vendor {
+  id           String     @id @default(uuid()) @db.Uuid
+  name         String
+  vendorType   VendorType @map("vendor_type")
+  contactName  String?    @map("contact_name")
+  contactPhone String?    @map("contact_phone")
+  city         String?
+
+  transactions VendorTransaction[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("vendors")
+}
+
+// ASSUMPTION: linked to the trip (i.e. the carrier's truck used on that
+// trip), not to CargoVehicle — tyre/repair/oil transactions concern the
+// transport truck, not the customer's car being carried.
+model VendorTransaction {
+  id              String   @id @default(uuid()) @db.Uuid
+  vendorId        String   @map("vendor_id") @db.Uuid
+  vendor          Vendor   @relation(fields: [vendorId], references: [id])
+  tripId          String?  @map("trip_id") @db.Uuid
+  trip            Trip?    @relation(fields: [tripId], references: [id])
+  description     String
+  amount          Decimal  @db.Decimal(14, 2)
+  transactionDate DateTime @map("transaction_date")
+
+  vendorPayables VendorPayable[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([tripId])
+  @@map("vendor_transactions")
+}
+
+// =========================================================================
+// BILLING — RECEIVABLES
+// =========================================================================
+
+model Invoice {
+  id                   String        @id @default(uuid()) @db.Uuid
+  tripId               String        @map("trip_id") @db.Uuid
+  trip                 Trip          @relation(fields: [tripId], references: [id])
+  customerId           String        @map("customer_id") @db.Uuid
+  customer             Customer      @relation(fields: [customerId], references: [id])
+  invoiceNumber        String        @unique @map("invoice_number")
+  invoiceDate          DateTime      @map("invoice_date")
+  freightAmount        Decimal       @map("freight_amount") @db.Decimal(14, 2)
+  // §5.3: one optional flat tax/deduction line, no tax engine.
+  taxOrDeductionAmount Decimal?      @map("tax_or_deduction_amount") @db.Decimal(14, 2)
+  totalAmount          Decimal       @map("total_amount") @db.Decimal(14, 2)
+  isAutoGenerated      Boolean       @default(false) @map("is_auto_generated")
+  status               InvoiceStatus @default(draft)
+
+  // §5.3: invoice edits carry their own edited_by/edited_at trail, distinct
+  // from the generic updated_by/updated_at audit columns.
+  editedBy String?   @map("edited_by") @db.Uuid
+  editedAt DateTime? @map("edited_at")
+
+  payments IncomingPayment[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([tripId])
+  @@index([customerId])
+  @@map("invoices")
+}
+
+model IncomingPayment {
+  id              String        @id @default(uuid()) @db.Uuid
+  invoiceId       String        @map("invoice_id") @db.Uuid
+  invoice         Invoice       @relation(fields: [invoiceId], references: [id])
+  amount          Decimal       @db.Decimal(14, 2)
+  paymentDate     DateTime      @map("payment_date")
+  method          PaymentMethod
+  referenceNumber String?       @map("reference_number")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([invoiceId])
+  @@map("incoming_payments")
+}
+
+// =========================================================================
+// BILLING — PAYABLES
+// =========================================================================
+
+model CarrierPayable {
+  id        String        @id @default(uuid()) @db.Uuid
+  tripId    String        @map("trip_id") @db.Uuid
+  trip      Trip          @relation(fields: [tripId], references: [id])
+  carrierId String        @map("carrier_id") @db.Uuid
+  carrier   Carrier       @relation(fields: [carrierId], references: [id])
+  // Computed per the carrier's pay_type (flat_rate vs cost_plus) at billing time.
+  amount    Decimal       @db.Decimal(14, 2)
+  status    PayableStatus @default(open)
+
+  payments OutgoingPayment[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([tripId])
+  @@index([carrierId])
+  @@map("carrier_payables")
+}
+
+// Exactly one of vendorTransactionId / clearingAgentChargeId is expected to
+// be set (app-level invariant — not enforced as a DB CHECK constraint here).
+model VendorPayable {
+  id                    String               @id @default(uuid()) @db.Uuid
+  tripId                String?              @map("trip_id") @db.Uuid
+  trip                  Trip?                @relation(fields: [tripId], references: [id])
+  vendorTransactionId   String?              @map("vendor_transaction_id") @db.Uuid
+  vendorTransaction     VendorTransaction?   @relation(fields: [vendorTransactionId], references: [id])
+  clearingAgentChargeId String?              @map("clearing_agent_charge_id") @db.Uuid
+  clearingAgentCharge   ClearingAgentCharge? @relation(fields: [clearingAgentChargeId], references: [id])
+  amount                Decimal              @db.Decimal(14, 2)
+  status                PayableStatus        @default(open)
+
+  payments OutgoingPayment[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([tripId])
+  @@map("vendor_payables")
+}
+
+// Exactly one of carrierPayableId / vendorPayableId is expected to be set
+// (app-level invariant — not enforced as a DB CHECK constraint here).
+model OutgoingPayment {
+  id               String          @id @default(uuid()) @db.Uuid
+  carrierPayableId String?         @map("carrier_payable_id") @db.Uuid
+  carrierPayable   CarrierPayable? @relation(fields: [carrierPayableId], references: [id])
+  vendorPayableId  String?         @map("vendor_payable_id") @db.Uuid
+  vendorPayable    VendorPayable?  @relation(fields: [vendorPayableId], references: [id])
+  amount           Decimal         @db.Decimal(14, 2)
+  paymentDate      DateTime        @map("payment_date")
+  method           PaymentMethod
+  referenceNumber  String?         @map("reference_number")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("outgoing_payments")
+}
+
+// =========================================================================
+// CLAIMS
+// =========================================================================
+
+model Claim {
+  id              String       @id @default(uuid()) @db.Uuid
+  tripId          String       @map("trip_id") @db.Uuid
+  trip            Trip         @relation(fields: [tripId], references: [id])
+  cargoVehicleId  String       @map("cargo_vehicle_id") @db.Uuid
+  cargoVehicle    CargoVehicle @relation(fields: [cargoVehicleId], references: [id])
+  claimType       ClaimType    @map("claim_type")
+  description     String
+  reportedBy      String       @map("reported_by") @db.Uuid
+  claimDate       DateTime     @map("claim_date")
+  status          ClaimStatus  @default(open)
+  claimAmount     Decimal?     @map("claim_amount") @db.Decimal(14, 2)
+  costBearer      CostBearer?  @map("cost_bearer")
+  resolutionNotes String?      @map("resolution_notes")
+
+  checklistItems ClaimChecklistItem[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([tripId])
+  @@index([cargoVehicleId])
+  @@map("claims")
+}
+
+// Cross-references a claim to the specific 28-item checklist entries it
+// concerns. Pickup-vs-delivery state comparison for that item is resolved
+// at query time via cargoVehicleId + itemDefinitionId + stage, rather than
+// storing redundant pickup/delivery result FKs here.
+model ClaimChecklistItem {
+  id               String                  @id @default(uuid()) @db.Uuid
+  claimId          String                  @map("claim_id") @db.Uuid
+  claim            Claim                   @relation(fields: [claimId], references: [id])
+  itemDefinitionId String                  @map("item_definition_id") @db.Uuid
+  itemDefinition   ChecklistItemDefinition @relation(fields: [itemDefinitionId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  @@unique([claimId, itemDefinitionId])
+  @@map("claim_checklist_items")
+}
+
+// =========================================================================
+// TRIP MEDIA (text reference only — §4, never file upload/storage)
+// =========================================================================
+
+model TripMedia {
+  id            String         @id @default(uuid()) @db.Uuid
+  tripId        String         @map("trip_id") @db.Uuid
+  trip          Trip           @relation(fields: [tripId], references: [id])
+  stage         ChecklistStage
+  referenceText String         @map("reference_text")
+  notes         String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([tripId])
+  @@map("trip_media")
+}
