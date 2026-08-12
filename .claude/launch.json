@@ -1,0 +1,10 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mucrm-pwa",
+      "url": "http://localhost:8471",
+      "port": 8471
+    }
+  ]
+}
