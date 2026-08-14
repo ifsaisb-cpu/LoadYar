@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yar - ChatBot Widget</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    /* Floating Button */
+    .yar-floating-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #032D60 0%, #0176D3 100%);
+      color: white;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(1, 118, 211, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      z-index: 9998;
+      transition: all 0.3s ease;
+      font-weight: bold;
+    }
+
+    .yar-floating-btn:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 16px rgba(1, 118, 211, 0.6);
+    }
+
+    .yar-floating-btn.active {
+      background: #e74c3c;
+    }
+
+    /* Chat Window */
+    .yar-chat-window {
+      position: fixed;
+      bottom: 90px;
+      right: 20px;
+      width: 400px;
+      height: 600px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      z-index: 9999;
+      animation: slideUp 0.3s ease-out;
+    }
+
+    .yar-chat-window.open {
+      display: flex;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .yar-chat-window {
+        width: calc(100% - 40px);
+        height: 500px;
+        bottom: 80px;
+      }
+    }
+
+    /* Header */
+    .yar-header {
+      background: linear-gradient(135deg, #032D60 0%, #0176D3 100%);
+      color: white;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .yar-header h2 {
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .yar-lang-toggle {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+
+    .yar-lang-toggle:hover {
+      background: rgba(255,255,255,0.3);
+    }
+
+    /* Messages */
+    .yar-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      background: #f8f9fa;
+    }
+
+    .yar-message {
+      margin-bottom: 12px;
+      display: flex;
+      animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .yar-message.user {
+      justify-content: flex-end;
+    }
+
+    .yar-message.bot {
+      justify-content: flex-start;
+    }
+
+    .yar-bubble {
+      max-width: 75%;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      line-height: 1.4;
+      word-wrap: break-word;
+    }
+
+    .yar-message.user .yar-bubble {
+      background: #0176D3;
+      color: white;
+      border-bottom-right-radius: 2px;
+    }
+
+    .yar-message.bot .yar-bubble {
+      background: #e9ecef;
+      color: #333;
+      border-bottom-left-radius: 2px;
+    }
+
+    .yar-typing {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .yar-typing-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #999;
+      animation: typing 1.4s infinite;
+    }
+
+    .yar-typing-dot:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .yar-typing-dot:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes typing {
+      0%, 60%, 100% { opacity: 0.3; }
+      30% { opacity: 1; }
+    }
+
+    /* Input Area */
+    .yar-input-area {
+      padding: 12px;
+      background: white;
+      border-top: 1px solid #e0e0e0;
+      display: flex;
+      gap: 8px;
+    }
+
+    .yar-input {
+      flex: 1;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .yar-input:focus {
+      border-color: #0176D3;
+    }
+
+    .yar-send-btn {
+      background: linear-gradient(135deg, #032D60 0%, #0176D3 100%);
+      color: white;
+      border: none;
+      width: 36px;
+      height: 36px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      transition: all 0.2s;
+    }
+
+    .yar-send-btn:hover {
+      transform: scale(1.05);
+    }
+
+    .yar-send-btn:active {
+      transform: scale(0.95);
+    }
+
+    /* Suggestions */
+    .yar-suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 8px 0;
+    }
+
+    .yar-suggestion-btn {
+      background: #f0f0f0;
+      border: 1px solid #ddd;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: #333;
+    }
+
+    .yar-suggestion-btn:hover {
+      background: #0176D3;
+      color: white;
+      border-color: #0176D3;
+    }
+
+    /* Scrollbar */
+    .yar-messages::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .yar-messages::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+
+    .yar-messages::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 3px;
+    }
+
+    .yar-messages::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Floating Button -->
+<button class="yar-floating-btn" id="yarBtn" onclick="toggleYarChat()">💬</button>
+
+<!-- Chat Window -->
+<div class="yar-chat-window" id="yarWindow">
+  <div class="yar-header">
+    <h2>🤖 Yar Assistant</h2>
+    <button class="yar-lang-toggle" id="langToggle" onclick="toggleLanguage()">اردو</button>
+  </div>
+
+  <div class="yar-messages" id="yarMessages"></div>
+
+  <div class="yar-input-area">
+    <input type="text" class="yar-input" id="yarInput" placeholder="Ask me anything..." onkeypress="handleKeyPress(event)">
+    <button class="yar-send-btn" onclick="sendMessage()">→</button>
+  </div>
+</div>
+
+<script>
+let currentLang = 'en'; // 'en' or 'urdu'
+let faqData = [];
+let chatHistory = [];
+
+// Initialize
+document.addEventListener('DOMContentLoaded', loadFAQData);
+
+function toggleYarChat() {
+  const window = document.getElementById('yarWindow');
+  const btn = document.getElementById('yarBtn');
+  window.classList.toggle('open');
+  btn.classList.toggle('active');
+
+  if (window.classList.contains('open')) {
+    document.getElementById('yarInput').focus();
+    if (chatHistory.length === 0) showGreeting();
+  }
+}
+
+function loadFAQData() {
+  // English FAQs
+  faqData = [
+    {
+      id: 1,
+      category: "Bookings",
+      question: "How do I create a new booking?",
+      answer: "To create a booking: 1) Go to Booking/Bilty 2) Click 'New Booking' 3) Select customer 4) Enter shipment details 5) Assign carrier 6) Save. The system generates a bilty number automatically.",
+      keywords: ["booking", "bilty", "create", "shipment", "how to create"],
+      urdu: {
+        question: "میں نیا بکنگ کیسے بناتا ہوں؟",
+        answer: "بکنگ بنانے کے لیے: 1) بکنگ/بلٹی پر جائیں 2) 'نیا بکنگ' کلک کریں 3) کسٹمر منتخب کریں 4) شپمنٹ کی تفصیلات درج کریں 5) کیریئر مختص کریں 6) سیو کریں۔"
+      }
+    },
+    {
+      id: 2,
+      category: "Bookings",
+      question: "What is a bilty?",
+      answer: "A bilty is a transport document that serves as a receipt for goods and a contract for their carriage. It contains shipment details, weight, pickup/delivery locations, and rates. Every booking gets a unique bilty number.",
+      keywords: ["bilty", "document", "transport", "receipt", "what is"],
+      urdu: {
+        question: "بلٹی کیا ہے؟",
+        answer: "بلٹی ایک ٹرانسپورٹ دستاویز ہے جو سامان کی رسید اور ڈیلیوری کا معاہدہ ہے۔ اس میں شپمنٹ کی تفصیلات، وزن، پکاپ/ڈیلیوری کی جگہیں اور نرخ شامل ہوتے ہیں۔"
+      }
+    },
+    {
+      id: 3,
+      category: "Trips",
+      question: "How do I create a trip?",
+      answer: "To create a trip: 1) Go to Create Trips 2) Select vehicle/driver 3) Add bilties to include 4) Set departure time 5) Save. The trip tracks all related bilties and expenses.",
+      keywords: ["trip", "journey", "create", "vehicle", "driver"],
+      urdu: {
+        question: "میں سفر کیسے بناتا ہوں؟",
+        answer: "سفر بنانے کے لیے: 1) سفر بنائیں پر جائیں 2) گاڑی/ڈرائیور منتخب کریں 3) بلٹیاں شامل کریں 4) روانگی کا وقت سیٹ کریں 5) سیو کریں۔"
+      }
+    },
+    {
+      id: 4,
+      category: "Trips",
+      question: "How do I track a trip?",
+      answer: "Go to Booking Register, find the trip by bilty number or date, and click 'View Details'. You'll see status, vehicle location, driver info, and delivery confirmation.",
+      keywords: ["track", "trip", "status", "location", "tracking"],
+      urdu: {
+        question: "میں سفر کو ٹریک کیسے کرتا ہوں؟",
+        answer: "بکنگ رجسٹر پر جائیں، بلٹی نمبر یا تاریخ سے سفر تلاش کریں، اور 'تفصیلات دیکھیں' کلک کریں۔"
+      }
+    },
+    {
+      id: 5,
+      category: "Expenses",
+      question: "How do I record trip expenses?",
+      answer: "Go to Trip Expenses, select the trip, add expenses (fuel, toll, maintenance), and save. These are tracked separately for each trip and used in billing calculations.",
+      keywords: ["expense", "cost", "fuel", "toll", "maintenance"],
+      urdu: {
+        question: "میں سفر کے اخراجات کیسے ریکارڈ کرتا ہوں؟",
+        answer: "ٹریپ اخراجات پر جائیں، سفر منتخب کریں، اخراجات شامل کریں (ایندھن، ٹول، وغیرہ)، اور سیو کریں۔"
+      }
+    },
+    {
+      id: 6,
+      category: "Finances",
+      question: "What is Receivable?",
+      answer: "Receivable is money owed to you by customers for shipments delivered. It includes invoiced amounts not yet paid. Track in Dashboard under Receivable KPI.",
+      keywords: ["receivable", "payment", "customer", "money", "invoice"],
+      urdu: {
+        question: "وصول یابہ کیا ہے؟",
+        answer: "وصول یابہ گاہکوں سے وہ رقم ہے جو آپ کو ملنی ہے۔ ڈیش بورڈ میں وصول یابہ کے تحت ٹریک کریں۔"
+      }
+    },
+    {
+      id: 7,
+      category: "Finances",
+      question: "What is Payable?",
+      answer: "Payable is money you owe to carriers, vendors, or agents for their services. Pay them to settle outstanding amounts. Track in Dashboard under Payable KPI.",
+      keywords: ["payable", "payment", "carrier", "vendor", "owe"],
+      urdu: {
+        question: "ادائیگی کی ذمہ داری کیا ہے؟",
+        answer: "ادائیگی کی ذمہ داری کیریئرز، وینڈرز یا ایجنٹس سے وہ رقم ہے جو آپ کو انہیں دینی ہے۔ انہیں ادا کریں۔"
+      }
+    },
+    {
+      id: 8,
+      category: "Finances",
+      question: "How do I create an invoice?",
+      answer: "Go to Invoices, click 'New Invoice', select customer, add bilties, review charges, and save. The system auto-calculates shipping costs and taxes.",
+      keywords: ["invoice", "billing", "create", "customer", "charges"],
+      urdu: {
+        question: "میں انوائس کیسے بناتا ہوں؟",
+        answer: "انوائس پر جائیں، 'نیا انوائس' کلک کریں، کسٹمر منتخب کریں، بلٹیاں شامل کریں، اور سیو کریں۔"
+      }
+    },
+    {
+      id: 9,
+      category: "Master Data",
+      question: "How do I add a new customer?",
+      answer: "Go to Master Data > Customers, click 'Add Customer', enter company name, contact info, billing address, and save. You can then create bookings for this customer.",
+      keywords: ["customer", "add", "master data", "new", "company"],
+      urdu: {
+        question: "میں نیا کسٹمر کیسے شامل کرتا ہوں؟",
+        answer: "ماسٹر ڈیٹا پر جائیں، 'نیا کسٹمر' کلک کریں، کمپنی کا نام اور رابطہ درج کریں، اور سیو کریں۔"
+      }
+    },
+    {
+      id: 10,
+      category: "Master Data",
+      question: "How do I add a carrier?",
+      answer: "Go to Master Data > Carriers, click 'Add Carrier', enter company name, contact, vehicle list, and rates. Carriers can then be assigned to trips.",
+      keywords: ["carrier", "add", "company", "vehicle", "transport"],
+      urdu: {
+        question: "میں کیریئر کیسے شامل کرتا ہوں؟",
+        answer: "ماسٹر ڈیٹا > کیریئرز پر جائیں، نیا کیریئر شامل کریں، کمپنی کی تفصیلات درج کریں۔"
+      }
+    },
+    {
+      id: 11,
+      category: "Master Data",
+      question: "How do I add a driver?",
+      answer: "Go to Master Data > Drivers, click 'Add Driver', enter name, license number, contact, assigned carrier, and save. Drivers are linked to vehicles for trip operations.",
+      keywords: ["driver", "add", "license", "employee", "person"],
+      urdu: {
+        question: "میں ڈرائیور کیسے شامل کرتا ہوں؟",
+        answer: "ماسٹر ڈیٹا > ڈرائیور پر جائیں، نیا ڈرائیور شامل کریں، نام، لائسنس نمبر اور رابطہ درج کریں۔"
+      }
+    },
+    {
+      id: 12,
+      category: "Reports",
+      question: "What reports are available?",
+      answer: "Available reports: Trip Summary (by date/customer), Financial Report (receivables/payables), Driver Performance, Vehicle Utilization, and Monthly Billing Report. Access from Reports menu.",
+      keywords: ["report", "summary", "financial", "performance", "billing"],
+      urdu: {
+        question: "کون سی رپورٹیں دستیاب ہیں؟",
+        answer: "دستیاب رپورٹیں: ٹریپ سمری، مالیاتی رپورٹ، ڈرائیور کی کارکردگی، گاڑی کا استعمال۔"
+      }
+    },
+    {
+      id: 13,
+      category: "Dashboard",
+      question: "What do the KPI cards show?",
+      answer: "KPI cards display: Receivable (money due from customers), Payable (money owed to carriers), Bilties Count, Carrier Trips, and Claims. Click cards to see detailed lists.",
+      keywords: ["KPI", "card", "dashboard", "metric", "show"],
+      urdu: {
+        question: "KPI کارڈز کیا دکھاتے ہیں؟",
+        answer: "KPI کارڈز دکھاتے ہیں: وصول یابہ، ادائیگی کی ذمہ داری، بلٹیز کی تعداد۔"
+      }
+    },
+    {
+      id: 14,
+      category: "Dashboard",
+      question: "How do I filter by date period?",
+      answer: "On Dashboard, use period buttons: Today, Yesterday, This week, This month, Last month, Last 3 months, Last 6 months, Annual. KPIs update automatically for the selected period.",
+      keywords: ["filter", "date", "period", "time", "range"],
+      urdu: {
+        question: "میں تاریخ کی مدت کے لحاظ سے فلٹر کیسے کرتا ہوں؟",
+        answer: "ڈیش بورڈ پر، تاریخ کی مدت منتخب کریں: آج، کل، اس ہفتہ، یہ مہینہ، وغیرہ۔"
+      }
+    },
+    {
+      id: 15,
+      category: "Claims",
+      question: "How do I file a claim?",
+      answer: "Go to Claims, click 'New Claim', select trip/bilty, describe damage/issue, add photos, and submit. Claims are tracked and can be marked as settled.",
+      keywords: ["claim", "damage", "issue", "file", "complaint"],
+      urdu: {
+        question: "میں دعویٰ کیسے دائر کرتا ہوں؟",
+        answer: "دعویٰ پر جائیں، نیا دعویٰ کھولیں، سفر منتخب کریں، مسئلہ بیان کریں، اور جمع کریں۔"
+      }
+    },
+    {
+      id: 16,
+      category: "Vehicles",
+      question: "How do I add a vehicle?",
+      answer: "Go to Master Data > Vehicles, click 'Add Vehicle', enter registration number, make/model, capacity, assigned carrier, and save. Vehicles are used in trips.",
+      keywords: ["vehicle", "add", "truck", "car", "registration"],
+      urdu: {
+        question: "میں گاڑی کیسے شامل کرتا ہوں؟",
+        answer: "ماسٹر ڈیٹا > گاڑیاں پر جائیں، رجسٹریشن نمبر، ماڈل، گنجائش درج کریں۔"
+      }
+    },
+    {
+      id: 17,
+      category: "Vehicles",
+      question: "How do I record vehicle maintenance?",
+      answer: "Go to Diesel/Fuel section, click 'Add Maintenance', select vehicle, enter date, cost, and description. Maintenance records help track vehicle health.",
+      keywords: ["maintenance", "vehicle", "repair", "service", "cost"],
+      urdu: {
+        question: "میں گاڑی کی مرمت کیسے ریکارڈ کرتا ہوں؟",
+        answer: "ڈیزل/ایندھن کے حصے میں جائیں، گاڑی منتخب کریں، تاریخ اور خرچ درج کریں۔"
+      }
+    },
+    {
+      id: 18,
+      category: "Settings & Help",
+      question: "How do I change my password?",
+      answer: "Go to Settings > Account, click 'Change Password', enter current password, new password, and confirm. Your password must be at least 8 characters.",
+      keywords: ["password", "change", "account", "security", "settings"],
+      urdu: {
+        question: "میں اپنا پاس ورڈ کیسے بدلتا ہوں؟",
+        answer: "سیٹنگز > اکاؤنٹ پر جائیں، 'پاس ورڈ بدلیں' کلک کریں، موجودہ اور نیا پاس ورڈ درج کریں۔"
+      }
+    },
+    {
+      id: 19,
+      category: "Settings & Help",
+      question: "How do I export data?",
+      answer: "Go to Reports, select the report you need, click 'Export to Excel' or 'Export to PDF'. The file will download with all the selected data.",
+      keywords: ["export", "download", "excel", "pdf", "data"],
+      urdu: {
+        question: "میں ڈیٹا کیسے ڈاؤن لوڈ کرتا ہوں؟",
+        answer: "رپورٹس پر جائیں، رپورٹ منتخب کریں، Excel یا PDF کے طور پر ڈاؤن لوڈ کریں۔"
+      }
+    },
+    {
+      id: 20,
+      category: "General",
+      question: "What should I do if I face an issue?",
+      answer: "If you encounter a problem: 1) Check your internet connection 2) Clear browser cache (Ctrl+Shift+R) 3) Try a different browser 4) Contact support with a screenshot. Yar is here to help!",
+      keywords: ["issue", "problem", "help", "error", "support"],
+      urdu: {
+        question: "اگر مجھے کوئی مسئلہ آئے تو میں کیا کروں؟",
+        answer: "اگر کوئی مسئلہ آئے: 1) انٹرنیٹ کنکشن چیک کریں 2) براؤزر کیش صاف کریں 3) دوسرا براؤزر آزمائیں 4) سپورٹ سے رابطہ کریں۔"
+      }
+    }
+  ];
+
+  showGreeting();
+}
+
+function showGreeting() {
+  const msg = document.getElementById('yarMessages');
+  msg.innerHTML = '';
+  chatHistory = [];
+
+  const greeting = currentLang === 'en'
+    ? "👋 Hi! I'm Yar, your UTN TMS assistant. Ask me anything about bookings, trips, billing, or master data!"
+    : "👋 السلام علیکم! میں یار ہوں، آپ کا UTN TMS اسسٹنٹ۔ مجھ سے کچھ بھی پوچھیں!";
+
+  addMessage('bot', greeting);
+  showSuggestions();
+}
+
+function showSuggestions() {
+  const msg = document.getElementById('yarMessages');
+  const suggestions = currentLang === 'en'
+    ? ['How to create a booking?', 'What is a bilty?', 'How to track a trip?', 'View available reports']
+    : ['بکنگ کیسے بنائیں؟', 'بلٹی کیا ہے؟', 'ٹریک کیسے کریں؟', 'رپورٹیں دیکھیں'];
+
+  const sugDiv = document.createElement('div');
+  sugDiv.className = 'yar-suggestions';
+  suggestions.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'yar-suggestion-btn';
+    btn.textContent = s;
+    btn.onclick = () => {
+      document.getElementById('yarInput').value = s;
+      sendMessage();
+    };
+    sugDiv.appendChild(btn);
+  });
+  msg.appendChild(sugDiv);
+  scrollToBottom();
+}
+
+function sendMessage() {
+  const input = document.getElementById('yarInput');
+  const query = input.value.trim();
+
+  if (!query) return;
+
+  addMessage('user', query);
+  input.value = '';
+
+  // Show typing
+  addMessage('bot', '⏳');
+  const typingMsg = document.querySelector('.yar-message.bot:last-child');
+  typingMsg.innerHTML = '<div class="yar-bubble"><div class="yar-typing"><div class="yar-typing-dot"></div><div class="yar-typing-dot"></div><div class="yar-typing-dot"></div></div></div>';
+
+  // Simulate delay
+  setTimeout(() => {
+    const answer = searchFAQ(query);
+    typingMsg.remove();
+    addMessage('bot', answer);
+  }, 800);
+}
+
+function searchFAQ(query) {
+  let bestMatch = null;
+  let bestScore = 0;
+
+  faqData.forEach(faq => {
+    let score = 0;
+    const lowerQuery = query.toLowerCase();
+    const questionField = currentLang === 'en' ? 'question' : 'urdu.question';
+    const answerField = currentLang === 'en' ? 'answer' : 'urdu.answer';
+
+    const q = faq.question.toLowerCase();
+    const a = faq.answer.toLowerCase();
+
+    if (currentLang === 'urdu' && faq.urdu) {
+      const urduQ = faq.urdu.question.toLowerCase();
+      if (urduQ.includes(lowerQuery)) score += 20;
+    }
+
+    if (q === lowerQuery) score += 10;
+    if (q.includes(lowerQuery)) score += 8;
+
+    faq.keywords.forEach(kw => {
+      if (lowerQuery.includes(kw.toLowerCase())) score += 5;
+    });
+
+    if (a.includes(lowerQuery)) score += 2;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = faq;
+    }
+  });
+
+  if (bestMatch) {
+    if (currentLang === 'urdu' && bestMatch.urdu) {
+      return bestMatch.urdu.answer;
+    }
+    return bestMatch.answer;
+  }
+
+  return currentLang === 'en'
+    ? "Sorry, I couldn't find an answer to that. Try asking about bookings, trips, expenses, or finances. 😊"
+    : "معافی چاہتا ہوں، مجھے اس کا جواب نہیں ملا۔ بکنگ، ٹریپ، اخراجات کے بارے میں پوچھیں۔ 😊";
+}
+
+function addMessage(sender, text) {
+  const msg = document.getElementById('yarMessages');
+  const msgDiv = document.createElement('div');
+  msgDiv.className = `yar-message ${sender}`;
+  msgDiv.innerHTML = `<div class="yar-bubble">${text}</div>`;
+  msg.appendChild(msgDiv);
+  scrollToBottom();
+  chatHistory.push({sender, text});
+}
+
+function scrollToBottom() {
+  const msg = document.getElementById('yarMessages');
+  msg.scrollTop = msg.scrollHeight;
+}
+
+function handleKeyPress(e) {
+  if (e.key === 'Enter') sendMessage();
+}
+
+function toggleLanguage() {
+  currentLang = currentLang === 'en' ? 'urdu' : 'en';
+  document.getElementById('langToggle').textContent = currentLang === 'en' ? 'اردو' : 'EN';
+  showGreeting();
+}
+</script>
+
+</body>
+</html>

@@ -3,8 +3,10 @@
   "configurations": [
     {
       "name": "mucrm-pwa",
-      "url": "http://localhost:8471",
-      "port": 8471
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8471"],
+      "port": 8471,
+      "url": "http://localhost:8471"
     }
   ]
 }
