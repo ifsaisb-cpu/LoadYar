@@ -27,7 +27,7 @@ label{display:block;font-size:12.5px;font-weight:600;color:var(--mut);margin:0 0
 
 /* layout */
 .shell{display:flex;height:100vh;overflow:hidden}
-.side{width:225px;background:var(--side-grad);background-attachment:fixed;color:var(--side-ink);padding:16px 12px;flex-shrink:0;display:flex;flex-direction:column;gap:2px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.25) transparent}
+.side{width:225px;background:var(--side-grad);background-attachment:fixed;color:var(--side-ink);padding:12px;flex-shrink:0;display:flex;flex-direction:column;gap:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.25) transparent;min-height:0}
 .side::-webkit-scrollbar{width:8px}
 .side::-webkit-scrollbar-track{background:transparent}
 .side::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:4px}
@@ -53,7 +53,7 @@ label{display:block;font-size:12.5px;font-weight:600;color:var(--mut);margin:0 0
 .nav-ur{display:block;font-size:11px;font-weight:400;opacity:.72;margin-top:1px;direction:rtl}
 .side a:hover{background:rgba(255,255,255,.08);color:#fff}
 .side a.on{background:var(--warn);color:#fff}
-.side .sep{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:#5f7f7a;padding:12px 10px 4px}
+.side .sep{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:#5f7f7a;padding:10px 8px 2px;margin-bottom:1px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none;flex-shrink:0}.side .sep::after{content:'▼';font-size:9px;transition:transform .2s}.side .sep.collapsed::after{transform:rotate(-90deg)}.side .nav-section{transition:max-height .3s ease,opacity .3s ease;overflow:hidden;margin-bottom:3px;flex-shrink:0}.side a{display:block}
 .main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
 .topbar{background:var(--side-grad);background-attachment:fixed;border-bottom:1px solid rgba(255,255,255,.14);padding:10px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0;z-index:5}
 .scrollarea{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
@@ -159,6 +159,23 @@ td.actions .btn.sm:first-child{margin-left:0}
 .modal.wide{max-width:820px}
 .modal h2{font-size:17px;margin-bottom:14px}
 .modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+
+/* help/faq */
+.help-header{background:linear-gradient(135deg,#032D60,#0454a3);color:#fff;padding:14px;border-radius:8px 8px 0 0;margin:-20px -20px 16px}
+.help-header h2{margin:0;font-size:16px}
+.help-header p{margin:4px 0 0;font-size:12px;opacity:.9}
+.help-search{margin-bottom:14px}
+.help-search input{width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:13px}
+.help-content{max-height:500px;overflow-y:auto}
+.faq-topic{margin-bottom:12px;border:1px solid #e5e5e5;border-radius:6px;overflow:hidden}
+.faq-topic h3{background:#f9fafb;padding:12px;margin:0;cursor:pointer;font-size:13.5px;color:#032D60;font-weight:600;border-bottom:1px solid #e5e5e5;user-select:none;opacity:1;transition:opacity .2s}
+.faq-topic h3:hover{opacity:.7}
+.faq-items{padding:8px 0}
+.faq{border-bottom:1px solid #f0f0f0;padding:0}
+.faq:last-child{border:0}
+.faq strong{display:block;padding:10px 14px;cursor:pointer;font-weight:600;color:#032D60;font-size:12.5px;background:#fff;user-select:none}
+.faq strong:hover{background:#f9fafb;color:#0176D3}
+.faq div{padding:12px 14px;font-size:12.5px;color:#555;line-height:1.5;display:none;border-top:1px solid #f0f0f0;background:#fafafa}
 
 /* toast */
 #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:99;display:flex;flex-direction:column;gap:8px;align-items:center}
@@ -280,7 +297,7 @@ td.actions .btn.sm:first-child{margin-left:0}
 <script>
 "use strict";
 /* ===== S1: constants, enums, permissions ===== */
-const APP_VER='v4.225';
+const APP_VER='v4.225-20260815-1956';
 /* Phase 1 ledger (chart_of_accounts/journal_entries/journal_lines) live behind the scenes only —
    driver advances, trip expenses and fuel now post balanced entries via postEntry()/reverseEntry().
    Nothing on screen changed; this is the foundation for re-pointing totals in a later step. */
@@ -415,6 +432,7 @@ const CHARGE_TYPE=[['noc','NOC processing'],['port_clearance','Port clearance'],
 const PAY_METHOD=[['cash','Cash'],['bank_transfer','Bank transfer'],['cheque','Cheque'],['other','Other']];
 const VENDOR_CAT=[['tyre','Tyre'],['repairs','Repairs'],['oil_filter','Engine Oil & Filter'],['fuel_pump','Petrol Pump'],['other','Other']];
 const AGR_STATUS=[['active','Active'],['inactive','Inactive']];
+const COA_TYPES=[['asset','Asset'],['liability','Liability'],['equity','Equity'],['income','Income/Revenue'],['expense','Expense']];
 const VEH_TYPE=[['Car','Car'],['SUV','SUV'],['Pickup','Pickup'],['Van','Van'],['Truck','Truck'],['Other','Other']];
 
 const CK_ITEMS=[
@@ -983,6 +1001,296 @@ function pageBalances(){
   </div>`;
 }
 
+function pageGLAccountReport(){
+  const accts=all('accounts').filter(a=>!a.deleted_at).sort((a,b)=>Number(a.code)-Number(b.code));
+  const drillAcct=V('glDrillAcct')||'';
+  const drillSub=V('glDrillSub')||'';
+  const prd=V('glPeriod')||'all';
+  const frm=V('glFromDate')||'';
+  const to=V('glToDate')||'';
+
+  const today_=today();
+  const thisMonthStart=today_.substring(0,7)+'-01';
+  const thisMonthEnd=today_;
+  const thisYearStart=today_.substring(0,4)+'-01-01';
+  const thisYearEnd=today_;
+
+  let dateFrom='2000-01-01',dateTo='2100-12-31';
+  if(prd==='month'){dateFrom=thisMonthStart;dateTo=thisMonthEnd;}
+  else if(prd==='year'){dateFrom=thisYearStart;dateTo=thisYearEnd;}
+  else if(prd==='custom'&&frm&&to){dateFrom=frm;dateTo=to;}
+
+  const filterLines=(lines)=>lines.filter(l=>l.date>=dateFrom&&l.date<=dateTo);
+
+  function getBalance(code){
+    const lines=filterLines(all('journal_lines').filter(l=>l.account_code===code));
+    const db=lines.reduce((s,l)=>s+l.debit_paisa,0)/100;
+    const cr=lines.reduce((s,l)=>s+l.credit_paisa,0)/100;
+    return {debit:db,credit:cr,balance:db-cr};
+  }
+
+  const classes={
+    assets:{code:'1xxx',name:'ASSETS',accounts:accts.filter(a=>[1].includes(Math.floor(Number(a.code)/1000)))},
+    liabilities:{code:'2xxx',name:'LIABILITIES',accounts:accts.filter(a=>[2].includes(Math.floor(Number(a.code)/1000)))},
+    equity:{code:'3xxx',name:'EQUITY',accounts:accts.filter(a=>[3].includes(Math.floor(Number(a.code)/1000)))},
+    revenue:{code:'4xxx',name:'REVENUE',accounts:accts.filter(a=>[4].includes(Math.floor(Number(a.code)/1000)))},
+    expenses:{code:'5xxx',name:'EXPENSES',accounts:accts.filter(a=>[5].includes(Math.floor(Number(a.code)/1000)))}
+  };
+
+  const totAssets=classes.assets.accounts.reduce((s,a)=>s+getBalance(a.code).debit,0);
+  const totLiab=classes.liabilities.accounts.reduce((s,a)=>s+getBalance(a.code).credit,0);
+  const totEq=classes.equity.accounts.reduce((s,a)=>s+getBalance(a.code).credit,0);
+  const totRev=classes.revenue.accounts.reduce((s,a)=>s+getBalance(a.code).credit,0);
+  const totExp=classes.expenses.accounts.reduce((s,a)=>s+getBalance(a.code).debit,0);
+
+  const isBalanced=Math.abs(totAssets-(totLiab+totEq))<0.01;
+
+  return `<div class="pagehead"><h1>GL Account Report</h1><button class="btn" onclick="printGLReport('${prd}','${frm}','${to}')" style="margin-left:auto">📄 Print Report</button></div>
+
+  <div class="card" style="margin-bottom:14px">
+    <label style="font-weight:600;margin-bottom:8px;display:block">Report Period:</label>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:12px">
+      <button class="btn ${prd==='all'?'primary':''}" onclick="S('glPeriod','all');S('glFromDate','');S('glToDate','');render()">All Time</button>
+      <button class="btn ${prd==='month'?'primary':''}" onclick="S('glPeriod','month');S('glFromDate','');S('glToDate','');render()">This Month</button>
+      <button class="btn ${prd==='year'?'primary':''}" onclick="S('glPeriod','year');S('glFromDate','');S('glToDate','');render()">This Year</button>
+      <button class="btn ${prd==='custom'?'primary':''}" onclick="S('glPeriod','custom');render()">Custom Range</button>
+    </div>
+    ${prd==='custom'?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div><label>From Date:</label><input type="date" id="glFromDate" value="${frm}" onchange="render()"/></div>
+      <div><label>To Date:</label><input type="date" id="glToDate" value="${to}" onchange="render()"/></div>
+    </div>`:''}
+    <div style="margin-top:8px;font-size:12px;color:#666">Period: <b>${prd==='month'?thisMonthStart+' to '+thisMonthEnd:prd==='year'?thisYearStart+' to '+thisYearEnd:prd==='custom'?frm+' to '+to:'All transactions'}</b></div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <h2>Hierarchical Chart of Accounts</h2>
+    ${Object.entries(classes).map(([k,cls])=>{
+      const balance=cls.accounts.reduce((s,a)=>s+getBalance(a.code).balance,0);
+      return `<div style="margin-bottom:16px;padding:12px;background:#f9fafb;border-left:4px solid #0176d3;border-radius:4px">
+        <div style="font-weight:600;font-size:14px;margin-bottom:8px">${cls.name}</div>
+        <div class="tblwrap" style="margin:0">
+          <table style="font-size:12px;width:100%">
+            <thead><tr><th>Code</th><th>Account</th><th class="num">Debit</th><th class="num">Credit</th><th class="num">Balance</th></tr></thead>
+            <tbody>
+            ${cls.accounts.map(a=>{
+              const bal=getBalance(a.code);
+              return `<tr><td><b>${a.code}</b></td><td>${a.name}</td><td class="num">${bal.debit?'Rs '+bal.debit.toLocaleString():'—'}</td><td class="num">${bal.credit?'Rs '+bal.credit.toLocaleString():'—'}</td><td class="num"><b>Rs ${bal.balance.toLocaleString()}</b></td></tr>`;
+            }).join('')}
+            <tr style="border-top:2px solid #ddd;font-weight:600">
+              <td colspan="2">TOTAL ${cls.name}</td>
+              <td class="num">Rs ${cls.accounts.reduce((s,a)=>s+getBalance(a.code).debit,0).toLocaleString()}</td>
+              <td class="num">Rs ${cls.accounts.reduce((s,a)=>s+getBalance(a.code).credit,0).toLocaleString()}</td>
+              <td class="num">Rs ${balance.toLocaleString()}</td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <h2>Balance Sheet Reconciliation</h2>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+      <div style="background:#e8f5e9;padding:14px;border-radius:6px;border-left:4px solid #4caf50">
+        <div style="font-size:12px;color:#666;margin-bottom:4px">Total Assets</div>
+        <div style="font-size:18px;font-weight:700;color:#1b5e20">Rs ${totAssets.toLocaleString()}</div>
+      </div>
+      <div style="background:#fff3e0;padding:14px;border-radius:6px;border-left:4px solid #ff9800">
+        <div style="font-size:12px;color:#666;margin-bottom:4px">Liabilities + Equity</div>
+        <div style="font-size:18px;font-weight:700;color:#e65100">Rs ${(totLiab+totEq).toLocaleString()}</div>
+      </div>
+      <div style="background:${isBalanced?'#e8f5e9':'#ffebee'};padding:14px;border-radius:6px;border-left:4px solid ${isBalanced?'#4caf50':'#f44336'}">
+        <div style="font-size:12px;color:#666;margin-bottom:4px">Balance Status</div>
+        <div style="font-size:16px;font-weight:700;color:${isBalanced?'#1b5e20':'#b71c1c'}">
+          ${isBalanced?'✓ BALANCED':'✗ UNBALANCED'}
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:14px;padding:12px;background:#f0f7ff;border-radius:4px;border:1px solid #0176d3;font-size:12px;color:#0176d3">
+      <b>Verification:</b> Assets (Rs ${totAssets.toLocaleString()}) ${isBalanced?'=':' ≠ '} Liabilities (Rs ${totLiab.toLocaleString()}) + Equity (Rs ${totEq.toLocaleString()})
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Subsidiary Drill-Down</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div>
+        <label class="req">Account</label>
+        <select id="glDrillAcct" onchange="render()">
+          <option value="">— All Accounts —</option>
+          ${accts.map(a=>`<option value="${a.code}" ${a.code===drillAcct?'selected':''}>${a.code} — ${a.name}</option>`).join('')}
+        </select>
+      </div>
+      ${drillAcct?`<div>
+        <label class="req">Subsidiary Type</label>
+        <select id="glDrillSub" onchange="render()">
+          <option value="">— None —</option>
+          ${['customer','carrier','driver','agent','vendor','cash_account'].map(s=>`<option value="${s}" ${s===drillSub?'selected':''}>${s.replace(/_/g,' ')}</option>`).join('')}
+        </select>
+      </div>`:''}
+    </div>
+    ${drillAcct?`<div class="tblwrap" style="margin:0">
+      <table style="font-size:12px">
+        <thead><tr><th>Subsidiary</th><th class="num">Debit</th><th class="num">Credit</th><th class="num">Balance</th></tr></thead>
+        <tbody>
+        ${(()=>{
+          const a=accts.find(x=>x.code===drillAcct);
+          const lines=filterLines(all('journal_lines').filter(l=>l.account_code===a.code));
+          const subs={};
+          lines.forEach(l=>{
+            const key=l.subsidiary_id;
+            const name=nm({[l.subsidiary_type]:l.subsidiary_id}[l.subsidiary_type]||'',l.subsidiary_id)||'(Unassigned)';
+            if(!subs[key])subs[key]={name,db:0,cr:0};
+            subs[key].db+=l.debit_paisa;
+            subs[key].cr+=l.credit_paisa;
+          });
+          return Object.entries(subs).map(([k,v])=>`
+            <tr>
+              <td>${v.name}</td>
+              <td class="num">${v.db?'Rs '+((v.db)/100).toLocaleString():'—'}</td>
+              <td class="num">${v.cr?'Rs '+((v.cr)/100).toLocaleString():'—'}</td>
+              <td class="num"><b>Rs ${(((v.db-v.cr)/100)).toLocaleString()}</b></td>
+            </tr>
+          `).join('');
+        })()}
+        </tbody>
+      </table>
+    </div>`:'<div style="padding:12px;color:#666;font-size:12px">Select an account to view subsidiary breakdown</div>'}
+  </div>`;
+}
+
+function printGLReport(period,fromDate,toDate){
+  const accts=all('accounts').filter(a=>!a.deleted_at).sort((a,b)=>Number(a.code)-Number(b.code));
+  const today_=today();
+  const thisMonthStart=today_.substring(0,7)+'-01';
+  const thisMonthEnd=today_;
+  const thisYearStart=today_.substring(0,4)+'-01-01';
+  const thisYearEnd=today_;
+
+  let dateFrom='2000-01-01',dateTo='2100-12-31',periodLabel='All Time';
+  if(period==='month'){dateFrom=thisMonthStart;dateTo=thisMonthEnd;periodLabel='This Month: '+thisMonthStart+' to '+thisMonthEnd;}
+  else if(period==='year'){dateFrom=thisYearStart;dateTo=thisYearEnd;periodLabel='This Year: '+thisYearStart+' to '+thisYearEnd;}
+  else if(period==='custom'&&fromDate&&toDate){dateFrom=fromDate;dateTo=toDate;periodLabel='Custom Period: '+fromDate+' to '+toDate;}
+
+  const filterLines=(lines)=>lines.filter(l=>l.date>=dateFrom&&l.date<=dateTo);
+
+  function getBalance(code){
+    const lines=filterLines(all('journal_lines').filter(l=>l.account_code===code));
+    const db=lines.reduce((s,l)=>s+l.debit_paisa,0)/100;
+    const cr=lines.reduce((s,l)=>s+l.credit_paisa,0)/100;
+    return {debit:db,credit:cr,balance:db-cr};
+  }
+
+  const classes={
+    assets:{name:'ASSETS',accounts:accts.filter(a=>[1].includes(Math.floor(Number(a.code)/1000)))},
+    liabilities:{name:'LIABILITIES',accounts:accts.filter(a=>[2].includes(Math.floor(Number(a.code)/1000)))},
+    equity:{name:'EQUITY',accounts:accts.filter(a=>[3].includes(Math.floor(Number(a.code)/1000)))},
+    revenue:{name:'REVENUE',accounts:accts.filter(a=>[4].includes(Math.floor(Number(a.code)/1000)))},
+    expenses:{name:'EXPENSES',accounts:accts.filter(a=>[5].includes(Math.floor(Number(a.code)/1000)))}
+  };
+
+  const totAssets=classes.assets.accounts.reduce((s,a)=>s+getBalance(a.code).debit,0);
+  const totLiab=classes.liabilities.accounts.reduce((s,a)=>s+getBalance(a.code).credit,0);
+  const totEq=classes.equity.accounts.reduce((s,a)=>s+getBalance(a.code).credit,0);
+  const totRev=classes.revenue.accounts.reduce((s,a)=>s+getBalance(a.code).credit,0);
+  const totExp=classes.expenses.accounts.reduce((s,a)=>s+getBalance(a.code).debit,0);
+
+  const isBalanced=Math.abs(totAssets-(totLiab+totEq))<0.01;
+
+  const html=`<!DOCTYPE html>
+<html>
+<head>
+  <title>GL Account Report</title>
+  <style>
+    body{font-family:Arial,sans-serif;color:#333;line-height:1.4;margin:0;padding:20px;background:#fff}
+    .header{text-align:center;margin-bottom:30px;border-bottom:2px solid #0176d3;padding-bottom:15px}
+    .header h1{margin:0;color:#0176d3;font-size:24px}
+    .header p{margin:5px 0;font-size:12px;color:#666}
+    .section{margin-bottom:25px;page-break-inside:avoid}
+    .section h2{background:#0176d3;color:white;padding:10px;margin:0 0 10px 0;font-size:14px;border-radius:3px}
+    table{width:100%;border-collapse:collapse;margin-bottom:10px;font-size:11px}
+    table th{background:#f0f0f0;border:1px solid #ccc;padding:8px;text-align:left;font-weight:600}
+    table td{border:1px solid #ccc;padding:8px;text-align:left}
+    table td.num{text-align:right;font-family:monospace}
+    table tr:nth-child(even){background:#f9f9f9}
+    .class-total{background:#e8f5e9;font-weight:600;border-top:2px solid #0176d3}
+    .summary{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px}
+    .summary-card{padding:15px;border-radius:3px;text-align:center;border:1px solid #ddd}
+    .assets{background:#e8f5e9;border-left:4px solid #4caf50}
+    .liabilities{background:#fff3e0;border-left:4px solid #ff9800}
+    .balanced{background:#e8f5e9;border-left:4px solid #4caf50}
+    .unbalanced{background:#ffebee;border-left:4px solid #f44336}
+    .summary-card .amount{font-size:16px;font-weight:700;margin:5px 0}
+    .summary-card .label{font-size:11px;color:#666}
+    .reconcile{background:#f0f7ff;padding:12px;border:1px solid #0176d3;border-radius:3px;font-size:11px;margin-bottom:15px}
+    @media print{body{margin:0;padding:0}page{page-break-after:always}}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>GL Account Report</h1>
+    <p>LoadYar TMS — Financial Report</p>
+    <p>Period: <b>${periodLabel}</b></p>
+    <p>Generated: ${new Date().toLocaleString()}</p>
+  </div>
+
+  <div class="section">
+    <h2>Summary — Balance Sheet Reconciliation</h2>
+    <div class="summary">
+      <div class="summary-card assets">
+        <div class="label">Total Assets</div>
+        <div class="amount">Rs ${totAssets.toLocaleString()}</div>
+      </div>
+      <div class="summary-card liabilities">
+        <div class="label">Liabilities + Equity</div>
+        <div class="amount">Rs ${(totLiab+totEq).toLocaleString()}</div>
+      </div>
+      <div class="summary-card ${isBalanced?'balanced':'unbalanced'}">
+        <div class="label">Status</div>
+        <div class="amount" style="font-size:14px">${isBalanced?'✓ BALANCED':'✗ UNBALANCED'}</div>
+      </div>
+    </div>
+    <div class="reconcile">
+      <b>Verification:</b> Assets (Rs ${totAssets.toLocaleString()}) ${isBalanced?'=':'≠'} Liabilities (Rs ${totLiab.toLocaleString()}) + Equity (Rs ${totEq.toLocaleString()})
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Chart of Accounts — Hierarchical View</h2>
+    ${Object.entries(classes).map(([k,cls])=>{
+      const sb=cls.accounts.reduce((s,a)=>s+getBalance(a.code).balance,0);
+      const totalDb=cls.accounts.reduce((s,a)=>s+getBalance(a.code).debit,0);
+      const totalCr=cls.accounts.reduce((s,a)=>s+getBalance(a.code).credit,0);
+      return `<div style="margin-bottom:20px">
+        <h3 style="background:#f0f0f0;padding:8px;margin:0 0 8px 0;font-size:12px">${cls.name}</h3>
+        <table>
+          <thead><tr><th>Code</th><th>Account Name</th><th class="num">Debit</th><th class="num">Credit</th><th class="num">Balance</th></tr></thead>
+          <tbody>
+          ${cls.accounts.map(a=>{
+            const bal=getBalance(a.code);
+            return `<tr><td><b>${a.code}</b></td><td>${a.name}</td><td class="num">${bal.debit?'Rs '+bal.debit.toLocaleString():'—'}</td><td class="num">${bal.credit?'Rs '+bal.credit.toLocaleString():'—'}</td><td class="num"><b>Rs ${bal.balance.toLocaleString()}</b></td></tr>`;
+          }).join('')}
+          <tr class="class-total"><td colspan="2">TOTAL ${cls.name}</td><td class="num">Rs ${totalDb.toLocaleString()}</td><td class="num">Rs ${totalCr.toLocaleString()}</td><td class="num">Rs ${sb.toLocaleString()}</td></tr>
+          </tbody>
+        </table>
+      </div>`;
+    }).join('')}
+  </div>
+
+  <div style="margin-top:30px;padding-top:15px;border-top:1px solid #ccc;font-size:10px;color:#999;text-align:center">
+    <p>This is an automatically generated financial report. For accuracy verification, cross-check with GL journal entries.</p>
+    <p>LoadYar TMS © 2026</p>
+  </div>
+</body>
+</html>`;
+
+  const w=window.open('','LoadYar GL Report');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(()=>w.print(),500);
+}
+
 function seedDB(){
   const d={seq:{}};
   COLLS.forEach(c=>d[c]=[]);
@@ -1243,6 +1551,7 @@ function login(uid){
   state.user=u; sessionStorage.setItem('mucrm_uid',uid);
   location.hash=defaultRoute(); render();
 }
+function toggleSection(sectionName){const collapsed=JSON.parse(localStorage.getItem('navCollapsed')||'{}');collapsed[sectionName]=!collapsed[sectionName];localStorage.setItem('navCollapsed',JSON.stringify(collapsed));render();}
 function logout(){state.user=null;window._loginSelected=null;sessionStorage.removeItem('mucrm_uid');location.hash='';render();}
 function defaultRoute(){return state.user&&state.user.role==='admin'?'#/dashboard':'#/trips';}
 
@@ -1261,6 +1570,9 @@ const ROUTES={
   vouchers:{cap:'payables',fn:()=>pageVouchers(),title:'Vouchers'},
   finance:{cap:'finance',fn:()=>pageFinance(),title:'Finance'},
   balances:{cap:'finance',fn:()=>pageBalances(),title:'Balances'},
+  glaccounts:{cap:'finance',fn:()=>pageGLAccountReport(),title:'GL Account Report'},
+  financials:{cap:'finance',fn:()=>pageFinancialStatements(),title:'Financial Statements'},
+  cashflow:{cap:'finance',fn:()=>pageCashFlow(),title:'Cash Flow Statement'},
   reports:{cap:'reports',fn:()=>pageReports(),title:'Reports'},
   invoices:{cap:'invoices',fn:()=>pageInvoices(),title:'Invoices & Payments'},
   payables:{cap:'payables',fn:()=>pagePayables(),title:'Payables'},
@@ -1272,6 +1584,7 @@ const ROUTES={
   drivers:{cap:'master',fn:()=>pageEnt('drivers'),title:'Drivers'},
   vendors:{cap:'master',fn:()=>pageEnt('vendors'),title:'Vendors'},
   agents:{cap:'master',fn:()=>pageEnt('agents'),title:'Clearing Agents'},
+  glaccountsmgmt:{cap:'master',fn:()=>pageEnt('chart_of_accounts'),title:'GL Accounts'},
   lists:{cap:'master',fn:()=>pageListOpts(),title:'Dropdown Lists'},
   settings:{cap:'settings',fn:()=>pageSettings(),title:'Settings & Backup'}
 };
@@ -1292,13 +1605,16 @@ function navItems(){
   if(can('payables'))items.push(['#/vouchers','Vouchers']);
   if(can('finance'))items.push(['#/finance','Finance']);
   if(can('finance'))items.push(['#/balances','Balances']);
+  if(can('finance'))items.push(['#/glaccounts','GL Account Report']);
+  if(can('finance'))items.push(['#/financials','Financial Statements']);
+  if(can('finance'))items.push(['#/cashflow','Cash Flow Statement']);
   if(r==='carrier')items.push(['#/mypayments','My Payments']);
   if(can('reports')||can('claims'))items.push(['SEP','Reports & Claims']);
   if(can('reports'))items.push(['#/reports','Reports']);
   if(can('claims'))items.push(['#/claims','Claims']);
   if(can('master'))items.push(['SEP','Master data'],['#/customers','Customers'],['#/agreements','Rate Agreements'],
     ['#/carriers','Carriers'],['#/drivers','Drivers'],['#/vendors','Vendors'],['#/agents','Clearing Agents'],
-    ['#/lists','Dropdown Lists']);
+    ['#/glaccountsmgmt','GL Accounts'],['#/lists','Dropdown Lists']);
   if(can('settings'))items.push(['SEP',''],['#/settings','Settings & Backup']);
   return items;
 }
@@ -1311,12 +1627,24 @@ function render(){
   let route=ROUTES[parts[0]]||ROUTES[defaultRoute().replace('#/','')];
   if(!route||!can(route.cap)){route=ROUTES[defaultRoute().replace('#/','')];}
   const cur='#/'+parts[0];
+  const collapsed=JSON.parse(localStorage.getItem('navCollapsed')||'{}');
+  let navHTML='';let items=navItems();
+  for(let i=0;i<items.length;i++){
+    const it=items[i];
+    if(it[0]==='SEP'){
+      if(i>0)navHTML+='</div>';
+      const isCollapsed=collapsed[it[1]];
+      navHTML+=`<div class="sep ${isCollapsed?'collapsed':''}" onclick="toggleSection('${esc(it[1])}')">${esc(it[1])}</div><div class="nav-section" data-section="${esc(it[1])}" style="max-height:${isCollapsed?0:'1000px'};opacity:${isCollapsed?0:1}">`;
+    }else{
+      navHTML+=`<a href="${it[0]}" class="${cur===it[0]?'on':''}">${esc(it[1])}${it[2]?`<span class="nav-ur">${esc(it[2])}</span>`:''}</a>`;
+    }
+  }
+  navHTML+='</div>';
   app.innerHTML=`
   <div class="shell">
     <nav class="side">
       <div class="brand"><img src="${UTN_LOGO_3D}" alt="${esc(CO_NAME)}" class="brand-logo"><span class="ver">TMS CRM · MVP ${APP_VER}</span></div>
-      ${navItems().map(it=>it[0]==='SEP'?`<div class="sep">${esc(it[1])}</div>`:
-        `<a href="${it[0]}" class="${cur===it[0]?'on':''}">${esc(it[1])}${it[2]?`<span class="nav-ur">${esc(it[2])}</span>`:''}</a>`).join('')}
+      ${navHTML}
       <div class="side-copy"><span class="powered">Powered by ${esc(PRODUCT_NAME)}</span>© ${new Date().getFullYear()} Dreamers. All rights reserved.</div>
     </nav>
     <div class="main">
@@ -1327,6 +1655,7 @@ function render(){
         <span class="clock" id="topClock">${esc(topClockText())}</span>
         <span class="who">${esc(state.user.name)}</span>
         <span class="chip">${esc(state.user.role)}</span>
+        <button class="btn ghost sm" onclick="openHelpFAQ()">❓ Help</button>
         <button class="btn ghost sm" onclick="logout()">Logout</button>
       </div>
       <div class="scrollarea"><div class="content" id="content"></div></div>
@@ -1463,7 +1792,13 @@ const ENTITIES={
     {k:'kind',l:'List',t:'select',opts:LIST_KINDS,req:1},
     {k:'value',l:'Option value',t:'text',req:1},
     {k:'customer_id',l:'Customer (Make/Colour only — leave blank to share with all customers)',t:'fk',coll:'customers'}],
-   cols:[['kind','List',['enum',LIST_KINDS]],['value','Value']]}
+   cols:[['kind','List',['enum',LIST_KINDS]],['value','Value']]},
+  chart_of_accounts:{title:'GL Accounts (Chart of Accounts)',sing:'GL Account',fields:[
+    {k:'code',l:'Account code',t:'text',req:1,hint:'Unique 4-5 digit code (e.g. 1000, 5100, 2210)'},
+    {k:'name',l:'Account name',t:'text',req:1,hint:'e.g. Cash & Bank, Accounts Payable, Freight Revenue'},
+    {k:'type',l:'Account type',t:'select',opts:COA_TYPES,req:1},
+    {k:'is_control',l:'Is control account (summary level)',t:'checkbox',hint:'Check if this account is a subtotal/category for GL reporting'}],
+   cols:[['code','Code'],['name','Account Name'],['type','Type',['enum',COA_TYPES]],['is_control','Control']]}
 };
 /* rate agreements: CSV bulk import; customers: attach rate file */
 ENTITIES.agreements.headExtra=()=>`<button class="btn ghost" onclick="csvTemplate()">CSV template</button>
@@ -6526,6 +6861,14 @@ function pageReports(){
       <p class="small mut" style="margin-bottom:10px">What the business owns, what it owes, and what's left over — as of a date.</p>
       <button class="btn" onclick="balanceSheetForm()">🖨 Balance Sheet</button>
     </div>
+    <div class="card"><h2>Financial Statements</h2>
+      <p class="small mut" style="margin-bottom:10px">Income Statement and Balance Sheet together for a date range, on one screen or as one printable packet.</p>
+      <a class="btn ghost" href="#/financials">Open Financial Statements</a>
+    </div>
+    <div class="card"><h2>Cash Flow Statement</h2>
+      <p class="small mut" style="margin-bottom:10px">Where cash actually moved over a date range — Operating, Investing and Financing activities, traced from the ledger.</p>
+      <a class="btn ghost" href="#/cashflow">Open Cash Flow Statement</a>
+    </div>
   </div>`;
 }
 function balanceSheetForm(){
@@ -6641,6 +6984,184 @@ function plPrint(){
   <table><tr><td><b>NET ${d.net>=0?'PROFIT':'LOSS'}</b></td><td class="r"><b>${pkr(Math.abs(d.net))}</b></td></tr></table>
   <div class="sig"><div>Prepared by</div><div>Authorized signature</div></div>`;
   printOpen('Profit & Loss',body,true);
+}
+
+/* ===== financial statements (Income Statement + Balance Sheet, on one screen) ===== */
+function bsData(asof){
+  const byType=(type,flip)=>all('chart_of_accounts').filter(a=>a.type===type)
+    .map(a=>({name:a.name,amt:(flip?-1:1)*acctBalanceInRange(a.code,null,asof)}))
+    .filter(r=>Math.abs(r.amt)>=1);
+  const assets=byType('asset',false), liabilities=byType('liability',true), equity=byType('equity',true);
+  const income=byType('income',true).reduce((s,r)=>s+r.amt,0);
+  const expense=byType('expense',false).reduce((s,r)=>s+r.amt,0);
+  const netProfit=income-expense;
+  const totalAssets=assets.reduce((s,r)=>s+r.amt,0);
+  const totalLiab=liabilities.reduce((s,r)=>s+r.amt,0);
+  const totalEquity=equity.reduce((s,r)=>s+r.amt,0)+netProfit;
+  return {assets,liabilities,equity,netProfit,totalAssets,totalLiab,totalEquity,
+    balanced:Math.abs(totalAssets-(totalLiab+totalEquity))<1};
+}
+function fsSetRange(){window._fsRange={from:V('fs_from'),to:V('fs_to')};render();}
+function pageFinancialStatements(){
+  const yr=today().slice(0,4);
+  if(!window._fsRange)window._fsRange={from:yr+'-01-01',to:today()};
+  const {from,to}=window._fsRange;
+  const pl=plData(from,to);
+  const bs=bsData(to);
+  const rows=(list)=>list.length?list.map(r=>`<div class="rowline"><span class="mut">${esc(r.name)}</span><span><b>${pkr(r.amt)}</b></span></div>`).join(''):'<div class="mut small">Nothing recorded.</div>';
+  return `<div class="pagehead"><h1>Financial Statements</h1><div class="sp"></div>
+    <button class="btn ghost" onclick="plPrint2()">🖨 Print Income Statement</button>
+    <button class="btn" onclick="financialStatementsPrint()">🖨 Print Full Statement</button></div>
+  <div class="small mut" style="margin-bottom:14px">Income Statement for the period below, and Balance Sheet as of the period's end date — both built automatically from the ledger. Nothing to enter here.</div>
+  <div class="fgrid" style="max-width:420px;margin-bottom:14px">
+    <div class="frow"><label>From</label><input type="date" id="fs_from" value="${esc(from)}" onchange="fsSetRange()"></div>
+    <div class="frow"><label>To</label><input type="date" id="fs_to" value="${esc(to)}" onchange="fsSetRange()"></div>
+  </div>
+  <div class="cards">
+    <div class="stat"><div class="l">Income</div><div class="v">${pkr0(pl.totalIncome)}</div></div>
+    <div class="stat"><div class="l">Expenses</div><div class="v">${pkr0(pl.totalExpense)}</div></div>
+    <div class="stat"><div class="l">Net ${pl.net>=0?'Profit':'Loss'}</div><div class="v" style="color:${pl.net>=0?'var(--ok)':'var(--danger)'}">${pkr0(Math.abs(pl.net))}</div></div>
+    <div class="stat"><div class="l">Total Assets (as of ${esc(fmtDate(to))})</div><div class="v">${pkr0(bs.totalAssets)}</div></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h2>Income Statement — ${esc(fmtDate(from))} to ${esc(fmtDate(to))}</h2>
+      <div class="small mut" style="margin:0 0 6px;font-weight:600">Income</div>${rows(pl.income)}
+      <div class="rowline" style="border-bottom:2px solid var(--line)"><span><b>Total Income</b></span><span><b>${pkr(pl.totalIncome)}</b></span></div>
+      <div class="small mut" style="margin:10px 0 6px;font-weight:600">Expenses</div>${rows(pl.expense)}
+      <div class="rowline" style="border-bottom:2px solid var(--line)"><span><b>Total Expenses</b></span><span><b>${pkr(pl.totalExpense)}</b></span></div>
+      <div class="rowline" style="border:0;padding-top:10px"><span><b>Net ${pl.net>=0?'Profit':'Loss'}</b></span><span><b style="color:${pl.net>=0?'var(--ok)':'var(--danger)'}">${pkr(Math.abs(pl.net))}</b></span></div>
+    </div>
+    <div class="card"><h2>Balance Sheet — as of ${esc(fmtDate(to))}</h2>
+      <div class="small mut" style="margin:0 0 6px;font-weight:600">Assets</div>${rows(bs.assets)}
+      <div class="rowline" style="border-bottom:2px solid var(--line)"><span><b>Total Assets</b></span><span><b>${pkr(bs.totalAssets)}</b></span></div>
+      <div class="small mut" style="margin:10px 0 6px;font-weight:600">Liabilities</div>${rows(bs.liabilities)}
+      <div class="rowline" style="border-bottom:2px solid var(--line)"><span><b>Total Liabilities</b></span><span><b>${pkr(bs.totalLiab)}</b></span></div>
+      <div class="small mut" style="margin:10px 0 6px;font-weight:600">Equity</div>${rows(bs.equity)}
+      <div class="rowline"><span class="mut">Profit / (loss) to date</span><span><b>${pkr(bs.netProfit)}</b></span></div>
+      <div class="rowline" style="border-bottom:2px solid var(--line)"><span><b>Total Equity</b></span><span><b>${pkr(bs.totalEquity)}</b></span></div>
+      <div class="rowline" style="border:0;padding-top:10px"><span><b>${bs.balanced?'✓ Balanced':'✗ Not balanced — check Balances page'}</b></span><span></span></div>
+    </div>
+  </div>`;
+}
+function plPrint2(){const r=window._fsRange||{};const from=r.from,to=r.to;if(!from||!to)return;
+  const d=plData(from,to);
+  const body=`<div class="hd"><h1>${esc(CO_NAME)}</h1><div class="t">Income Statement — ${esc(fmtDate(from))} to ${esc(fmtDate(to))}</div></div>
+  <table><tr><th colspan="2">Income</th></tr>
+  ${d.income.length?d.income.map(x=>`<tr><td>${esc(x.name)}</td><td class="r">${pkr(x.amt)}</td></tr>`).join(''):'<tr><td colspan="2">No income in this period.</td></tr>'}
+  <tr><td><b>Total Income</b></td><td class="r"><b>${pkr(d.totalIncome)}</b></td></tr></table>
+  <table><tr><th colspan="2">Expenses</th></tr>
+  ${d.expense.length?d.expense.map(x=>`<tr><td>${esc(x.name)}</td><td class="r">${pkr(x.amt)}</td></tr>`).join(''):'<tr><td colspan="2">No expenses in this period.</td></tr>'}
+  <tr><td><b>Total Expenses</b></td><td class="r"><b>${pkr(d.totalExpense)}</b></td></tr></table>
+  <table><tr><td><b>NET ${d.net>=0?'PROFIT':'LOSS'}</b></td><td class="r"><b>${pkr(Math.abs(d.net))}</b></td></tr></table>
+  <div class="sig"><div>Prepared by</div><div>Authorized signature</div></div>`;
+  printOpen('Income Statement',body,true);
+}
+function financialStatementsPrint(){
+  const r=window._fsRange||{};const from=r.from,to=r.to;if(!from||!to){toast('Pick a From and To date first',true);return;}
+  const pl=plData(from,to), bs=bsData(to);
+  const sec=(title,rowsArr)=>`<table><tr><th colspan="2">${title}</th></tr>
+    ${rowsArr.length?rowsArr.map(x=>`<tr><td>${esc(x.name)}</td><td class="r">${pkr(x.amt)}</td></tr>`).join(''):'<tr><td colspan="2">Nothing recorded.</td></tr>'}</table>`;
+  const body=`<div class="hd"><h1>${esc(CO_NAME)}</h1><div class="t">Financial Statements — ${esc(fmtDate(from))} to ${esc(fmtDate(to))}</div></div>
+  <table><tr><td class="l" colspan="2"><b>Income Statement</b></td></tr></table>
+  ${sec('Income',pl.income)}
+  <table><tr><td><b>Total Income</b></td><td class="r"><b>${pkr(pl.totalIncome)}</b></td></tr></table>
+  ${sec('Expenses',pl.expense)}
+  <table><tr><td><b>Total Expenses</b></td><td class="r"><b>${pkr(pl.totalExpense)}</b></td></tr>
+  <tr><td><b>NET ${pl.net>=0?'PROFIT':'LOSS'}</b></td><td class="r"><b>${pkr(Math.abs(pl.net))}</b></td></tr></table>
+  <table><tr><td class="l" colspan="2"><b>Balance Sheet — as of ${esc(fmtDate(to))}</b></td></tr></table>
+  ${sec('Assets — what the business owns',bs.assets)}
+  <table><tr><td><b>Total Assets</b></td><td class="r"><b>${pkr(bs.totalAssets)}</b></td></tr></table>
+  ${sec('Liabilities — what the business owes',bs.liabilities)}
+  <table><tr><td><b>Total Liabilities</b></td><td class="r"><b>${pkr(bs.totalLiab)}</b></td></tr></table>
+  <table><tr><th colspan="2">Owner's Equity</th></tr>
+  ${bs.equity.map(x=>`<tr><td>${esc(x.name)}</td><td class="r">${pkr(x.amt)}</td></tr>`).join('')}
+  <tr><td>Profit / (loss) to date</td><td class="r">${pkr(bs.netProfit)}</td></tr>
+  <tr><td><b>Total Equity</b></td><td class="r"><b>${pkr(bs.totalEquity)}</b></td></tr></table>
+  <table><tr><td><b>Liabilities + Equity</b></td><td class="r"><b>${pkr(bs.totalLiab+bs.totalEquity)}</b></td></tr>
+  <tr><td colspan="2" class="r"><b>${bs.balanced?'✓ Balanced against Total Assets':'✗ NOT balanced — check for unposted entries'}</b></td></tr></table>
+  <div class="sig"><div>Prepared by</div><div>Authorized signature</div></div>`;
+  printOpen('Financial Statements',body,true);
+}
+
+/* ===== cash flow statement (direct method — traced from every entry that moved Cash & Bank) ===== */
+function cfHumanizeEvent(t){return String(t||'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());}
+function cfDayBefore(d){const dt=new Date(d+'T00:00:00');dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);}
+function cashFlowData(from,to){
+  const opening=acctBalanceInRange('1000',null,cfDayBefore(from))/100;
+  const coaType={}; all('chart_of_accounts').forEach(a=>{coaType[a.code]=a.type;});
+  const entryIds=new Set(all('journal_lines').filter(l=>l.account_code==='1000').map(l=>l.entry_id));
+  const opRows=[],finRows=[],invRows=[];
+  entryIds.forEach(eid=>{
+    const entry=byId('journal_entries',eid); if(!entry)return;
+    if(entry.date<from||entry.date>to)return;
+    const lines=all('journal_lines').filter(l=>l.entry_id===eid);
+    const cashNet=lines.filter(l=>l.account_code==='1000').reduce((s,l)=>s+l.debit_paisa-l.credit_paisa,0)/100;
+    if(!cashNet)return;
+    const otherLines=lines.filter(l=>l.account_code!=='1000');
+    const isFinancing=otherLines.some(l=>coaType[l.account_code]==='equity');
+    const isInvesting=otherLines.some(l=>coaType[l.account_code]==='fixed_asset');
+    const row={date:entry.date,label:entry.memo||cfHumanizeEvent(entry.event_type),amt:cashNet};
+    if(isFinancing)finRows.push(row); else if(isInvesting)invRows.push(row); else opRows.push(row);
+  });
+  const sum=r=>r.reduce((s,x)=>s+x.amt,0);
+  const groupBy=(r)=>{const m=new Map();r.forEach(x=>m.set(x.label,(m.get(x.label)||0)+x.amt));
+    return Array.from(m.entries()).map(([label,amt])=>({label,amt})).sort((a,b)=>Math.abs(b.amt)-Math.abs(a.amt));};
+  const operating=sum(opRows), investing=sum(invRows), financing=sum(finRows);
+  const netChange=operating+investing+financing;
+  return {opening,closing:opening+netChange,operating,investing,financing,netChange,
+    opGrouped:groupBy(opRows),invGrouped:groupBy(invRows),finGrouped:groupBy(finRows)};
+}
+function cfSetRange(){window._cfRange={from:V('cf_from'),to:V('cf_to')};render();}
+function pageCashFlow(){
+  const mon=today().slice(0,7);
+  if(!window._cfRange)window._cfRange={from:mon+'-01',to:today()};
+  const {from,to}=window._cfRange;
+  const cf=cashFlowData(from,to);
+  const rowsHTML=(list)=>list.length?list.map(r=>`<div class="rowline"><span class="mut">${esc(r.label)}</span><span><b>${pkr0(Math.round(r.amt*100))}</b></span></div>`).join(''):'<div class="mut small">No activity in this period.</div>';
+  return `<div class="pagehead"><h1>Cash Flow Statement</h1><div class="sp"></div>
+    <button class="btn" onclick="cashflowPrint()">🖨 Print</button></div>
+  <div class="small mut" style="margin-bottom:14px">Where cash actually moved this period, traced from every ledger entry that touched Cash &amp; Bank — grouped into Operating, Investing and Financing activities. Nothing to enter here.</div>
+  <div class="fgrid" style="max-width:420px;margin-bottom:14px">
+    <div class="frow"><label>From</label><input type="date" id="cf_from" value="${esc(from)}" onchange="cfSetRange()"></div>
+    <div class="frow"><label>To</label><input type="date" id="cf_to" value="${esc(to)}" onchange="cfSetRange()"></div>
+  </div>
+  <div class="cards">
+    <div class="stat"><div class="l">Opening cash</div><div class="v">${pkr0(Math.round(cf.opening*100))}</div></div>
+    <div class="stat"><div class="l">Net change</div><div class="v" style="color:${cf.netChange>=0?'var(--ok)':'var(--danger)'}">${pkr0(Math.round(cf.netChange*100))}</div></div>
+    <div class="stat"><div class="l">Closing cash</div><div class="v">${pkr0(Math.round(cf.closing*100))}</div></div>
+  </div>
+  <div class="grid3">
+    <div class="card"><h2>Operating activities</h2>${rowsHTML(cf.opGrouped)}
+      <div class="rowline" style="border:0;padding-top:10px"><span><b>Net operating cash</b></span><span><b>${pkr0(Math.round(cf.operating*100))}</b></span></div></div>
+    <div class="card"><h2>Investing activities</h2>${rowsHTML(cf.invGrouped)}
+      <div class="rowline" style="border:0;padding-top:10px"><span><b>Net investing cash</b></span><span><b>${pkr0(Math.round(cf.investing*100))}</b></span></div></div>
+    <div class="card"><h2>Financing activities</h2>${rowsHTML(cf.finGrouped)}
+      <div class="rowline" style="border:0;padding-top:10px"><span><b>Net financing cash</b></span><span><b>${pkr0(Math.round(cf.financing*100))}</b></span></div></div>
+  </div>
+  <div class="card"><h2>Reconciliation</h2>
+    <div class="rowline"><span class="mut">Opening cash &amp; bank</span><span><b>${pkr0(Math.round(cf.opening*100))}</b></span></div>
+    <div class="rowline"><span class="mut">+ Net operating</span><span><b>${pkr0(Math.round(cf.operating*100))}</b></span></div>
+    <div class="rowline"><span class="mut">+ Net investing</span><span><b>${pkr0(Math.round(cf.investing*100))}</b></span></div>
+    <div class="rowline" style="border-bottom:2px solid var(--line)"><span class="mut">+ Net financing</span><span><b>${pkr0(Math.round(cf.financing*100))}</b></span></div>
+    <div class="rowline" style="border:0;padding-top:10px"><span><b>Closing cash &amp; bank</b></span><span><b>${pkr0(Math.round(cf.closing*100))}</b></span></div>
+  </div>`;
+}
+function cashflowPrint(){
+  const r=window._cfRange||{};const from=r.from,to=r.to;if(!from||!to){toast('Pick a From and To date first',true);return;}
+  const cf=cashFlowData(from,to);
+  const sec=(title,rowsArr,total,totalLbl)=>`<table><tr><th colspan="2">${title}</th></tr>
+    ${rowsArr.length?rowsArr.map(x=>`<tr><td>${esc(x.label)}</td><td class="r">${pkr(Math.round(x.amt*100))}</td></tr>`).join(''):'<tr><td colspan="2">No activity in this period.</td></tr>'}
+    <tr><td><b>${totalLbl}</b></td><td class="r"><b>${pkr(Math.round(total*100))}</b></td></tr></table>`;
+  const body=`<div class="hd"><h1>${esc(CO_NAME)}</h1><div class="t">Cash Flow Statement — ${esc(fmtDate(from))} to ${esc(fmtDate(to))}</div></div>
+  <table><tr><td class="l">Opening cash &amp; bank</td><td class="r">${pkr(Math.round(cf.opening*100))}</td></tr></table>
+  ${sec('Operating Activities',cf.opGrouped,cf.operating,'Net cash from operating activities')}
+  ${sec('Investing Activities',cf.invGrouped,cf.investing,'Net cash from investing activities')}
+  ${sec('Financing Activities',cf.finGrouped,cf.financing,'Net cash from financing activities')}
+  <table><tr><td><b>Net change in cash</b></td><td class="r"><b>${pkr(Math.round(cf.netChange*100))}</b></td></tr>
+  <tr><td>Opening cash &amp; bank</td><td class="r">${pkr(Math.round(cf.opening*100))}</td></tr>
+  <tr><td><b>Closing cash &amp; bank</b></td><td class="r"><b>${pkr(Math.round(cf.closing*100))}</b></td></tr></table>
+  <div class="sig"><div>Prepared by</div><div>Authorized signature</div></div>`;
+  printOpen('Cash Flow Statement',body,true);
 }
 
 /* ===== vouchers ===== */
@@ -7503,6 +8024,103 @@ render();
 setInterval(topClockTick,1000);
 if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){
   navigator.serviceWorker.register('sw.js').catch(function(){});
+}
+
+// Help/FAQ
+function openHelpFAQ(){
+  const html=`
+
+    <div class="help-header"><h2>❓ LoadYar Help & FAQ</h2><p>Click any question to expand the answer</p></div>
+    <div class="help-search"><input type="text" id="helpSearchInput" placeholder="Search FAQ..." onkeyup="filterHelpFAQ()"></div>
+    <div class="help-content" id="helpContent">
+      <div class="faq-topic">
+        <h3 onclick="toggleTopic(this)">📋 Booking / Bilty</h3>
+        <div class="faq-items" style="display:none">
+          <div class="faq"><strong onclick="toggleFAQ(this)">How do I create a new booking?</strong><div style="display:none">1. Click Booking/Bilty in Operations<br>2. Fill in Steps 1-4: Details, Vehicle, Charges, Agent<br>3. Click Save<br>Digital bilty auto-generated if left blank</div></div>
+          <div class="faq"><strong onclick="toggleFAQ(this)">Can I use a manual bilty number?</strong><div style="display:none">Yes! Enter in Step 1. If it exists, you'll get a warning but can proceed anyway (paper bilties duplicate sometimes)</div></div>
+          <div class="faq"><strong onclick="toggleFAQ(this)">What does "Private / Open Market" mean?</strong><div style="display:none"><strong>Open Market:</strong> No rate agreement, you set freight manually<br><strong>Private:</strong> Uses customer rate agreement</div></div>
+        </div>
+      </div>
+      <div class="faq-topic">
+        <h3 onclick="toggleTopic(this)">🚗 Trips & Journeys</h3>
+        <div class="faq-items" style="display:none">
+          <div class="faq"><strong onclick="toggleFAQ(this)">What's the difference between Trip and Journey?</strong><div style="display:none"><strong>Trip:</strong> Single bilty (shipment)<br><strong>Journey:</strong> Multiple trips in one driver's run</div></div>
+          <div class="faq"><strong onclick="toggleFAQ(this)">How do I create a journey?</strong><div style="display:none">1. Go to Create Trips<br>2. Select Driver and Carrier<br>3. Click "+ Add Bilty"<br>4. Select bilties and click Save Journey</div></div>
+          <div class="faq"><strong onclick="toggleFAQ(this)">When do I complete the checklist?</strong><div style="display:none">BEFORE trip starts. Click bilty > Checklist tab > mark all 28 items. If fail, note in Remarks</div></div>
+        </div>
+      </div>
+      <div class="faq-topic">
+        <h3 onclick="toggleTopic(this)">💰 Expenses & Fuel</h3>
+        <div class="faq-items" style="display:none">
+          <div class="faq"><strong onclick="toggleFAQ(this)">How do I record expenses?</strong><div style="display:none">1. Go to Booking Register, click completed trip<br>2. Click "+ Expense"<br>3. Select type (Fuel, Toll, Repair, etc)<br>4. Enter amount & click Save<br>Posts to GL automatically</div></div>
+          <div class="faq"><strong onclick="toggleFAQ(this)">Can I edit an expense after saving?</strong><div style="display:none">Yes. Click Edit, change amount/notes, click Save. Old GL entry reversed, new one posted (audit trail kept)</div></div>
+        </div>
+      </div>
+      <div class="faq-topic">
+        <h3 onclick="toggleTopic(this)">📄 Invoicing</h3>
+        <div class="faq-items" style="display:none">
+          <div class="faq"><strong onclick="toggleFAQ(this)">How do I create an invoice?</strong><div style="display:none">1. Invoices & Payments<br>2. "+ New Invoice"<br>3. Select Bilty, set amount<br>4. Check SRB/WHT if needed<br>5. Click Save</div></div>
+          <div class="faq"><strong onclick="toggleFAQ(this)">What is SRB and WHT?</strong><div style="display:none"><strong>SRB:</strong> 15% sales tax added to invoice<br><strong>WHT:</strong> 7% withholding tax deducted from invoice</div></div>
+        </div>
+      </div>
+      <div class="faq-topic">
+        <h3 onclick="toggleTopic(this)">💳 Payments</h3>
+        <div class="faq-items" style="display:none">
+          <div class="faq"><strong onclick="toggleFAQ(this)">How do I record a payment?</strong><div style="display:none">1. Invoices & Payments<br>2. Click invoice > Payments<br>3. "+ New Payment"<br>4. Enter Date, Amount, Method<br>5. Click Save (status auto-updates)</div></div>
+          <div class="faq"><strong onclick="toggleFAQ(this)">Can I make partial payments?</strong><div style="display:none">Yes! Pay any amount. Balance stays outstanding. Status: Unpaid → Partial → Paid</div></div>
+        </div>
+      </div>
+      <div class="faq-topic">
+        <h3 onclick="toggleTopic(this)">🤝 Employee Advances</h3>
+        <div class="faq-items" style="display:none">
+          <div class="faq"><strong onclick="toggleFAQ(this)">How do I give an advance?</strong><div style="display:none">1. Employee Advances (Finance section)<br>2. "+ Give Advance"<br>3. Select employee, amount, type<br>4. Click Give Advance<br>Account 1500 updated automatically</div></div>
+          <div class="faq"><strong onclick="toggleFAQ(this)">How do I deduct from salary?</strong><div style="display:none">1. Go to Payables (salary record)<br>2. Click Payments<br>3. Check "Outstanding Advances"<br>4. Net salary auto-calculated<br>5. Click Record Payment (GL posts recovery)</div></div>
+        </div>
+      </div>
+      <div class="faq-topic">
+        <h3 onclick="toggleTopic(this)">📊 Reports & GL</h3>
+        <div class="faq-items" style="display:none">
+          <div class="faq"><strong onclick="toggleFAQ(this)">How do I check GL balance?</strong><div style="display:none">Finance > Balances. Check: Total Assets = Liabilities + Equity. If not, check Suspense account (9999)</div></div>
+          <div class="faq"><strong onclick="toggleFAQ(this)">How do I view GL entries?</strong><div style="display:none">Finance > GL Account Report > select account code. See all debits/credits with dates</div></div>
+        </div>
+      </div>
+      <div class="faq-topic">
+        <h3 onclick="toggleTopic(this)">🔧 Troubleshooting</h3>
+        <div class="faq-items" style="display:none">
+          <div class="faq"><strong onclick="toggleFAQ(this)">Invoice amount doesn't match - why?</strong><div style="display:none">Likely SRB/WHT applied. Example: Rs 100K + 15% SRB = Rs 115K. Check breakdown in invoice detail</div></div>
+          <div class="faq"><strong onclick="toggleFAQ(this)">GL accounts don't balance - fix?</strong><div style="display:none">Check Suspense account (9999). If balance there, a journal entry was unbalanced. Contact support</div></div>
+          <div class="faq"><strong onclick="toggleFAQ(this)">Can't add expense - "Trip not complete"</strong><div style="display:none">Expenses only work on completed trips. Booking Register > open trip > status "Completed" > Save > then add expenses</div></div>
+        </div>
+      </div>
+    </div>
+  `;
+  openModal(html,true);
+}
+
+function toggleTopic(el){
+  const items=el.nextElementSibling;
+  if(items)items.style.display=items.style.display==='none'?'block':'none';
+  el.style.opacity=el.style.opacity==='0.6'?'1':'0.6';
+}
+
+function toggleFAQ(el){
+  const ans=el.nextElementSibling;
+  if(ans)ans.style.display=ans.style.display==='none'?'block':'none';
+  el.style.color=el.style.color==='#0176D3'?'#032D60':'#0176D3';
+}
+
+function filterHelpFAQ(){
+  const q=V('helpSearchInput').toLowerCase();
+  document.querySelectorAll('.faq-topic').forEach(t=>{
+    const items=t.querySelectorAll('.faq');
+    let show=false;
+    items.forEach(f=>{
+      const match=f.textContent.toLowerCase().includes(q);
+      f.style.display=match?'block':'none';
+      if(match)show=true;
+    });
+    t.style.display=show||!q?'block':'none';
+  });
 }
 </script>
 </body>

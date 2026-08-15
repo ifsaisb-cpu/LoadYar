@@ -2,11 +2,11 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "mucrm-pwa",
+      "name": "LoadYar Server",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8471"],
+      "runtimeArgs": ["-m", "http.server", "8471", "--bind", "0.0.0.0", "--directory", "D:\\LoadYar Server\\frontend"],
       "port": 8471,
-      "url": "http://localhost:8471"
+      "url": "http://192.168.100.4:8471"
     }
   ]
 }
