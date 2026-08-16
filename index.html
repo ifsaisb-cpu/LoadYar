@@ -160,23 +160,35 @@ td.actions .btn.sm:first-child{margin-left:0}
 .modal h2{font-size:17px;margin-bottom:14px}
 .modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 
-/* help/faq */
-.help-header{background:linear-gradient(135deg,#032D60,#0454a3);color:#fff;padding:14px;border-radius:8px 8px 0 0;margin:-20px -20px 16px}
-.help-header h2{margin:0;font-size:16px}
-.help-header p{margin:4px 0 0;font-size:12px;opacity:.9}
-.help-search{margin-bottom:14px}
-.help-search input{width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:13px}
-.help-content{flex:1;overflow-y:auto;min-height:0}
-.help-content{max-height:500px;overflow-y:auto}
-.faq-topic{margin-bottom:12px;border:1px solid #e5e5e5;border-radius:6px;overflow:hidden}
-.faq-topic h3{background:#f9fafb;padding:12px;margin:0;cursor:pointer;font-size:13.5px;color:#032D60;font-weight:600;border-bottom:1px solid #e5e5e5;user-select:none;opacity:1;transition:opacity .2s}
-.faq-topic h3:hover{opacity:.7}
-.faq-items{padding:8px 0}
-.faq{border-bottom:1px solid #f0f0f0;padding:0}
-.faq:last-child{border:0}
-.faq strong{display:block;padding:10px 14px;cursor:pointer;font-weight:600;color:#032D60;font-size:12.5px;background:#fff;user-select:none}
-.faq strong:hover{background:#f9fafb;color:#0176D3}
-.faq div{padding:12px 14px;font-size:12.5px;color:#555;line-height:1.5;display:none;border-top:1px solid #f0f0f0;background:#fafafa}
+/* help/faq - modern card design */
+.help-header{background:linear-gradient(135deg,#032D60 0%,#0454a3 50%,#2563eb 100%);color:#fff;padding:24px;border-radius:0;margin:-20px -20px 20px;text-align:center}
+.help-header h2{margin:0;font-size:28px;font-weight:700;letter-spacing:-.5px}
+.help-header p{margin:8px 0 0;font-size:13px;opacity:.9;font-weight:500}
+.help-wrapper{display:flex;gap:20px;height:100%;min-height:0}
+.help-main{flex:1;min-width:0;overflow-y:auto}
+.help-sidebar{width:180px;padding-top:0;border-left:1px solid #e5e5e5}
+.help-search{margin-bottom:18px;position:relative}
+.help-search input{width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px}
+.help-search input::placeholder{color:#999}
+.faq-grid{display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:20px}
+.faq-card{background:#fff;border:1px solid #e5e5e5;border-radius:10px;padding:16px;cursor:pointer;transition:all .2s ease}
+.faq-card:hover{border-color:#2563eb;box-shadow:0 4px 12px rgba(37,99,235,.12);transform:translateY(-2px)}
+.faq-card .icon{font-size:32px;margin-bottom:12px;display:block}
+.faq-card h3{margin:0 0 6px;font-size:14px;font-weight:700;color:#032D60}
+.faq-card p{margin:0;font-size:12px;color:#666;line-height:1.4}
+.faq-card.expanded{border-color:#2563eb;background:#f0f7ff}
+.faq-qa{display:none;margin-top:14px;padding-top:12px;border-top:1px solid #e5e5e5}
+.faq-card.expanded .faq-qa{display:block}
+.faq-q{font-weight:600;color:#032D60;font-size:12.5px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:6px}
+.faq-q:hover{color:#2563eb}
+.faq-q::before{content:'▶';font-size:10px;transition:transform .2s}
+.faq-qa.open .faq-q::before{transform:rotate(90deg)}
+.faq-a{font-size:12px;color:#555;line-height:1.5;display:none;margin-top:6px}
+.faq-qa.open .faq-a{display:block}
+.help-support{padding:16px;border-top:1px solid #e5e5e5;text-align:center}
+.help-support h4{margin:0 0 12px;font-size:13px;font-weight:700;color:#032D60}
+.help-support-btn{background:#0176D3;color:#fff;border:0;padding:8px 14px;border-radius:6px;font-size:12px;cursor:pointer;width:100%;font-weight:600}
+.help-support-btn:hover{background:#0157a8}
 
 /* toast */
 #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:99;display:flex;flex-direction:column;gap:8px;align-items:center}
@@ -298,7 +310,7 @@ td.actions .btn.sm:first-child{margin-left:0}
 <script>
 "use strict";
 /* ===== S1: constants, enums, permissions ===== */
-const APP_VER='v4.225-20260815-1956';
+const APP_VER='v4.225-20260815-1957';
 /* Phase 1 ledger (chart_of_accounts/journal_entries/journal_lines) live behind the scenes only —
    driver advances, trip expenses and fuel now post balanced entries via postEntry()/reverseEntry().
    Nothing on screen changed; this is the foundation for re-pointing totals in a later step. */
@@ -8027,100 +8039,81 @@ if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){
   navigator.serviceWorker.register('sw.js').catch(function(){});
 }
 
-// Help/FAQ
+// Help/FAQ - Modern Card Design
 function openHelpFAQ(){
-  const html=`
-
-    <div class="help-header"><h2>❓ LoadYar Help & FAQ</h2><p>Click any question to expand the answer</p></div>
-    <div class="help-search"><input type="text" id="helpSearchInput" placeholder="Search FAQ..." onkeyup="filterHelpFAQ()"></div>
-    <div class="help-content" id="helpContent">
-      <div class="faq-topic">
-        <h3 onclick="toggleTopic(this)">📋 Booking / Bilty</h3>
-        <div class="faq-items" style="display:none">
-          <div class="faq"><strong onclick="toggleFAQ(this)">How do I create a new booking?</strong><div style="display:none">1. Click Booking/Bilty in Operations<br>2. Fill in Steps 1-4: Details, Vehicle, Charges, Agent<br>3. Click Save<br>Digital bilty auto-generated if left blank</div></div>
-          <div class="faq"><strong onclick="toggleFAQ(this)">Can I use a manual bilty number?</strong><div style="display:none">Yes! Enter in Step 1. If it exists, you'll get a warning but can proceed anyway (paper bilties duplicate sometimes)</div></div>
-          <div class="faq"><strong onclick="toggleFAQ(this)">What does "Private / Open Market" mean?</strong><div style="display:none"><strong>Open Market:</strong> No rate agreement, you set freight manually<br><strong>Private:</strong> Uses customer rate agreement</div></div>
-        </div>
-      </div>
-      <div class="faq-topic">
-        <h3 onclick="toggleTopic(this)">🚗 Trips & Journeys</h3>
-        <div class="faq-items" style="display:none">
-          <div class="faq"><strong onclick="toggleFAQ(this)">What's the difference between Trip and Journey?</strong><div style="display:none"><strong>Trip:</strong> Single bilty (shipment)<br><strong>Journey:</strong> Multiple trips in one driver's run</div></div>
-          <div class="faq"><strong onclick="toggleFAQ(this)">How do I create a journey?</strong><div style="display:none">1. Go to Create Trips<br>2. Select Driver and Carrier<br>3. Click "+ Add Bilty"<br>4. Select bilties and click Save Journey</div></div>
-          <div class="faq"><strong onclick="toggleFAQ(this)">When do I complete the checklist?</strong><div style="display:none">BEFORE trip starts. Click bilty > Checklist tab > mark all 28 items. If fail, note in Remarks</div></div>
-        </div>
-      </div>
-      <div class="faq-topic">
-        <h3 onclick="toggleTopic(this)">💰 Expenses & Fuel</h3>
-        <div class="faq-items" style="display:none">
-          <div class="faq"><strong onclick="toggleFAQ(this)">How do I record expenses?</strong><div style="display:none">1. Go to Booking Register, click completed trip<br>2. Click "+ Expense"<br>3. Select type (Fuel, Toll, Repair, etc)<br>4. Enter amount & click Save<br>Posts to GL automatically</div></div>
-          <div class="faq"><strong onclick="toggleFAQ(this)">Can I edit an expense after saving?</strong><div style="display:none">Yes. Click Edit, change amount/notes, click Save. Old GL entry reversed, new one posted (audit trail kept)</div></div>
-        </div>
-      </div>
-      <div class="faq-topic">
-        <h3 onclick="toggleTopic(this)">📄 Invoicing</h3>
-        <div class="faq-items" style="display:none">
-          <div class="faq"><strong onclick="toggleFAQ(this)">How do I create an invoice?</strong><div style="display:none">1. Invoices & Payments<br>2. "+ New Invoice"<br>3. Select Bilty, set amount<br>4. Check SRB/WHT if needed<br>5. Click Save</div></div>
-          <div class="faq"><strong onclick="toggleFAQ(this)">What is SRB and WHT?</strong><div style="display:none"><strong>SRB:</strong> 15% sales tax added to invoice<br><strong>WHT:</strong> 7% withholding tax deducted from invoice</div></div>
-        </div>
-      </div>
-      <div class="faq-topic">
-        <h3 onclick="toggleTopic(this)">💳 Payments</h3>
-        <div class="faq-items" style="display:none">
-          <div class="faq"><strong onclick="toggleFAQ(this)">How do I record a payment?</strong><div style="display:none">1. Invoices & Payments<br>2. Click invoice > Payments<br>3. "+ New Payment"<br>4. Enter Date, Amount, Method<br>5. Click Save (status auto-updates)</div></div>
-          <div class="faq"><strong onclick="toggleFAQ(this)">Can I make partial payments?</strong><div style="display:none">Yes! Pay any amount. Balance stays outstanding. Status: Unpaid → Partial → Paid</div></div>
-        </div>
-      </div>
-      <div class="faq-topic">
-        <h3 onclick="toggleTopic(this)">🤝 Employee Advances</h3>
-        <div class="faq-items" style="display:none">
-          <div class="faq"><strong onclick="toggleFAQ(this)">How do I give an advance?</strong><div style="display:none">1. Employee Advances (Finance section)<br>2. "+ Give Advance"<br>3. Select employee, amount, type<br>4. Click Give Advance<br>Account 1500 updated automatically</div></div>
-          <div class="faq"><strong onclick="toggleFAQ(this)">How do I deduct from salary?</strong><div style="display:none">1. Go to Payables (salary record)<br>2. Click Payments<br>3. Check "Outstanding Advances"<br>4. Net salary auto-calculated<br>5. Click Record Payment (GL posts recovery)</div></div>
-        </div>
-      </div>
-      <div class="faq-topic">
-        <h3 onclick="toggleTopic(this)">📊 Reports & GL</h3>
-        <div class="faq-items" style="display:none">
-          <div class="faq"><strong onclick="toggleFAQ(this)">How do I check GL balance?</strong><div style="display:none">Finance > Balances. Check: Total Assets = Liabilities + Equity. If not, check Suspense account (9999)</div></div>
-          <div class="faq"><strong onclick="toggleFAQ(this)">How do I view GL entries?</strong><div style="display:none">Finance > GL Account Report > select account code. See all debits/credits with dates</div></div>
-        </div>
-      </div>
-      <div class="faq-topic">
-        <h3 onclick="toggleTopic(this)">🔧 Troubleshooting</h3>
-        <div class="faq-items" style="display:none">
-          <div class="faq"><strong onclick="toggleFAQ(this)">Invoice amount doesn't match - why?</strong><div style="display:none">Likely SRB/WHT applied. Example: Rs 100K + 15% SRB = Rs 115K. Check breakdown in invoice detail</div></div>
-          <div class="faq"><strong onclick="toggleFAQ(this)">GL accounts don't balance - fix?</strong><div style="display:none">Check Suspense account (9999). If balance there, a journal entry was unbalanced. Contact support</div></div>
-          <div class="faq"><strong onclick="toggleFAQ(this)">Can't add expense - "Trip not complete"</strong><div style="display:none">Expenses only work on completed trips. Booking Register > open trip > status "Completed" > Save > then add expenses</div></div>
-        </div>
-      </div>
-    </div>
-  `;
+  const faqData=[
+    {icon:'📋',title:'Booking / Bilty',desc:'Create and manage bilties',qa:[
+      {q:'How do I create a new booking?',a:'1. Click Booking/Bilty in Operations<br>2. Fill in Steps 1-4: Details, Vehicle, Charges, Agent<br>3. Click Save<br>Digital bilty auto-generated if left blank'},
+      {q:'Can I use a manual bilty number?',a:'Yes! Enter in Step 1. If it exists, you\'ll get a warning but can proceed anyway (paper bilties duplicate sometimes)'},
+      {q:'What does "Private / Open Market" mean?',a:'<strong>Open Market:</strong> No rate agreement, you set freight manually<br><strong>Private:</strong> Uses customer rate agreement'}
+    ]},
+    {icon:'🚗',title:'Trips & Journeys',desc:'Execute trips & manage journeys',qa:[
+      {q:'What\'s the difference between Trip and Journey?',a:'<strong>Trip:</strong> Single bilty (shipment)<br><strong>Journey:</strong> Multiple trips in one driver\'s run'},
+      {q:'How do I create a journey?',a:'1. Go to Create Trips<br>2. Select Driver and Carrier<br>3. Click "+ Add Bilty"<br>4. Select bilties and click Save Journey'},
+      {q:'When do I complete the checklist?',a:'BEFORE trip starts. Click bilty > Checklist tab > mark all 28 items. If fail, note in Remarks'}
+    ]},
+    {icon:'💰',title:'Expenses & Fuel',desc:'Track trip costs & fuel',qa:[
+      {q:'How do I record expenses?',a:'1. Go to Booking Register, click completed trip<br>2. Click "+ Expense"<br>3. Select type (Fuel, Toll, Repair, etc)<br>4. Enter amount & click Save<br>Posts to GL automatically'},
+      {q:'Can I edit an expense after saving?',a:'Yes. Click Edit, change amount/notes, click Save. Old GL entry reversed, new one posted (audit trail kept)'}
+    ]},
+    {icon:'📄',title:'Invoicing',desc:'Generate & manage invoices',qa:[
+      {q:'How do I create an invoice?',a:'1. Invoices & Payments<br>2. "+ New Invoice"<br>3. Select Bilty, set amount<br>4. Check SRB/WHT if needed<br>5. Click Save'},
+      {q:'What is SRB and WHT?',a:'<strong>SRB:</strong> 15% sales tax added to invoice<br><strong>WHT:</strong> 7% withholding tax deducted from invoice'}
+    ]},
+    {icon:'💳',title:'Payments',desc:'Track incoming & outgoing payments',qa:[
+      {q:'How do I record a payment?',a:'1. Invoices & Payments<br>2. Click invoice > Payments<br>3. "+ New Payment"<br>4. Enter Date, Amount, Method<br>5. Click Save (status auto-updates)'},
+      {q:'Can I make partial payments?',a:'Yes! Pay any amount. Balance stays outstanding. Status: Unpaid → Partial → Paid'}
+    ]},
+    {icon:'🤝',title:'Employee Advances',desc:'Manage driver advances & deductions',qa:[
+      {q:'How do I give an advance?',a:'1. Employee Advances (Finance section)<br>2. "+ Give Advance"<br>3. Select employee, amount, type<br>4. Click Give Advance<br>Account 1500 updated automatically'},
+      {q:'How do I deduct from salary?',a:'1. Go to Payables (salary record)<br>2. Click Payments<br>3. Check "Outstanding Advances"<br>4. Net salary auto-calculated<br>5. Click Record Payment (GL posts recovery)'}
+    ]},
+    {icon:'📊',title:'Reports & GL',desc:'View GL accounts & reports',qa:[
+      {q:'How do I check GL balance?',a:'Finance > Balances. Check: Total Assets = Liabilities + Equity. If not, check Suspense account (9999)'},
+      {q:'How do I view GL entries?',a:'Finance > GL Account Report > select account code. See all debits/credits with dates'}
+    ]},
+    {icon:'🔧',title:'Troubleshooting',desc:'Common issues & solutions',qa:[
+      {q:'Invoice amount doesn\'t match - why?',a:'Likely SRB/WHT applied. Example: Rs 100K + 15% SRB = Rs 115K. Check breakdown in invoice detail'},
+      {q:'GL accounts don\'t balance - fix?',a:'Check Suspense account (9999). If balance there, a journal entry was unbalanced. Contact support'},
+      {q:'Can\'t add expense - "Trip not complete"',a:'Expenses only work on completed trips. Booking Register > open trip > status "Completed" > Save > then add expenses'}
+    ]}
+  ];
+  let html=`<div class="help-header"><h2>HELP & FREQUENTLY ASKED QUESTIONS</h2><p>Click any category to explore questions</p></div>
+    <div class="help-wrapper">
+      <div class="help-main">
+        <div class="help-search"><input type="text" id="helpSearchInput" placeholder="Search FAQ..." onkeyup="filterNewFAQ()"></div>
+        <div class="help-content faq-grid" id="helpContent">`;
+  faqData.forEach((cat,idx)=>{
+    html+=`<div class="faq-card" onclick="toggleCard(this)" data-idx="${idx}">
+      <span class="icon">${cat.icon}</span>
+      <h3>${cat.title}</h3>
+      <p>${cat.desc}</p>
+      <div class="faq-qa">`;
+    cat.qa.forEach((item)=>{
+      html+=`<div class="faq-q" onclick="event.stopPropagation();toggleQA(this)">${item.q}</div>
+        <div class="faq-a">${item.a}</div>`;
+    });
+    html+=`</div></div>`;
+  });
+  html+=`</div></div><div class="help-sidebar"><div class="help-support"><h4>Need Support?</h4>
+    <button class="help-support-btn" onclick="alert('Support team: WhatsApp +92-300-XXXX-XXX')">Chat Support</button></div></div></div>`;
   openModal(html,true);
 }
 
-function toggleTopic(el){
-  const items=el.nextElementSibling;
-  if(items)items.style.display=items.style.display==='none'?'block':'none';
-  el.style.opacity=el.style.opacity==='0.6'?'1':'0.6';
+function toggleCard(el){
+  el.classList.toggle('expanded');
 }
 
-function toggleFAQ(el){
-  const ans=el.nextElementSibling;
-  if(ans)ans.style.display=ans.style.display==='none'?'block':'none';
-  el.style.color=el.style.color==='#0176D3'?'#032D60':'#0176D3';
+function toggleQA(el){
+  const parent=el.parentElement;
+  parent.classList.toggle('open');
 }
 
-function filterHelpFAQ(){
+function filterNewFAQ(){
   const q=V('helpSearchInput').toLowerCase();
-  document.querySelectorAll('.faq-topic').forEach(t=>{
-    const items=t.querySelectorAll('.faq');
-    let show=false;
-    items.forEach(f=>{
-      const match=f.textContent.toLowerCase().includes(q);
-      f.style.display=match?'block':'none';
-      if(match)show=true;
-    });
-    t.style.display=show||!q?'block':'none';
+  document.querySelectorAll('.faq-card').forEach(card=>{
+    const text=card.textContent.toLowerCase();
+    card.style.display=text.includes(q)?'block':'none';
   });
 }
 </script>
