@@ -310,7 +310,7 @@ td.actions .btn.sm:first-child{margin-left:0}
 <script>
 "use strict";
 /* ===== S1: constants, enums, permissions ===== */
-const APP_VER='v4.225-20260815-1958';
+const APP_VER='v4.225-20260815-1959';
 /* Phase 1 ledger (chart_of_accounts/journal_entries/journal_lines) live behind the scenes only —
    driver advances, trip expenses and fuel now post balanced entries via postEntry()/reverseEntry().
    Nothing on screen changed; this is the foundation for re-pointing totals in a later step. */
@@ -1668,7 +1668,7 @@ function render(){
         <span class="clock" id="topClock">${esc(topClockText())}</span>
         <span class="who">${esc(state.user.name)}</span>
         <span class="chip">${esc(state.user.role)}</span>
-        <button class="btn ghost sm" onclick="openHelpFAQ()">❓ Ask Yar</button>
+        <button class="btn ghost sm" onclick="openHelpFAQ()">Ask Yar</button>
         <button class="btn ghost sm" onclick="logout()">Logout</button>
       </div>
       <div class="scrollarea"><div class="content" id="content"></div></div>
