@@ -53,7 +53,7 @@ label{display:block;font-size:12.5px;font-weight:600;color:var(--mut);margin:0 0
 .nav-ur{display:block;font-size:11px;font-weight:400;opacity:.72;margin-top:1px;direction:rtl}
 .side a:hover{background:rgba(255,255,255,.08);color:#fff}
 .side a.on{background:var(--warn);color:#fff}
-.side .sep{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:#5f7f7a;padding:10px 8px 2px;margin-bottom:1px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none;flex-shrink:0}.side .sep::after{content:'▼';font-size:9px;transition:transform .2s}.side .sep.collapsed::after{transform:rotate(-90deg)}.side .nav-section{transition:max-height .3s ease,opacity .3s ease;overflow:hidden;margin-bottom:3px;flex-shrink:0}.side a{display:block}
+.side .sep{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:#bcdcf7;padding:10px 8px 2px;margin-bottom:1px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none;flex-shrink:0;font-weight:600}.side .sep::after{content:'▼';font-size:9px;transition:transform .2s}.side .sep.collapsed::after{transform:rotate(-90deg)}.side .nav-section{transition:max-height .3s ease,opacity .3s ease;overflow:hidden;margin-bottom:3px;flex-shrink:0}.side a{display:block}
 .main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
 .topbar{background:var(--side-grad);background-attachment:fixed;border-bottom:1px solid rgba(255,255,255,.14);padding:10px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0;z-index:5}
 .scrollarea{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
@@ -310,7 +310,7 @@ td.actions .btn.sm:first-child{margin-left:0}
 <script>
 "use strict";
 /* ===== S1: constants, enums, permissions ===== */
-const APP_VER='v4.225-20260815-1959';
+const APP_VER='v4.225-20260815-1960';
 /* Phase 1 ledger (chart_of_accounts/journal_entries/journal_lines) live behind the scenes only —
    driver advances, trip expenses and fuel now post balanced entries via postEntry()/reverseEntry().
    Nothing on screen changed; this is the foundation for re-pointing totals in a later step. */
