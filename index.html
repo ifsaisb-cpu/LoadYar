@@ -1611,6 +1611,7 @@ function navItems(){
   items.push(['#/trips',(r==='driver'||r==='carrier')?'My Trips':'Booking Register',(r==='driver'||r==='carrier')?'میرے ٹرپ':'بکنگ رجسٹر']);
   if(can('expensesPage'))items.push(['#/expenses',r==='driver'?'My Expenses':'Trip Expenses',r==='driver'?'میرے اخراجات':'ٹرپ اخراجات']);
   if(can('expensesPage'))items.push(['#/fuel','Diesel / Fuel','ڈیزل / تیل']);
+  if(can('claims'))items.push(['#/claims','Claims']);
   if(can('invoices')||can('payables')||can('finance')||r==='carrier')items.push(['SEP','Financial']);
   if(can('invoices'))items.push(['#/invoices','Invoices']);
   if(can('payables'))items.push(['#/payables','Payables']);
@@ -1622,9 +1623,8 @@ function navItems(){
   if(can('finance'))items.push(['#/financials','Financial Statements']);
   if(can('finance'))items.push(['#/cashflow','Cash Flow Statement']);
   if(r==='carrier')items.push(['#/mypayments','My Payments']);
-  if(can('reports')||can('claims'))items.push(['SEP','Reports & Claims']);
+  if(can('reports'))items.push(['SEP','Reports & Claims']);
   if(can('reports'))items.push(['#/reports','Reports']);
-  if(can('claims'))items.push(['#/claims','Claims']);
   if(can('master'))items.push(['SEP','Master data'],['#/customers','Customers'],['#/agreements','Rate Agreements'],
     ['#/carriers','Carriers'],['#/drivers','Drivers'],['#/vendors','Vendors'],['#/agents','Clearing Agents'],
     ['#/glaccountsmgmt','GL Accounts'],['#/lists','Dropdown Lists']);
