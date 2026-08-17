@@ -17,7 +17,8 @@ import { CarriersModule } from './modules/carriers/carriers.module';
 import { DriversModule } from './modules/drivers/drivers.module';
 import { VendorsModule } from './modules/vendors/vendors.module';
 import { TenantInterceptor } from './common/interceptors/tenant.interceptor';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { RolesGuard } from './common/guards/roles.guard';
+import { APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
 
 @Module({
   imports: [
@@ -60,6 +61,10 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
     {
       provide: APP_INTERCEPTOR,
       useClass: TenantInterceptor,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
     },
   ],
 })
