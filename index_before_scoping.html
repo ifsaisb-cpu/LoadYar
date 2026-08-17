@@ -310,7 +310,7 @@ td.actions .btn.sm:first-child{margin-left:0}
 <script>
 "use strict";
 /* ===== S1: constants, enums, permissions ===== */
-const APP_VER='v4.225-20260817-2505'; // Phase 2.5: Complete Data Scoping
+const APP_VER='v4.225-20260817-2504'; // Phase 2.5: User Management Fix
 /* Phase 1 ledger (chart_of_accounts/journal_entries/journal_lines) live behind the scenes only —
    driver advances, trip expenses and fuel now post balanced entries via postEntry()/reverseEntry().
    Nothing on screen changed; this is the foundation for re-pointing totals in a later step. */
@@ -640,9 +640,9 @@ function migrateDB(){
   (()=>{
     if(!db.chart_of_accounts.filter(r=>!r.deleted_at).length)return;
     let made=0;
-    allScoped('trips').forEach(t=>{
+    all('trips').forEach(t=>{
       if(t.agent_id==null||!(t.agent_cost_paisa>0))return;
-      if(allScoped('agentcharges').some(x=>x.trip_id===t.id))return;
+      if(all('agentcharges').some(x=>x.trip_id===t.id))return;
       const rec=add('agentcharges',{agent_id:t.agent_id,trip_id:t.id,charge_type:'misc',
         direction:'payable',amount_paisa:t.agent_cost_paisa,date:t.date,auto_from_bilty:true});
       postSubEntry('agentcharges',rec);
@@ -907,11 +907,11 @@ function openingBalanceForm(){
   <div class="hint" style="margin-bottom:10px">For Cash in Hand / Bank Account starting balances, use "Edit" on that account under Finance instead — it already has an Opening balance field.</div>
   <h3 class="small" style="margin:14px 0 6px">Customers who already owed you money</h3>
   <div class="fgrid">
-    ${allScoped('customers').map(c=>`<div class="frow"><label>${esc(c.name)}</label><input type="number" step="0.01" id="ob_cust_${c.id}" value="${custVal(c.id)}" placeholder="0.00"></div>`).join('')||'<div class="mut small">No customers set up yet.</div>'}
+    ${all('customers').map(c=>`<div class="frow"><label>${esc(c.name)}</label><input type="number" step="0.01" id="ob_cust_${c.id}" value="${custVal(c.id)}" placeholder="0.00"></div>`).join('')||'<div class="mut small">No customers set up yet.</div>'}
   </div>
   <h3 class="small" style="margin:14px 0 6px">Carriers you already owed money</h3>
   <div class="fgrid">
-    ${allScoped('carriers').map(c=>`<div class="frow"><label>${esc(c.name)}</label><input type="number" step="0.01" id="ob_carr_${c.id}" value="${carrVal(c.id)}" placeholder="0.00"></div>`).join('')||'<div class="mut small">No carriers set up yet.</div>'}
+    ${all('carriers').map(c=>`<div class="frow"><label>${esc(c.name)}</label><input type="number" step="0.01" id="ob_carr_${c.id}" value="${carrVal(c.id)}" placeholder="0.00"></div>`).join('')||'<div class="mut small">No carriers set up yet.</div>'}
   </div>
   <div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button>
   <button class="btn" onclick="openingBalanceSave(${existingEntry?existingEntry.id:'null'})">Save</button></div>`,true);
@@ -919,11 +919,11 @@ function openingBalanceForm(){
 function openingBalanceSave(existingEntryId){
   const lines=[];
   let totalDr=0,totalCr=0;
-  allScoped('customers').forEach(c=>{
+  all('customers').forEach(c=>{
     const v=P(V('ob_cust_'+c.id));
     if(v){lines.push({account_code:'1100',subsidiary_type:'customer',subsidiary_id:c.id,debit_paisa:v,credit_paisa:0});totalDr+=v;}
   });
-  allScoped('carriers').forEach(c=>{
+  all('carriers').forEach(c=>{
     const v=P(V('ob_carr_'+c.id));
     if(v){lines.push({account_code:'2000',subsidiary_type:'carrier',subsidiary_id:c.id,debit_paisa:0,credit_paisa:v});totalCr+=v;}
   });
@@ -950,7 +950,7 @@ function balCard(map,nameFn,flip){
 }
 function driverAdvanceOutstandingByCarrier(){
   const map=new Map();
-  allScoped('carriers').forEach(c=>{
+  all('carriers').forEach(c=>{
     const rows=carrierAdvanceRows(c.id);
     const bal=rows.length?rows[rows.length-1].balance:0;
     if(bal)map.set(c.id,bal);
@@ -959,14 +959,14 @@ function driverAdvanceOutstandingByCarrier(){
 }
 function employeeAdvancesOutstandingByDriver(){
   const map=new Map();
-  allScoped('drivers').forEach(d=>{
-    const outstanding=allScoped('employee_advances').filter(a=>a.driver_id==d.id&&!a.deleted_at&&a.status!=='settled').reduce((s,a)=>s+(a.amount_paisa||0),0);
+  all('drivers').forEach(d=>{
+    const outstanding=all('employee_advances').filter(a=>a.driver_id==d.id&&!a.deleted_at&&a.status!=='settled').reduce((s,a)=>s+(a.amount_paisa||0),0);
     if(outstanding)map.set(d.id,outstanding);
   });
   return map;
 }
 function driverOutstandingAdvances(driverId){
-  return allScoped('employee_advances').filter(a=>a.driver_id==driverId&&!a.deleted_at&&a.status!=='settled');
+  return all('employee_advances').filter(a=>a.driver_id==driverId&&!a.deleted_at&&a.status!=='settled');
 }
 function advanceForm(driverId){
   const d=byId('drivers',driverId);
@@ -1560,7 +1560,7 @@ function freightVisible(t){
   if(can('viewFreight'))return true;
   return state.user&&state.user.role==='dispatcher'&&!!(t&&t.open_market);
 }
-function scopedTrips(){return allScoped('trips').filter(tripAccessible);}
+function scopedTrips(){return all('trips').filter(tripAccessible);}
 function greetingWord(){
   const h=new Date().getHours();
   return h<12?'Good morning':(h<17?'Good afternoon':'Good evening');
@@ -1571,20 +1571,20 @@ function welcomeBanner(){
   const r=u.role;
   let msg='';
   if(r==='admin'){
-    const todayBilties=allScoped('trips').filter(t=>t.date===today()).length;
-    const openClaims=allScoped('claims').filter(c=>c.status==='open'||c.status==='under_review').length;
+    const todayBilties=all('trips').filter(t=>t.date===today()).length;
+    const openClaims=all('claims').filter(c=>c.status==='open'||c.status==='under_review').length;
     const parts=[todayBilties+' '+(todayBilties===1?'bilty':'bilties')+' booked today'];
     if(openClaims)parts.push(openClaims+' open claim'+(openClaims===1?'':'s'));
     msg=parts.join(' · ');
   }else if(r==='dispatcher'){
-    const todayBilties=allScoped('trips').filter(t=>t.date===today()).length;
-    const awaitingLoad=allScoped('trips').filter(t=>!t.journey_id&&t.status==='booked').length;
+    const todayBilties=all('trips').filter(t=>t.date===today()).length;
+    const awaitingLoad=all('trips').filter(t=>!t.journey_id&&t.status==='booked').length;
     msg=todayBilties+' '+(todayBilties===1?'bilty':'bilties')+' booked today · '+awaitingLoad+' awaiting loading';
   }else if(r==='driver'){
-    const mine=allScoped('trips').filter(t=>t.driver_id==u.driver_id&&(t.status==='booked'||t.status==='in_transit')).length;
+    const mine=all('trips').filter(t=>t.driver_id==u.driver_id&&(t.status==='booked'||t.status==='in_transit')).length;
     msg=mine+' trip'+(mine===1?'':'s')+' assigned to you';
   }else if(r==='carrier'){
-    const mine=allScoped('trips').filter(t=>t.carrier_id==u.carrier_id&&(t.status==='booked'||t.status==='in_transit')).length;
+    const mine=all('trips').filter(t=>t.carrier_id==u.carrier_id&&(t.status==='booked'||t.status==='in_transit')).length;
     msg=mine+' trip'+(mine===1?'':'s')+' currently with your fleet';
   }
   return `<div class="welcome-banner"><div class="co">${esc(CO_NAME)}</div>
@@ -1900,7 +1900,7 @@ function processAgreementRows(rows){
   for(let i=1;i<rows.length;i++){
     const c=rows[i];
     if(c.length<6){skip.push('row '+(i+1)+': needs 6 columns');continue;}
-    const cust=allScoped('customers').find(x=>x.name.toLowerCase()===c[0].toLowerCase());
+    const cust=all('customers').find(x=>x.name.toLowerCase()===c[0].toLowerCase());
     if(!cust){skip.push('row '+(i+1)+': unknown customer "'+c[0]+'"');continue;}
     const rate=P(c[3]);
     if(rate==null){skip.push('row '+(i+1)+': bad rate "'+c[3]+'"');continue;}
@@ -1912,7 +1912,7 @@ function processAgreementRows(rows){
   }
   const dupes=[];
   parsed.forEach(p=>{
-    const existing=allScoped('agreements').find(a=>a.status==='active'&&a.customer_id===p.customer_id
+    const existing=all('agreements').find(a=>a.status==='active'&&a.customer_id===p.customer_id
       &&(a.route_from||'').toLowerCase()===p.route_from.toLowerCase()
       &&(a.route_to||'').toLowerCase()===p.route_to.toLowerCase()
       &&(a.vehicle_type||'').trim().toLowerCase()===p.vehicle_type.toLowerCase());
@@ -1956,7 +1956,7 @@ function monthsAgoDate(n){
    still needs its own rate to auto-fill correctly, so nothing gets touched until it's genuinely
    past the point anyone would still be entering a bilty for it. */
 function supersededOldAgreements(cutoffDate){
-  const active=allScoped('agreements').filter(a=>a.status==='active');
+  const active=all('agreements').filter(a=>a.status==='active');
   const groups=new Map();
   active.forEach(a=>{
     const key=[a.customer_id,(a.route_from||'').toLowerCase(),(a.route_to||'').toLowerCase(),(a.vehicle_type||'').trim().toLowerCase()].join('|');
@@ -2023,9 +2023,9 @@ function agreementsCleanupRun(){
   closeModal();render();
 }
 function fixInactiveRates(){
-  const imc=allScoped('customers').find(x=>x.name.toLowerCase().includes('indus motor'));
+  const imc=all('customers').find(x=>x.name.toLowerCase().includes('indus motor'));
   if(!imc){toast('Indus Motor not found',true);return;}
-  const inactive=allScoped('agreements').filter(a=>a.customer_id===imc.id&&a.status!=='active');
+  const inactive=all('agreements').filter(a=>a.customer_id===imc.id&&a.status!=='active');
   if(!inactive.length){toast('All Indus Motor rates are already active',true);return;}
   if(!confirm('Reactivate '+inactive.length+' inactive Indus Motor rate(s)? This will make them available for auto-fill in bulk bookings.'))return;
   inactive.forEach(a=>upd('agreements',a.id,{status:'active'}));
@@ -2106,19 +2106,19 @@ function expiryBadge(dates){
   return '<span class="badge b-green">Valid</span>';
 }
 function carrierLatestOdometer(carrierId){
-  const jids=new Set(allScoped('journeys').filter(j=>j.carrier_id===carrierId).map(j=>j.id));
-  const readings=allScoped('fuel').filter(f=>jids.has(f.journey_id)&&f.odometer_km!=null)
+  const jids=new Set(all('journeys').filter(j=>j.carrier_id===carrierId).map(j=>j.id));
+  const readings=all('fuel').filter(f=>jids.has(f.journey_id)&&f.odometer_km!=null)
     .slice().sort((a,b)=>a.date<b.date?1:(a.date>b.date?-1:0));
   return readings.length?{km:readings[0].odometer_km,date:readings[0].date}:null;
 }
 function fleetExpiringCount(){
   const now=today(), in30=new Date(new Date(now).getTime()+30*86400000).toISOString().slice(0,10);
   let n=0;
-  allScoped('carriers').forEach(c=>{
+  all('carriers').forEach(c=>{
     const ds=[c.reg_expiry,c.route_permit_expiry,c.fitness_expiry,c.insurance_expiry,c.token_tax_expiry].filter(Boolean);
     if(ds.some(d=>d<=in30))n++;
   });
-  allScoped('drivers').forEach(d=>{if(d.license_expiry&&d.license_expiry<=in30)n++;});
+  all('drivers').forEach(d=>{if(d.license_expiry&&d.license_expiry<=in30)n++;});
   return n;
 }
 function maintenanceLevel(rec){
@@ -2221,11 +2221,11 @@ function entDel(coll,id){
 function acctDel(id){
   if(!can('master')){toast('Not permitted',true);return;}
   const acc=byId('accounts',id); if(!acc)return;
-  const used=allScoped('inpayments').some(p=>p.account_id===id)
-    ||allScoped('outpayments').some(p=>p.account_id===id)
-    ||allScoped('expenses').some(e=>e.account_id===id)
-    ||allScoped('fuel').some(f=>f.account_id===id)
-    ||allScoped('contras').some(c=>c.from_account_id===id||c.to_account_id===id)
+  const used=all('inpayments').some(p=>p.account_id===id)
+    ||all('outpayments').some(p=>p.account_id===id)
+    ||all('expenses').some(e=>e.account_id===id)
+    ||all('fuel').some(f=>f.account_id===id)
+    ||all('contras').some(c=>c.from_account_id===id||c.to_account_id===id)
     ||!!(acc.opening_paisa)||!!acc.journal_entry_id;
   if(used){toast('"'+acc.name+'" has transactions or an opening balance recorded against it — it can\'t be deleted while that history exists.',true);return;}
   if(!confirm('Delete "'+acc.name+'"? It has no transactions recorded, so nothing else is affected.'))return;
@@ -2233,13 +2233,13 @@ function acctDel(id){
 }
 function carrierHistory(cid){
   const c=byId('carriers',cid); if(!c)return;
-  const jids=new Set(allScoped('journeys').filter(j=>j.carrier_id===cid).map(j=>j.id));
-  const vtx=allScoped('vendortx').filter(x=>{
+  const jids=new Set(all('journeys').filter(j=>j.carrier_id===cid).map(j=>j.id));
+  const vtx=all('vendortx').filter(x=>{
     const v=byId('vendors',x.vendor_id);
     return jids.has(x.journey_id)&&v&&['tyre','repairs','oil_filter'].includes(v.category);
   }).map(x=>({date:x.date,source:'Vendor — '+enumLbl(VENDOR_CAT,byId('vendors',x.vendor_id).category),
     desc:nm('vendors',x.vendor_id)+' — '+(x.description||''),amount:x.amount_paisa}));
-  const exps=allScoped('expenses').filter(e=>jids.has(e.journey_id)&&['tyre_air','repairs'].includes(e.type)).map(e=>({
+  const exps=all('expenses').filter(e=>jids.has(e.journey_id)&&['tyre_air','repairs'].includes(e.type)).map(e=>({
     date:e.date,source:'Trip expense — '+enumLbl(EXP_TYPE,e.type),desc:e.location||e.notes||'—',amount:e.amount_paisa}));
   const rows=vtx.concat(exps).sort((a,b)=>a.date<b.date?1:(a.date>b.date?-1:0));
   const odo=carrierLatestOdometer(cid);
@@ -2253,7 +2253,7 @@ function carrierHistory(cid){
   <div class="actions"><button class="btn ghost" onclick="closeModal()">Close</button></div>`,true);
 }
 function carrierAdvanceRows(cid){
-  const trips=allScoped('journeys').filter(j=>j.carrier_id===cid).sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
+  const trips=all('journeys').filter(j=>j.carrier_id===cid).sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
   const rows=[];
   trips.forEach(j=>{
     jAdvances(j.id).forEach(a=>{
@@ -2303,7 +2303,7 @@ function carrierAdvanceLedgerPrint(cid){
 /* bulk import a new OEM customer + their vehicle catalog from a gate pass, in one go */
 function custBulkImportForm(){
   if(!can('master')){toast('Not permitted',true);return;}
-  const custOpts=allScoped('customers').slice().sort((a,b)=>a.name.localeCompare(b.name))
+  const custOpts=all('customers').slice().sort((a,b)=>a.name.localeCompare(b.name))
     .map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
   openModal(`<h2>Bulk Import Vehicle Catalog</h2>
   <div class="small mut" style="margin-bottom:10px">For a new OEM/dealer gate pass — add the customer (if new) and their vehicle Makes/Colours in one go, instead of one-by-one.</div>
@@ -2326,7 +2326,7 @@ function custBulkImportSave(){
   let cid=V('bi_customer'), custName='';
   if(cid==='__new__'){
     const name=V('bi_newname'); if(!name){toast('New customer name is required',true);return;}
-    const existing=allScoped('customers').find(c=>c.name.toLowerCase()===name.toLowerCase());
+    const existing=all('customers').find(c=>c.name.toLowerCase()===name.toLowerCase());
     if(existing){cid=existing.id;custName=existing.name;}
     else{const c=add('customers',{name:name});cid=c.id;custName=name;}
   }else{
@@ -2357,7 +2357,7 @@ function custBulkImportSave(){
 
 /* rate agreements: grouped by client (folder), with a From/Destination lookup filter per client */
 function pageAgreements(){
-  const E=ENTITIES.agreements, rows=allScoped('agreements');
+  const E=ENTITIES.agreements, rows=all('agreements');
   const byCust=new Map();
   rows.forEach(r=>{
     const key=String(r.customer_id||'none');
@@ -2582,7 +2582,7 @@ function bkNewConsigner(){
 }
 function bkNewConsignerSave(){
   const name=V('qc_name'); if(!name){toast('Company name is required',true);return;}
-  if(allScoped('customers').some(c=>c.name.toLowerCase()===name.toLowerCase())){toast('A customer with that name already exists',true);return;}
+  if(all('customers').some(c=>c.name.toLowerCase()===name.toLowerCase())){toast('A customer with that name already exists',true);return;}
   const c=add('customers',{name:name});
   closeModal();
   const sel=document.getElementById('b_customer'); if(sel)sel.innerHTML=fkOptions('customers',c.id);
@@ -2634,7 +2634,7 @@ function bkNewAgent(){
 }
 function bkNewAgentSave(){
   const name=V('qa_name'); if(!name){toast('Agent name is required',true);return;}
-  if(allScoped('agents').some(a=>a.name.toLowerCase()===name.toLowerCase())){toast('An agent with that name already exists',true);return;}
+  if(all('agents').some(a=>a.name.toLowerCase()===name.toLowerCase())){toast('An agent with that name already exists',true);return;}
   const a=add('agents',{name:name,contact:'',city_port:'',default_charge_paisa:150000});
   closeModal();
   const sel=document.getElementById('b_agent'); if(sel)sel.innerHTML=fkOptions('agents',a.id);
@@ -2706,7 +2706,7 @@ function collapseAgreementsByTier(matches){
 function agentsForCity(city){
   if(!city)return [];
   const c=city.toLowerCase();
-  return allScoped('agents').filter(a=>Array.isArray(a.cities)&&a.cities.some(x=>x.toLowerCase()===c));
+  return all('agents').filter(a=>Array.isArray(a.cities)&&a.cities.some(x=>x.toLowerCase()===c));
 }
 /* Clearing-agent <select> options grouped by whether the agent's master-data "cities" cover the
    given destination — matches first so the common case needs no scrolling, but every agent stays
@@ -2717,7 +2717,7 @@ function agentOptions(city,sel){
   let html='<option value="">—</option>';
   if(!matches.length)return html+fkOptions('agents',sel).replace('<option value="">—</option>','');
   const matchIds=new Set(matches.map(a=>a.id));
-  const rest=allScoped('agents').filter(a=>!matchIds.has(a.id));
+  const rest=all('agents').filter(a=>!matchIds.has(a.id));
   const opt=a=>`<option value="${a.id}" ${String(sel)===String(a.id)?'selected':''}>${esc(a.name)}</option>`;
   html+=`<optgroup label="Serves ${esc(city)}">${matches.map(opt).join('')}</optgroup>`;
   if(rest.length)html+=`<optgroup label="All agents">${rest.map(opt).join('')}</optgroup>`;
@@ -2731,7 +2731,7 @@ function bkRateSuggest(){
   if(openMkt){box.innerHTML='';return;}
   const cid=parseInt(V('b_customer'),10)||null, from=V('b_from'), to=V('b_dest'), dt=V('b_date')||today();
   if(!cid||!from||!to){box.innerHTML='';return;}
-  const matches=allScoped('agreements').filter(a=>a.status==='active'&&a.customer_id==cid
+  const matches=all('agreements').filter(a=>a.status==='active'&&a.customer_id==cid
     &&(a.route_from||'').toLowerCase()===from.toLowerCase()
     &&(a.route_to||'').toLowerCase()===to.toLowerCase()
     &&a.valid_from<=dt&&a.valid_to>=dt);
@@ -2778,7 +2778,7 @@ function bookingSave(){
   let bilty=V('b_bilty'), em;
   if(bilty){
     em='manual_logged';
-    const dup=allScoped('trips').find(t=>String(t.bilty_no).toLowerCase()===bilty.toLowerCase());
+    const dup=all('trips').find(t=>String(t.bilty_no).toLowerCase()===bilty.toLowerCase());
     if(dup&&!confirm('Warning: bilty no. "'+bilty+'" already exists ('+dup.route+', '+fmtDate(dup.date)+').\n\nPaper errors happen — you may proceed. Save anyway?'))return;
   }else{
     em='digital';
@@ -2916,7 +2916,7 @@ function gpRowSuggest(rid){
     const cid=parseInt(V('gp_customer'),10)||null, from=V('gp_from'), dt=V('gp_date')||today();
     let tiers=[];
     if(cid&&from&&dest){
-      const matches=allScoped('agreements').filter(a=>a.status==='active'&&a.customer_id==cid
+      const matches=all('agreements').filter(a=>a.status==='active'&&a.customer_id==cid
         &&(a.route_from||'').toLowerCase()===from.toLowerCase()
         &&(a.route_to||'').toLowerCase()===dest.toLowerCase()
         &&a.valid_from<=dt&&a.valid_to>=dt);
@@ -3056,7 +3056,7 @@ function gpScanDocument(inp){
     if(result.creation_date&&/^\d{4}-\d{2}-\d{2}$/.test(result.creation_date))document.getElementById('gp_date').value=result.creation_date;
     if(result.issuer_name){
       const needle=result.issuer_name.toLowerCase().replace(/\s*(limited|ltd|company|co\.?)\b/g,'').trim();
-      const match=allScoped('customers').find(c=>{
+      const match=all('customers').find(c=>{
         const hay=c.name.toLowerCase().replace(/\s*\(.*?\)/g,'').replace(/\s*(limited|ltd|company|co\.?)\b/g,'').trim();
         return hay&&needle&&(hay.includes(needle)||needle.includes(hay));
       });
@@ -3309,7 +3309,7 @@ function rateSuggest(){
   const cid=parseInt(V('f_customer_id'),10)||null, route=V('f_route').toLowerCase(),
     vt=V('f_veh_type'), dt=V('f_date')||today();
   if(!cid||!route){box.innerHTML='';return;}
-  const matches=allScoped('agreements').filter(a=>a.status==='active'&&a.customer_id==cid
+  const matches=all('agreements').filter(a=>a.status==='active'&&a.customer_id==cid
     &&String(a.route).toLowerCase()===route
     &&(!a.vehicle_type||!vt||a.vehicle_type===vt)
     &&a.valid_from<=dt&&a.valid_to>=dt);
@@ -3356,7 +3356,7 @@ function tripSave(id){
   let bilty=V('f_bilty');
   if(em==='manual_logged'){
     if(!bilty){toast('Bilty no. is required for a manual-logged trip',true);return;}
-    const dup=allScoped('trips').find(t=>t.id!=id&&String(t.bilty_no).toLowerCase()===bilty.toLowerCase());
+    const dup=all('trips').find(t=>t.id!=id&&String(t.bilty_no).toLowerCase()===bilty.toLowerCase());
     if(dup&&!confirm('Warning: bilty no. "'+bilty+'" already exists on trip of '+fmtDate(dup.date)+' ('+dup.route+').\n\nPaper errors happen — you may proceed. Save anyway?'))return;
   }
   const freight=P(V('f_freight'));
@@ -3397,7 +3397,7 @@ function statusSet(id,st){
 }
 
 /* ===== journeys (Trips: carrier runs with multiple loads) ===== */
-function jLoads(jid){return allScoped('trips').filter(t=>t.journey_id==jid);}
+function jLoads(jid){return all('trips').filter(t=>t.journey_id==jid);}
 function journeyRouteSeq(j){
   const mid=(j.stations||[]).filter(s=>s&&s!==j.route_from&&s!==j.route_to);
   /* the trailing route_from is the return leg. Collapse any repeat so a trip entered with the
@@ -3407,7 +3407,7 @@ function journeyRouteSeq(j){
 }
 function journeyRouteDisplay(j){return journeyRouteSeq(j).map(esc).join(' → ');}
 function journeyRouteText(j){return journeyRouteSeq(j).join(' → ');}
-function jExpenses(jid){return allScoped('expenses').filter(e=>e.journey_id==jid);}
+function jExpenses(jid){return all('expenses').filter(e=>e.journey_id==jid);}
 function jDriverAdvance(jid){return jExpenses(jid).filter(e=>e.type==='driver_advance').reduce((s,e)=>s+(e.amount_paisa||0),0);}
 function jExpensesExclAdvance(jid){return jExpenses(jid).filter(e=>e.type!=='driver_advance').reduce((s,e)=>s+(e.amount_paisa||0),0);}
 function jAdvances(jid){return jExpenses(jid).filter(e=>e.type==='driver_advance').slice().sort((a,b)=>a.date<b.date?1:-1);}
@@ -3492,15 +3492,15 @@ function advanceSave(id,jid){
   toast(id?'Driver advance updated':'Driver advance recorded');
   closeModal();render();
 }
-function jFuel(jid){return allScoped('fuel').filter(f=>f.journey_id==jid);}
-function jOilFilter(jid){return allScoped('vendortx').filter(x=>{const v=byId('vendors',x.vendor_id);return v&&v.category==='oil_filter'&&x.journey_id==jid;});}
+function jFuel(jid){return all('fuel').filter(f=>f.journey_id==jid);}
+function jOilFilter(jid){return all('vendortx').filter(x=>{const v=byId('vendors',x.vendor_id);return v&&v.category==='oil_filter'&&x.journey_id==jid;});}
 function jClearingCharges(jid){return jLoads(jid).reduce((s,t)=>s+(t.agent_id!=null?(t.agent_cost_paisa||0):0),0);}
 /* Only settled, company-borne claims are a real cost to us — carrier-borne comes off their
    payable instead, insurance-borne is a receivable pending reimbursement, and client-borne
    costs us nothing (see postClaimEntry). Open/under-review claims aren't final yet either. */
 function jClaimsCost(jid){
   const tripIds=new Set(jLoads(jid).map(t=>t.id));
-  return allScoped('claims').filter(c=>tripIds.has(c.trip_id)&&c.status==='settled'&&c.cost_bearer==='company')
+  return all('claims').filter(c=>tripIds.has(c.trip_id)&&c.status==='settled'&&c.cost_bearer==='company')
     .reduce((s,c)=>s+(c.amount_paisa||0),0);
 }
 /* A fuel transfer settles carrier payables (v4.199) but has nothing to do with pump purchases —
@@ -3508,8 +3508,8 @@ function jClaimsCost(jid){
    use that fuel (a cost, even with no pump receipt behind it), and the giving trip's Diesel/fuel
    line above still carries the FULL pump purchase even though part of it physically left for
    another trip, so it needs the same value back as a credit or its cost is overstated. */
-function jFuelTransferReceived(jid){return allScoped('fueltransfers').filter(f=>f.to_journey_id==jid).reduce((s,f)=>s+(f.value_paisa||0),0);}
-function jFuelTransferGiven(jid){return allScoped('fueltransfers').filter(f=>f.from_journey_id==jid).reduce((s,f)=>s+(f.value_paisa||0),0);}
+function jFuelTransferReceived(jid){return all('fueltransfers').filter(f=>f.to_journey_id==jid).reduce((s,f)=>s+(f.value_paisa||0),0);}
+function jFuelTransferGiven(jid){return all('fueltransfers').filter(f=>f.from_journey_id==jid).reduce((s,f)=>s+(f.value_paisa||0),0);}
 function jCostTotal(jid){
   return jExpensesExclAdvance(jid)
     +jFuel(jid).reduce((s,f)=>s+(f.total_paisa||0),0)
@@ -3543,10 +3543,10 @@ function returnBadge(jid){
 /* Grouped by month, same collapsible pattern as the Booking Register — an ever-growing flat table
    was the odd one out among the app's list pages, and only got harder to scan trip after trip. */
 function pageJourneys(){
-  const rows=allScoped('journeys').slice().sort((a,b)=>(a.status==='open'?0:1)-(b.status==='open'?0:1)||(a.date<b.date?1:-1));
+  const rows=all('journeys').slice().sort((a,b)=>(a.status==='open'?0:1)-(b.status==='open'?0:1)||(a.date<b.date?1:-1));
   /* Row order groups open trips first for usability, but the # should be a stable chronological
      count (oldest trip = 1) that doesn't reshuffle every time a trip's status changes. */
-  const byDate=allScoped('journeys').slice().sort((a,b)=>(a.date<b.date?-1:(a.date>b.date?1:a.id-b.id)));
+  const byDate=all('journeys').slice().sort((a,b)=>(a.date<b.date?-1:(a.date>b.date?1:a.id-b.id)));
   const tripNum=new Map(byDate.map((j,i)=>[j.id,i+1]));
   const byMonth=new Map();
   rows.forEach(j=>{
@@ -3646,7 +3646,7 @@ function nextCarrierTripNo(cid){
      number stays short and two trips never end up sharing one, no matter how the dates fall. The
      old "TLT-970-2026-06-001" scheme was accurate but wide; the Date column already shows when a
      trip happened, so repeating year/month inside the number itself was redundant. */
-  const seq=allScoped('journeys').filter(j=>j.carrier_id===cid).length+1;
+  const seq=all('journeys').filter(j=>j.carrier_id===cid).length+1;
   return code+'-'+String(seq).padStart(2,'0');
 }
 /* Suggested next Chalan number — sequential company-wide (CH-2026-0001), same numbering style as
@@ -3768,7 +3768,7 @@ function pageJourneyDetail(id){
   </div>
   ${(()=>{
     if(!open)return '';
-    const free=allScoped('trips').filter(t=>!t.journey_id&&t.status!=='closed');
+    const free=all('trips').filter(t=>!t.journey_id&&t.status!=='closed');
     const enroute=free.filter(t=>t.load_from&&(j.stations||[]).includes(t.load_from));
     if(!enroute.length)return '';
     const byStation=new Map();
@@ -3784,7 +3784,7 @@ function pageJourneyDetail(id){
 }
 function jAddLoad(jid,isReturn,presetFrom){
   const j=byId('journeys',jid); if(!j||!can('journeys'))return;
-  const free=allScoped('trips').filter(t=>!t.journey_id&&t.status!=='closed')
+  const free=all('trips').filter(t=>!t.journey_id&&t.status!=='closed')
     .slice().sort((a,b)=>(a.date||'')<(b.date||'')?-1:((a.date||'')>(b.date||'')?1:0));
   if(!free.length){toast('No unassigned bilties — create one first on the Booking / Bilty page',true);return;}
   const defFrom=presetFrom||(isReturn?j.route_to:j.route_from), defTo=isReturn?j.route_from:j.route_to;
@@ -3848,7 +3848,7 @@ function alSuggest(tid){
   const from=V('al_f_'+tid), to=V('al_t_'+tid), fr=document.getElementById('al_fr_'+tid);
   if(!from||!to||!t.customer_id){box.innerHTML='';return;}
   const dt=t.date||today();
-  const matches=allScoped('agreements').filter(a=>a.status==='active'&&a.customer_id==t.customer_id
+  const matches=all('agreements').filter(a=>a.status==='active'&&a.customer_id==t.customer_id
     &&(a.route_from||'').toLowerCase()===from.toLowerCase()
     &&(a.route_to||'').toLowerCase()===to.toLowerCase()
     &&a.valid_from<=dt&&a.valid_to>=dt);
@@ -3938,7 +3938,7 @@ function jFinish(jid){
 }
 
 /* trip detail */
-function ckFor(tripId,stage){return allScoped('checklists').find(c=>c.trip_id==tripId&&c.stage===stage);}
+function ckFor(tripId,stage){return all('checklists').find(c=>c.trip_id==tripId&&c.stage===stage);}
 function ckSummary(c){
   if(!c)return '<span class="mut small">Not recorded yet</span>';
   const n={present:0,missing:0,damaged:0,unset:0};
@@ -3950,14 +3950,14 @@ function ckSummary(c){
     ${n.unset?`<span class="badge b-gray">${n.unset} unchecked</span>`:''}
     ${flags.length?`<div class="small mut" style="margin-top:6px">${flags.map(it=>esc(CK_ITEMS[it.i][0]+(it.note?' — '+it.note:''))).join('; ')}</div>`:''}`;
 }
-function expSum(tripId){return allScoped('expenses').filter(e=>e.trip_id==tripId&&e.type!=='driver_advance').reduce((s,e)=>s+(e.amount_paisa||0),0);}
+function expSum(tripId){return all('expenses').filter(e=>e.trip_id==tripId&&e.type!=='driver_advance').reduce((s,e)=>s+(e.amount_paisa||0),0);}
 function pageTripDetail(id){
   const t=byId('trips',id);
   if(!t||!tripAccessible(t))return '<div class="card"><div class="empty">Trip not found or not accessible.</div></div>';
   const r=state.user.role, office=(r==='admin'||r==='dispatcher'), isCarrier=r==='carrier';
-  const canCk=can('checklist')&&!isCarrier, exps=allScoped('expenses').filter(e=>e.trip_id==t.id&&e.type!=='driver_advance');
-  const inv=invoiceForTrip(t.id), pay=allScoped('payables').find(p=>p.trip_id==t.id);
-  const tclaims=allScoped('claims').filter(c=>c.trip_id==t.id);
+  const canCk=can('checklist')&&!isCarrier, exps=all('expenses').filter(e=>e.trip_id==t.id&&e.type!=='driver_advance');
+  const inv=invoiceForTrip(t.id), pay=all('payables').find(p=>p.trip_id==t.id);
+  const tclaims=all('claims').filter(c=>c.trip_id==t.id);
   const ovr=all('overrides').filter(o=>o.trip_id==t.id);
   const pk=ckFor(t.id,'pickup'), dl=ckFor(t.id,'delivery');
   let html=`<div class="pagehead">
@@ -4108,9 +4108,9 @@ function accountOpts(sel){
 function journeyOptionsForUser(sel){
   let list;
   if(can('journeys')){
-    list=allScoped('journeys').slice().sort((a,b)=>(a.status==='open'?0:1)-(b.status==='open'?0:1)||(a.date<b.date?1:-1));
+    list=all('journeys').slice().sort((a,b)=>(a.status==='open'?0:1)-(b.status==='open'?0:1)||(a.date<b.date?1:-1));
   }else{
-    list=allScoped('journeys').filter(j=>j.driver_id==state.user.driver_id);
+    list=all('journeys').filter(j=>j.driver_id==state.user.driver_id);
   }
   if(sel){
     const sid=parseInt(sel,10);
@@ -4260,7 +4260,7 @@ function fuelToggle(jid){
 function pageFuel(){
   const office=can('journeys');
   const visibleJids=office?null:journeyOptionsForUser().map(j=>j.id);
-  const rows=allScoped('fuel').filter(f=>office||(f.journey_id&&visibleJids.includes(f.journey_id)));
+  const rows=all('fuel').filter(f=>office||(f.journey_id&&visibleJids.includes(f.journey_id)));
   const total=rows.reduce((s,f)=>s+(f.total_paisa||0),0);
   window._fuelExpanded=window._fuelExpanded||new Set();
   const fuelInner=monthItems=>{
@@ -4297,7 +4297,7 @@ function pageFuel(){
   ${can('totals')?`<div class="cards"><div class="stat"><div class="l">Total fuel spend</div><div class="v">${pkr0(total)}</div></div></div>`:''}
   ${monthCardsWrap(rows,f=>f.date,'fuel',fuelInner,'No fuel entries yet.')}
   ${(()=>{
-    const oilRows=allScoped('vendortx').filter(x=>{const v=byId('vendors',x.vendor_id);return v&&v.category==='oil_filter';})
+    const oilRows=all('vendortx').filter(x=>{const v=byId('vendors',x.vendor_id);return v&&v.category==='oil_filter';})
       .filter(x=>office||(x.journey_id&&visibleJids.includes(x.journey_id)));
     const oilTotal=oilRows.reduce((s,x)=>s+(x.amount_paisa||0),0);
     window._oilExpanded=window._oilExpanded||new Set();
@@ -4340,7 +4340,7 @@ function pageFuel(){
    ledger with no row in the "payables" collection, so without this it's invisible on the page
    admins actually check for what's owed to each carrier. */
 function fuelTransfersTableHTML(){
-  const transfers=allScoped('fueltransfers').slice().sort((a,b)=>a.date<b.date?1:-1);
+  const transfers=all('fueltransfers').slice().sort((a,b)=>a.date<b.date?1:-1);
   const byMonth=new Map();
   transfers.forEach(f=>{
     const key=(f.date||'').slice(0,7)||'—';
@@ -4414,7 +4414,7 @@ function fuelForm(id,journeyId){
       <div style="display:flex;gap:6px;align-items:flex-start">
       <select id="fu_vendor" style="flex:1">
         <option value="">— Select —</option>
-        ${allScoped('vendors').filter(v=>v.category==='fuel_pump').map(v=>`<option value="${v.id}" ${String(rec.vendor_id)===String(v.id)?'selected':''}>${esc(v.name)}</option>`).join('')}
+        ${all('vendors').filter(v=>v.category==='fuel_pump').map(v=>`<option value="${v.id}" ${String(rec.vendor_id)===String(v.id)?'selected':''}>${esc(v.name)}</option>`).join('')}
       </select>
       <button type="button" class="btn ghost sm" style="white-space:nowrap" onclick="quickAddVendor('fuel_pump','fu_vendor')">+ New</button>
       </div>
@@ -4452,12 +4452,12 @@ function quickAddVendor(category,selectId){
   if(selectId){
     const sel=document.getElementById(selectId); if(!sel)return;
     sel.innerHTML='<option value="">— Select —</option>'
-      +allScoped('vendors').filter(x=>x.category===category).map(x=>`<option value="${x.id}" ${x.id===v.id?'selected':''}>${esc(x.name)}</option>`).join('');
+      +all('vendors').filter(x=>x.category===category).map(x=>`<option value="${x.id}" ${x.id===v.id?'selected':''}>${esc(x.name)}</option>`).join('');
   }else render();
 }
 function oilFilterEntryForm(){
   if(!can('payables')){toast('Not permitted',true);return;}
-  const vendors=allScoped('vendors').filter(v=>v.category==='oil_filter');
+  const vendors=all('vendors').filter(v=>v.category==='oil_filter');
   openModal(`<h2>Add Oil / Filter Entry</h2>
   <div class="fgrid">
     <div class="frow full"><label class="req">Vendor</label>
@@ -4469,7 +4469,7 @@ function oilFilterEntryForm(){
         <button type="button" class="btn ghost sm" style="white-space:nowrap" onclick="quickAddVendor('oil_filter','of_vendor')">+ New</button>
       </div></div>
     <div class="frow full"><label>Trip</label><select id="of_journey"><option value="">—</option>
-        ${allScoped('journeys').map(j=>`<option value="${j.id}">${esc(j.trip_no)} — ${journeyRouteDisplay(j)}</option>`).join('')}
+        ${all('journeys').map(j=>`<option value="${j.id}">${esc(j.trip_no)} — ${journeyRouteDisplay(j)}</option>`).join('')}
       </select>
       <div class="hint">Optional — link to a Trip when this service is for a specific carrier run.</div></div>
     <div class="frow"><label class="req">Date</label><input type="date" id="of_date" value="${today()}"></div>
@@ -4511,7 +4511,7 @@ function oilFilterEntrySave(){
   render();
 }
 function pageEmployeeAdvances(){
-  const advs=allScoped('employee_advances');
+  const advs=all('employee_advances');
   const byDriver=new Map();
   advs.forEach(a=>{
     if(!byDriver.has(a.driver_id))byDriver.set(a.driver_id,[]);
@@ -4537,7 +4537,7 @@ function pageEmployeeAdvances(){
     }).join('')}`;
 }
 function employeeAdvanceNewForm(){
-  const drivers=allScoped('drivers').sort((a,b)=>a.name<b.name?-1:1);
+  const drivers=all('drivers').sort((a,b)=>a.name<b.name?-1:1);
   openModal(`<h2>Give Employee Advance</h2>
     <div class="fgrid">
       <div class="full"><label class="req">Driver</label><select id="adv_driver"><option value="">— Select —</option>
@@ -4559,13 +4559,13 @@ function carrierUtilForm(){
 function carrierUtilPrint(){
   const from=V('cu_from'),to=V('cu_to');
   if(!from||!to){toast('From and To dates are required',true);return;}
-  const rows=allScoped('carriers').map(c=>{
-    const jids=allScoped('journeys').filter(j=>j.carrier_id===c.id&&j.date>=from&&j.date<=to).map(j=>j.id);
+  const rows=all('carriers').map(c=>{
+    const jids=all('journeys').filter(j=>j.carrier_id===c.id&&j.date>=from&&j.date<=to).map(j=>j.id);
     const jidSet=new Set(jids);
-    const loads=allScoped('trips').filter(t=>jidSet.has(t.journey_id)).length;
+    const loads=all('trips').filter(t=>jidSet.has(t.journey_id)).length;
     const earning=jids.reduce((s,jid)=>s+jEarning(jid),0);
     const cost=jids.reduce((s,jid)=>s+jCostTotal(jid),0);
-    const odoReadings=allScoped('fuel').filter(f=>{
+    const odoReadings=all('fuel').filter(f=>{
       const j=byId('journeys',f.journey_id);
       return j&&j.carrier_id===c.id&&f.odometer_km!=null&&f.date>=from&&f.date<=to;
     }).map(f=>f.odometer_km);
@@ -4604,7 +4604,7 @@ function fuelReportPrint(){
   if(!from||!to){toast('From and To dates are required',true);return;}
   const office=can('journeys');
   const visibleJids=office?null:journeyOptionsForUser().map(j=>j.id);
-  const rows=allScoped('fuel').filter(f=>(office||(f.journey_id&&visibleJids.includes(f.journey_id)))&&f.date>=from&&f.date<=to)
+  const rows=all('fuel').filter(f=>(office||(f.journey_id&&visibleJids.includes(f.journey_id)))&&f.date>=from&&f.date<=to)
     .sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
   const total=rows.reduce((s,f)=>s+(f.total_paisa||0),0), litres=rows.reduce((s,f)=>s+(f.litres||0),0);
   const byPump=new Map();
@@ -4739,7 +4739,7 @@ function pageExpenses(){
   const office=can('journeys');
   const visibleJids=office?null:journeyOptionsForUser().map(j=>j.id);
   const tripIds=scopedTrips().map(t=>t.id);
-  const scoped=allScoped('expenses').filter(e=>office||tripIds.includes(e.trip_id)||(e.journey_id&&visibleJids.includes(e.journey_id)));
+  const scoped=all('expenses').filter(e=>office||tripIds.includes(e.trip_id)||(e.journey_id&&visibleJids.includes(e.journey_id)));
   const rows=scoped.filter(e=>e.type!=='driver_advance');
   const advRows=scoped.filter(e=>e.type==='driver_advance');
   const total=rows.reduce((s,e)=>s+(e.amount_paisa||0),0);
@@ -4822,7 +4822,7 @@ function invBiltyLabel(i){
   if(trips.length===1)return trips[0].bilty_no;
   return trips.length+' bilties';
 }
-function invoiceForTrip(tid){return allScoped('invoices').find(i=>invHasTrip(i,tid));}
+function invoiceForTrip(tid){return all('invoices').find(i=>invHasTrip(i,tid));}
 function invParts(i){
   const amt=i.amount_paisa||0;
   const srb=i.srb_on?Math.round(amt*(i.srb_rate!=null?i.srb_rate:15)/100):0;
@@ -4845,7 +4845,7 @@ function postInvoiceEntry(inv){
   const entryId=repostEntry(inv.journal_entry_id,'invoice','invoices',inv.id,lines,'Invoice '+(inv.number||''));
   upd('invoices',inv.id,{journal_entry_id:entryId});
 }
-function invPaid(i){return allScoped('inpayments').filter(p=>p.invoice_id==i.id).reduce((s,p)=>s+(p.amount_paisa||0),0);}
+function invPaid(i){return all('inpayments').filter(p=>p.invoice_id==i.id).reduce((s,p)=>s+(p.amount_paisa||0),0);}
 /* A settled claim is an agreed deduction, so it reduces what the customer still owes on the
    invoice covering that bilty — whoever ends up bearing the cost. Only a client-borne claim
    credits nothing, since the client absorbs their own loss. Open / under-review / rejected
@@ -4854,7 +4854,7 @@ function invPaid(i){return allScoped('inpayments').filter(p=>p.invoice_id==i.id)
    recomputing invTotal-invPaid, so the figure can never drift between screens. */
 function invClaimCredit(i){
   const tids=invTripIds(i);
-  return allScoped('claims').filter(c=>c.status==='settled'&&(c.amount_paisa||0)>0
+  return all('claims').filter(c=>c.status==='settled'&&(c.amount_paisa||0)>0
     &&c.cost_bearer!=='client'&&tids.includes(c.trip_id))
     .reduce((s,c)=>s+c.amount_paisa,0);
 }
@@ -4870,7 +4870,7 @@ function srbDueDate(i){
   return due.getFullYear()+'-'+String(due.getMonth()+1).padStart(2,'0')+'-'+String(due.getDate()).padStart(2,'0');
 }
 function srbPortalReport(){
-  const rows=allScoped('invoices').filter(i=>invParts(i).srb>0)
+  const rows=all('invoices').filter(i=>invParts(i).srb>0)
     .map(i=>{const x=invParts(i);return {i:i,x:x,bal:srbPayableAmount(i)-outPaidFor('srb',i.id),due:srbDueDate(i)};})
     .filter(r=>r.bal>0&&r.due<today())
     .sort((a,b)=>a.due<b.due?-1:1);
@@ -4914,7 +4914,7 @@ function invBoxHTML(i){
     ${state.user&&state.user.role==='admin'?`<button class="btn danger sm" onclick="invoiceDel(${i.id})">Delete</button>`:''}</div>`;
 }
 function custAdvancesForTrips(tripIds){
-  return allScoped('expenses').filter(e=>e.type==='driver_advance'&&e.advance_source==='customer'&&tripIds.includes(e.trip_id)&&!e.applied_invoice_id);
+  return all('expenses').filter(e=>e.type==='driver_advance'&&e.advance_source==='customer'&&tripIds.includes(e.trip_id)&&!e.applied_invoice_id);
 }
 function applyAdvancesToInvoice(tripIds,invId){
   custAdvancesForTrips(tripIds).forEach(a=>upd('expenses',a.id,{applied_invoice_id:invId}));
@@ -5018,7 +5018,7 @@ function invoiceDel(id){
   const srbPaid=outPaidFor('srb',inv.id);
   if(srbPaid>0){toast('SRB tax of '+pkr(srbPaid)+' has already been paid against this invoice — reverse that payment first',true);return;}
   const bilties=invTrips(inv).map(t=>t.bilty_no);
-  const advances=allScoped('expenses').filter(e=>e.applied_invoice_id===inv.id);
+  const advances=all('expenses').filter(e=>e.applied_invoice_id===inv.id);
   const advTotal=advances.reduce((s,a)=>s+(a.amount_paisa||0),0);
   if(!confirm('Delete invoice '+inv.number+' ('+pkr(invTotal(inv))+')?\n\n'
     +(bilties.length?'Bilty(s) '+bilties.join(', ')+' become available to invoice again.\n':'')
@@ -5032,7 +5032,7 @@ function invoiceDel(id){
 }
 function invTripPickForm(){
   if(!can('invoices')){toast('Not permitted',true);return;}
-  const journeys=allScoped('journeys').filter(j=>jLoads(j.id).some(t=>t.freight_paisa!=null&&!invoiceForTrip(t.id)))
+  const journeys=all('journeys').filter(j=>jLoads(j.id).some(t=>t.freight_paisa!=null&&!invoiceForTrip(t.id)))
     .sort((a,b)=>a.date<b.date?1:-1);
   openModal(`<h2>Invoice from Trip</h2>
   <div class="small mut" style="margin-bottom:8px">Bilties belong to a Trip (carrier run) — pick the Trip first, then invoice its loads individually or all at once.</div>
@@ -5115,7 +5115,7 @@ function monthlyInvoiceForm(){
      into one invoice is a normal thing to want for anyone. The customer-level Invoicing setting
      stays as a preference: it keeps that customer out of the per-bilty flow so nobody invoices
      a shipment individually when it was meant to go on the monthly bill. */
-  const custs=allScoped('customers').slice().sort((a,b)=>
+  const custs=all('customers').slice().sort((a,b)=>
     (custIsMonthly(b.id)?1:0)-(custIsMonthly(a.id)?1:0)||a.name.localeCompare(b.name));
   if(!custs.length){toast('Add a customer first',true);return;}
   const mon=today().slice(0,7);
@@ -5132,7 +5132,7 @@ function monthlyInvoiceForm(){
 function monthlyInvoiceRefresh(){
   const box=document.getElementById('miLoadsBox'); if(!box)return;
   const cid=parseInt(V('mi_customer'),10), mon=V('mi_month');
-  const loads=allScoped('trips').filter(t=>t.customer_id===cid&&t.freight_paisa!=null&&!invoiceForTrip(t.id)&&(t.date||'').slice(0,7)===mon);
+  const loads=all('trips').filter(t=>t.customer_id===cid&&t.freight_paisa!=null&&!invoiceForTrip(t.id)&&(t.date||'').slice(0,7)===mon);
   if(!loads.length){box.innerHTML='<div class="mut small">No uninvoiced bilties with freight set for this customer in that month.</div>';return;}
   box.innerHTML=`<div class="tblwrap" style="margin-bottom:10px"><table><thead><tr><th></th><th>Bilty</th><th>Date</th><th>Route</th><th class="num">Freight</th></tr></thead><tbody>
   ${loads.map(t=>`<tr><td><input type="checkbox" name="mi_ck" value="${t.id}" checked style="width:auto" onchange="monthlyInvoiceCalc()"></td>
@@ -5178,7 +5178,7 @@ function monthlyInvoiceCreate(cid,mon){
    a customer's uninvoiced bilties (any date range, nothing pre-ticked) rather than a full month. */
 function pickInvoiceForm(){
   if(!can('invoices')){toast('Not permitted',true);return;}
-  const custs=allScoped('customers').slice().sort((a,b)=>a.name.localeCompare(b.name));
+  const custs=all('customers').slice().sort((a,b)=>a.name.localeCompare(b.name));
   if(!custs.length){toast('Add a customer first',true);return;}
   openModal(`<h2>Pick &amp; Choose — Combined Invoice</h2>
   <div class="small mut" style="margin-bottom:8px">Pick a customer, then tick just the bilties for this invoice — nothing is pre-selected. They combine into one invoice with one total and one tax breakdown.</div>
@@ -5194,7 +5194,7 @@ function pickInvoiceForm(){
 function pickInvoiceRefresh(){
   const box=document.getElementById('piLoadsBox'); if(!box)return;
   const cid=parseInt(V('pi_customer'),10),from=V('pi_from'),to=V('pi_to');
-  const loads=allScoped('trips').filter(t=>t.customer_id===cid&&t.freight_paisa!=null&&!invoiceForTrip(t.id)
+  const loads=all('trips').filter(t=>t.customer_id===cid&&t.freight_paisa!=null&&!invoiceForTrip(t.id)
     &&(!from||(t.date||'')>=from)&&(!to||(t.date||'')<=to)).sort((a,b)=>a.date<b.date?-1:1);
   if(!loads.length){box.innerHTML='<div class="mut small">No uninvoiced bilties with freight set for this customer'+(from||to?' in that range':'')+'.</div>';return;}
   box.innerHTML=`<div class="tblwrap" style="margin-bottom:10px"><table><thead><tr><th></th><th>Bilty</th><th>Date</th><th>Route</th><th class="num">Freight</th></tr></thead><tbody>
@@ -5234,7 +5234,7 @@ function singleBiltyInvoiceForm(){
 function singleBiltyRefresh(){
   const box=document.getElementById('sbiBox'); if(!box)return;
   const q=(V('sbi_q')||'').toLowerCase().trim();
-  let loads=allScoped('trips').filter(t=>t.freight_paisa!=null&&!invoiceForTrip(t.id));
+  let loads=all('trips').filter(t=>t.freight_paisa!=null&&!invoiceForTrip(t.id));
   if(q)loads=loads.filter(t=>tfTextMatch(q,t.bilty_no,nm('customers',t.customer_id),t.route));
   loads=loads.slice().sort((a,b)=>a.date<b.date?1:-1);
   const shown=loads.slice(0,50);
@@ -5266,7 +5266,7 @@ function payInForm(invId){
   if(!can('invoices')){toast('Not permitted',true);return;}
   const i=byId('invoices',invId); if(!i)return;
   const t=invTotal(i),p=invPaid(i),bal=t-p;
-  const pays=allScoped('inpayments').filter(x=>x.invoice_id==invId);
+  const pays=all('inpayments').filter(x=>x.invoice_id==invId);
   openModal(`<h2>Payments — ${esc(i.number)} ${invBadge(invStatus(i))}</h2>
   <div class="small mut" style="margin-bottom:8px">Total ${pkr(t)} · Received ${pkr(p)} · Balance <b>${pkr(bal)}</b></div>
   ${pays.length?`<div class="tblwrap" style="margin-bottom:12px"><table><thead><tr><th>Date</th><th class="num">Amount</th><th>Method</th><th>Ref</th><th>Account</th><th></th></tr></thead>
@@ -5307,7 +5307,7 @@ function payInDel(pid,invId){
   softDel('inpayments',pid);render();window._afterRender=null;payInForm(invId);
 }
 function pageInvoices(){
-  const allRows=allScoped('invoices');
+  const allRows=all('invoices');
   const tot=allRows.reduce((s,i)=>s+invTotal(i),0), rec=allRows.reduce((s,i)=>s+invPaid(i),0);
   const key='invoices';
   const q=tfGet(key,'q'),stF=tfGet(key,'status');
@@ -5370,7 +5370,7 @@ function invGroupToggle(cid){
 function custBulkPayForm(cid){
   if(!can('invoices')){toast('Not permitted',true);return;}
   const custId=cid==='none'?null:parseInt(cid,10);
-  const invs=allScoped('invoices').filter(i=>(i.customer_id||null)===custId&&invOutstanding(i)>0)
+  const invs=all('invoices').filter(i=>(i.customer_id||null)===custId&&invOutstanding(i)>0)
     .sort((a,b)=>invDate(a)<invDate(b)?-1:invDate(a)>invDate(b)?1:a.id-b.id);
   if(!invs.length){toast('No outstanding invoices for this customer',true);return;}
   const name=custId?nm('customers',custId):'— No customer set —';
@@ -5455,10 +5455,10 @@ function custStatementPrint(){
   const cid=parseInt(V('cs_customer'),10)||null, from=V('cs_from'), to=V('cs_to');
   if(!cid||!from||!to){toast('Customer, From and To dates are required',true);return;}
   const cust=byId('customers',cid); if(!cust)return;
-  const periodInv=allScoped('invoices').filter(i=>i.customer_id==cid&&invDate(i)>=from&&invDate(i)<=to)
+  const periodInv=all('invoices').filter(i=>i.customer_id==cid&&invDate(i)>=from&&invDate(i)<=to)
     .sort((a,b)=>invDate(a)<invDate(b)?-1:1);
-  const periodPayments=allScoped('inpayments').filter(p=>{const inv=byId('invoices',p.invoice_id);return inv&&inv.customer_id==cid&&p.date>=from&&p.date<=to;});
-  const allInvToDate=allScoped('invoices').filter(i=>i.customer_id==cid&&invDate(i)<=to);
+  const periodPayments=all('inpayments').filter(p=>{const inv=byId('invoices',p.invoice_id);return inv&&inv.customer_id==cid&&p.date>=from&&p.date<=to;});
+  const allInvToDate=all('invoices').filter(i=>i.customer_id==cid&&invDate(i)<=to);
   const totalInvoicedPeriod=periodInv.reduce((s,i)=>s+invTotal(i),0);
   const totalReceivedPeriod=periodPayments.reduce((s,p)=>s+(p.amount_paisa||0),0);
   const outstandingToDate=allInvToDate.reduce((s,i)=>s+invOutstanding(i),0);
@@ -5489,12 +5489,12 @@ function custStatementPrint(){
 function payTotal(p){return (p.base_paisa||0)+(p.pay_type==='cost_plus'?expSum(p.trip_id):0);}
 /* A settled claim the carrier agreed to bear comes off what we owe them. */
 function payClaimDeduction(p){
-  return allScoped('claims').filter(c=>c.status==='settled'&&c.cost_bearer==='carrier'
+  return all('claims').filter(c=>c.status==='settled'&&c.cost_bearer==='carrier'
     &&(c.amount_paisa||0)>0&&c.trip_id===p.trip_id)
     .reduce((s,c)=>s+c.amount_paisa,0);
 }
 function payOutstanding(p){return payTotal(p)-outPaidFor('payable',p.id)-payClaimDeduction(p);}
-function outPaidFor(ttype,tid){return allScoped('outpayments').filter(x=>x.ttype===ttype&&x.tid==tid).reduce((s,x)=>s+(x.amount_paisa||0),0);}
+function outPaidFor(ttype,tid){return all('outpayments').filter(x=>x.ttype===ttype&&x.tid==tid).reduce((s,x)=>s+(x.amount_paisa||0),0);}
 function payBoxHTML(p,ro){
   const t=payTotal(p),paid=outPaidFor('payable',p.id),claimed=payClaimDeduction(p),bal=payOutstanding(p);
   return `<div class="rowline"><span class="mut">Carrier</span><span>${esc(nm('carriers',p.carrier_id))}
@@ -5514,7 +5514,7 @@ function payableForm(id,tripId){
   if(id){rec=byId('payables',id);if(!rec)return;}
   else{
     const t=byId('trips',tripId||0);
-    let opts=allScoped('trips').filter(x=>x.carrier_id&&!allScoped('payables').find(p=>p.trip_id==x.id));
+    let opts=all('trips').filter(x=>x.carrier_id&&!all('payables').find(p=>p.trip_id==x.id));
     if(t)opts=[t];
     if(!opts.length){toast('Every trip with a carrier already has a payable',true);return;}
     rec={trip_id:t?t.id:opts[0].id,base_paisa:null,notes:''};
@@ -5579,7 +5579,7 @@ function payOutForm(ttype,tid){
   if(!can('payables')){toast('Not permitted',true);return;}
   const label=targetLabel(ttype,tid), total=targetTotal(ttype,tid);
   const paid=outPaidFor(ttype,tid),bal=total-paid;
-  const pays=allScoped('outpayments').filter(x=>x.ttype===ttype&&x.tid==tid);
+  const pays=all('outpayments').filter(x=>x.ttype===ttype&&x.tid==tid);
 
   // Check if this is a salary payment (for advance deduction UI)
   let advancesHTML='', driverId=null;
@@ -5634,7 +5634,7 @@ function payPromiseForm(id){
   if(!can('payables')){toast('Not permitted',true);return;}
   const rec=id?byId('paypromises',id):{promised_date:today(),notes:''};
   if(id&&!rec){toast('Not found',true);return;}
-  const openInvs=allScoped('invoices').filter(i=>invOutstanding(i)>0);
+  const openInvs=all('invoices').filter(i=>invOutstanding(i)>0);
   openModal(`<h2>${id?'Edit':''} Vendor Payment Promise</h2>
   <div class="small mut" style="margin-bottom:10px">A payment you've promised a vendor — "I'll pay once customer X pays me" — logged so it doesn't get forgotten. You'll get a reminder as the promised date approaches, whether or not the receivable has come in yet.</div>
   <div class="fgrid">
@@ -5670,7 +5670,7 @@ function payPromiseDel(id){
   softDel('paypromises',id);toast('Deleted');render();
 }
 function payPromisesTableHTML(){
-  const proms=allScoped('paypromises').filter(p=>!p.resolved_at).slice().sort((a,b)=>a.promised_date<b.promised_date?-1:1);
+  const proms=all('paypromises').filter(p=>!p.resolved_at).slice().sort((a,b)=>a.promised_date<b.promised_date?-1:1);
   return `<div class="pagehead" style="margin-top:20px"><h1 style="font-size:19px">Vendor Payment Promises</h1><div class="sp"></div>
     <button class="btn ghost sm" onclick="payPromiseForm()">🤝 New Payment Promise</button></div>
     <div class="hint" style="margin-bottom:6px">A payment promised to a vendor, conditional on money still owed to us — not a real payable yet, just a commitment being tracked.</div>
@@ -5755,7 +5755,7 @@ function postOutPaymentEntry(rec,driverId){
   if(driverId&&rec.ttype==='overhead'&&rec.advance_ids_json){
     try{
       const advIds=JSON.parse(rec.advance_ids_json);
-      advanceTotal=allScoped('employee_advances').filter(a=>advIds.includes(a.id)).reduce((s,a)=>s+(a.amount_paisa||0),0);
+      advanceTotal=all('employee_advances').filter(a=>advIds.includes(a.id)).reduce((s,a)=>s+(a.amount_paisa||0),0);
     }catch(e){}
   }
 
@@ -5817,14 +5817,14 @@ const OH_FIELDS=[
   {k:'amount_paisa',l:'Amount (PKR)',t:'money',req:1},
   {k:'date',l:'Date',t:'date',req:1},
   {k:'notes',l:'Notes',t:'text'}];
-function agentChargeForTrip(tid){return allScoped('agentcharges').find(x=>x.trip_id==tid);}
+function agentChargeForTrip(tid){return all('agentcharges').find(x=>x.trip_id==tid);}
 /* Entering a clearing agent and cost on a booking used to store them on the bilty as reference
    only — nothing reached Payables or the books. Saving a bilty now keeps a matching charge in
    step with it. A charge someone entered or edited by hand is left alone, and one that's been
    part-paid is never rewritten. */
 function syncAgentChargeForTrip(trip){
   if(!trip)return;
-  const existing=allScoped('agentcharges').find(x=>x.trip_id===trip.id);
+  const existing=all('agentcharges').find(x=>x.trip_id===trip.id);
   if(existing&&!existing.auto_from_bilty)return;
   if(existing&&outPaidFor('agentcharge',existing.id)>0)return;
   const agentId=trip.agent_id, cost=trip.agent_cost_paisa;
@@ -5916,11 +5916,11 @@ function subDel(coll,id){
   softDel(coll,id);toast('Deleted');render();
 }
 function fuelReconcileFills(vendorId,month){
-  return allScoped('fuel').filter(f=>f.vendor_id==vendorId&&(f.date||'').slice(0,7)===month);
+  return all('fuel').filter(f=>f.vendor_id==vendorId&&(f.date||'').slice(0,7)===month);
 }
 function fuelReconcileForm(){
   if(!can('payables')){toast('Not permitted',true);return;}
-  const pumps=allScoped('vendors').filter(v=>v.category==='fuel_pump');
+  const pumps=all('vendors').filter(v=>v.category==='fuel_pump');
   if(!pumps.length){toast('Add a petrol pump under Vendors first (category: Petrol Pump)',true);return;}
   const mon=today().slice(0,7);
   openModal(`<h2>Reconcile Monthly Pump Invoice</h2>
@@ -5943,7 +5943,7 @@ function fuelReconcileCalc(){
   const vid=parseInt(V('rc_vendor'),10),mon=V('rc_month');
   const fills=fuelReconcileFills(vid,mon);
   const litres=fills.reduce((s,f)=>s+(f.litres||0),0), amount=fills.reduce((s,f)=>s+(f.total_paisa||0),0);
-  const already=allScoped('vendortx').find(x=>x.vendor_id==vid&&x.period===mon);
+  const already=all('vendortx').find(x=>x.vendor_id==vid&&x.period===mon);
   el.innerHTML=`${fills.length} fill-up(s) recorded for ${esc(mon)} — ${litres} L, app total <b>${pkr(amount)}</b>.`
     +(already?`<div class="warnbox" style="margin-top:6px">Already reconciled for this pump/month (${pkr(already.amount_paisa)}). Creating another will add a duplicate.</div>`:'');
   const amtEl=document.getElementById('rc_amount'); if(amtEl)amtEl.value=moneyVal(amount);
@@ -5952,7 +5952,7 @@ function fuelReconcileSave(){
   const vid=parseInt(V('rc_vendor'),10),mon=V('rc_month'),amount=P(V('rc_amount')),date=V('rc_date');
   if(!vid||!mon){toast('Pump and month are required',true);return;}
   if(amount==null||amount<=0){toast('Enter the actual invoice amount',true);return;}
-  const already=allScoped('vendortx').find(x=>x.vendor_id==vid&&x.period===mon);
+  const already=all('vendortx').find(x=>x.vendor_id==vid&&x.period===mon);
   if(already&&!confirm('This pump already has a reconciled invoice for '+mon+' ('+pkr(already.amount_paisa)+'). Create another anyway?'))return;
   const fills=fuelReconcileFills(vid,mon);
   const litres=fills.reduce((s,f)=>s+(f.litres||0),0);
@@ -6053,7 +6053,7 @@ function pagePayables(){
   const tabs=[['carrier','Carrier payables'],['vendor','Vendor payables'],['fuel','Fuel (Petrol Pumps)'],['clearing','Clearing charges'],['overhead','Overheads'],['srb','SRB Tax Payable']];
   let body='';
   if(tab==='carrier'){
-    const allRows=allScoped('payables');
+    const allRows=all('payables');
     const fk='pay_carrier',q=tfGet(fk,'q');
     const rows=allRows.filter(p=>!q||tfTextMatch(q,nm('trips',p.trip_id,'bilty_no'),nm('carriers',p.carrier_id)));
     const thead='<th>Bilty</th><th>Carrier</th><th>Pay type</th><th class="num">Base</th><th class="num">Expenses</th><th class="num">Total</th><th class="num">Paid</th><th class="num">Balance</th><th></th>';
@@ -6072,7 +6072,7 @@ function pagePayables(){
     ${monthGroupedTable(rows,p=>(byId('trips',p.trip_id)||{}).date,thead,rowFn,allRows.length?'No matches for this filter.':'No carrier payables yet.','carrier')}
     ${fuelTransfersTableHTML()}`;
   }else if(tab==='vendor'){
-    const allRows=allScoped('vendortx').filter(x=>{const v=byId('vendors',x.vendor_id);return !v||v.category!=='fuel_pump';});
+    const allRows=all('vendortx').filter(x=>{const v=byId('vendors',x.vendor_id);return !v||v.category!=='fuel_pump';});
     const fk='pay_vendor',q=tfGet(fk,'q');
     const rows=allRows.filter(x=>!q||tfTextMatch(q,nm('vendors',x.vendor_id),x.description,nm('trips',x.trip_id,'bilty_no')));
     const thead='<th>Vendor</th><th>Trip</th><th>Description</th><th>Date</th><th class="num">Amount</th><th class="num">Paid</th><th class="num">Balance</th><th></th>';
@@ -6091,8 +6091,8 @@ function pagePayables(){
     ${monthGroupedTable(rows,x=>x.date,thead,rowFn,allRows.length?'No matches for this filter.':'No vendor transactions yet.','vendor')}
     ${payPromisesTableHTML()}`;
   }else if(tab==='fuel'){
-    const pumps=allScoped('vendors').filter(v=>v.category==='fuel_pump');
-    const allRows=allScoped('vendortx').filter(x=>{const v=byId('vendors',x.vendor_id);return v&&v.category==='fuel_pump';})
+    const pumps=all('vendors').filter(v=>v.category==='fuel_pump');
+    const allRows=all('vendortx').filter(x=>{const v=byId('vendors',x.vendor_id);return v&&v.category==='fuel_pump';})
       .sort((a,b)=>a.date<b.date?1:-1);
     const fk='pay_fuel',q=tfGet(fk,'q');
     const rows=allRows.filter(x=>!q||tfTextMatch(q,nm('vendors',x.vendor_id),x.period,x.description));
@@ -6111,7 +6111,7 @@ function pagePayables(){
     ${allRows.length>6?tfBar(fk,[],'Search pump, period, description…'):''}
     ${monthGroupedTable(rows,x=>x.date,thead,rowFn,allRows.length?'No matches for this filter.':'No monthly pump invoices reconciled yet.','fuel')}`;
   }else if(tab==='clearing'){
-    const allRows=allScoped('agentcharges');
+    const allRows=all('agentcharges');
     const fk='pay_clearing',q=tfGet(fk,'q'),dirF=tfGet(fk,'direction'),agF=tfGet(fk,'agent');
     const rows=allRows.filter(x=>(!dirF||(x.direction||'payable')===dirF)&&(!agF||String(x.agent_id)===agF)
       &&(!q||tfTextMatch(q,nm('agents',x.agent_id),nm('trips',x.trip_id,'bilty_no'),x.ref_no)));
@@ -6159,7 +6159,7 @@ function pagePayables(){
     ${allRows.length>6?tfBar(fk,[{field:'category',label:'Category',options:OH_CATS.map(c=>[c[0],c[1]])}],'Search payee, notes…'):''}
     ${monthGroupedTable(rows,x=>x.date,thead,rowFn,allRows.length?'No matches for this filter.':'No overheads yet — record salaries, office rents, bills etc. here.','overhead')}`;
   }else{
-    const allRows=allScoped('invoices').filter(i=>invParts(i).srb>0).sort((a,b)=>srbDueDate(a)<srbDueDate(b)?-1:1);
+    const allRows=all('invoices').filter(i=>invParts(i).srb>0).sort((a,b)=>srbDueDate(a)<srbDueDate(b)?-1:1);
     const fk='pay_srb',q=tfGet(fk,'q');
     const rows=allRows.filter(i=>!q||tfTextMatch(q,i.number,nm('customers',i.customer_id)));
     const thead='<th>Invoice</th><th>Customer</th><th>Invoice date</th><th>Due date</th><th class="num">SRB payable</th><th class="num">Paid</th><th class="num">Balance</th><th>Reminder</th><th></th>';
@@ -6176,13 +6176,13 @@ function pagePayables(){
     ${allRows.length>6?tfBar(fk,[],'Search invoice #, customer…'):''}
     ${monthGroupedTable(rows,i=>invDate(i),thead,rowFn,allRows.length?'No matches for this filter.':'No SRB-charging invoices yet.','srb')}`;
   }
-  const outTot=allScoped('payables').reduce((s,p)=>s+payOutstanding(p),0)
-    +allScoped('vendortx').reduce((s,x)=>s+x.amount_paisa-outPaidFor('vendortx',x.id),0)
-    +allScoped('agentcharges').filter(x=>(x.direction||'payable')!=='receivable')
+  const outTot=all('payables').reduce((s,p)=>s+payOutstanding(p),0)
+    +all('vendortx').reduce((s,x)=>s+x.amount_paisa-outPaidFor('vendortx',x.id),0)
+    +all('agentcharges').filter(x=>(x.direction||'payable')!=='receivable')
       .reduce((s,x)=>s+x.amount_paisa-outPaidFor('agentcharge',x.id),0)
     +all('overheads').reduce((s,x)=>s+x.amount_paisa-outPaidFor('overhead',x.id),0)
-    +allScoped('invoices').filter(i=>invParts(i).srb>0).reduce((s,i)=>s+srbPayableAmount(i)-outPaidFor('srb',i.id),0);
-  const recvTot=allScoped('agentcharges').filter(x=>(x.direction||'payable')==='receivable')
+    +all('invoices').filter(i=>invParts(i).srb>0).reduce((s,i)=>s+srbPayableAmount(i)-outPaidFor('srb',i.id),0);
+  const recvTot=all('agentcharges').filter(x=>(x.direction||'payable')==='receivable')
     .reduce((s,x)=>s+x.amount_paisa-outPaidFor('agentcharge',x.id),0);
   return `<div class="pagehead"><h1>Payables</h1><div class="sp"></div>
     ${tabs.map(x=>`<button class="btn ${tab===x[0]?'':'ghost'} sm" onclick="window._payTab='${x[0]}';render()">${x[1]}</button>`).join('')}
@@ -6193,7 +6193,7 @@ function pagePayables(){
 }
 function pageCarrierPayments(){
   const cid=state.user.carrier_id;
-  const rows=allScoped('payables').filter(p=>p.carrier_id==cid)
+  const rows=all('payables').filter(p=>p.carrier_id==cid)
     .map(p=>({p,date:(byId('trips',p.trip_id)||{}).date||''})).sort((a,b)=>a.date<b.date?1:-1);
   const byMonth=new Map();
   rows.forEach(({p,date})=>{
@@ -6214,7 +6214,7 @@ function pageCarrierPayments(){
       html+=`<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">
       ${items.map(p=>`<div style="margin-bottom:14px"><h2 style="font-size:14px">Trip ${esc(nm('trips',p.trip_id,'bilty_no'))} — ${esc(nm('trips',p.trip_id,'route'))}</h2>
         ${payBoxHTML(p,true)}
-        ${allScoped('outpayments').filter(x=>x.ttype==='payable'&&x.tid==p.id).map(x=>
+        ${all('outpayments').filter(x=>x.ttype==='payable'&&x.tid==p.id).map(x=>
           `<div class="rowline small"><span class="mut">Received ${esc(fmtDate(x.date))} (${esc(enumLbl(PAY_METHOD,x.method))}${x.ref?', '+esc(x.ref):''})</span><span>${pkr(x.amount_paisa)}</span></div>`).join('')}
       </div>`).join('')}
       </div>`;
@@ -6266,7 +6266,7 @@ function claimForm(id,tripId){
   <div class="fgrid">
     <div class="frow"><label class="req">Trip</label>
       <select id="c_trip" onchange="claimDiffUI()" ${id?'disabled':''}>
-        ${allScoped('trips').map(x=>`<option value="${x.id}" ${x.id==rec.trip_id?'selected':''}>${esc(x.bilty_no+' — '+x.route+' ('+(x.veh_make||'vehicle')+')')}</option>`).join('')}
+        ${all('trips').map(x=>`<option value="${x.id}" ${x.id==rec.trip_id?'selected':''}>${esc(x.bilty_no+' — '+x.route+' ('+(x.veh_make||'vehicle')+')')}</option>`).join('')}
       </select></div>
     <div class="frow"><label class="req">Claim type</label><select id="c_type">${optHTML(CLAIM_TYPE,rec.type)}</select></div>
     <div class="frow"><label class="req">Date</label><input type="date" id="c_date" value="${esc(rec.date||'')}"></div>
@@ -6322,11 +6322,11 @@ function postClaimEntry(rec){
   upd('claims',rec.id,{journal_entry_id:entryId});
 }
 function pageClaims(){
-  const allRows=allScoped('claims').slice().sort((a,b)=>b.id-a.id);
+  const allRows=all('claims').slice().sort((a,b)=>b.id-a.id);
   const key='claims',q=tfGet(key,'q'),stF=tfGet(key,'status');
   const rows=allRows.filter(c=>(!stF||c.status===stF)&&(!q||tfTextMatch(q,nm('trips',c.trip_id,'bilty_no'),c.description,enumLbl(CLAIM_TYPE,c.type))));
   return `<div class="pagehead"><h1>Claims</h1><div class="sp"></div>
-    ${allScoped('trips').length?`<button class="btn" onclick="claimForm()">+ New Claim</button>`:''}</div>
+    ${all('trips').length?`<button class="btn" onclick="claimForm()">+ New Claim</button>`:''}</div>
   ${allRows.length>6?tfBar(key,[{field:'status',label:'Status',options:CLAIM_STATUS}],'Search bilty, description, type…'):''}
   <div class="tblwrap"><table><thead><tr><th>#</th><th>Bilty</th><th>Type</th><th>Description</th>
   <th class="num">Amount</th><th>Cost bearer</th><th>Linked items</th><th>Status</th><th></th></tr></thead><tbody>
@@ -6362,7 +6362,7 @@ function dashRange(period){
 function dashSetPeriod(p){window._dashPeriod=p;render();}
 function showRecvPopup(){
   const custIds=new Map();
-  allScoped('invoices').filter(i=>invOutstanding(i)>0).forEach(i=>{
+  all('invoices').filter(i=>invOutstanding(i)>0).forEach(i=>{
     if(i.customer_id){
       const cust=byId('customers',i.customer_id);
       if(!custIds.has(i.customer_id))custIds.set(i.customer_id,{name:cust?.name||'Unknown',balance:0});
@@ -6385,7 +6385,7 @@ function showRecvPopup(){
 function showPayPopup(){
   const payees=new Map();
   // Carriers
-  allScoped('payables').filter(p=>payOutstanding(p)>0).forEach(p=>{
+  all('payables').filter(p=>payOutstanding(p)>0).forEach(p=>{
     if(p.carrier_id){
       const carr=byId('carriers',p.carrier_id);
       if(!payees.has('c'+p.carrier_id))payees.set('c'+p.carrier_id,{name:carr?.name||'Unknown',type:'Carrier',balance:0});
@@ -6393,7 +6393,7 @@ function showPayPopup(){
     }
   });
   // Vendors
-  allScoped('vendortx').forEach(x=>{
+  all('vendortx').forEach(x=>{
     if(x.vendor_id){
       const v=byId('vendors',x.vendor_id);
       if(!v||v.category!=='fuel_pump'){
@@ -6406,7 +6406,7 @@ function showPayPopup(){
     }
   });
   // Clearing agents
-  allScoped('agentcharges').forEach(x=>{
+  all('agentcharges').forEach(x=>{
     if(x.agent_id&&(x.direction||'payable')==='payable'){
       const bal=x.amount_paisa-outPaidFor('agentcharge',x.id);
       if(bal>0){
@@ -6449,28 +6449,28 @@ function pageDashboard(){
   const period=window._dashPeriod||'month';
   const rng=dashRange(period),prevRng=finPrevPeriod(rng.from,rng.to);
   const inRange=(d,r)=>d>=r.from&&d<=r.to;
-  const invs=allScoped('invoices');
+  const invs=all('invoices');
   const recv=invs.reduce((s,i)=>s+invOutstanding(i),0);
-  const payOut=allScoped('payables').reduce((s,p)=>s+payOutstanding(p),0)
-    +allScoped('vendortx').reduce((s,x)=>s+x.amount_paisa-outPaidFor('vendortx',x.id),0)
-    +allScoped('agentcharges').filter(x=>(x.direction||'payable')!=='receivable')
+  const payOut=all('payables').reduce((s,p)=>s+payOutstanding(p),0)
+    +all('vendortx').reduce((s,x)=>s+x.amount_paisa-outPaidFor('vendortx',x.id),0)
+    +all('agentcharges').filter(x=>(x.direction||'payable')!=='receivable')
       .reduce((s,x)=>s+x.amount_paisa-outPaidFor('agentcharge',x.id),0)
     +all('overheads').reduce((s,x)=>s+x.amount_paisa-outPaidFor('overhead',x.id),0)
-    +allScoped('invoices').filter(i=>invParts(i).srb>0).reduce((s,i)=>s+srbPayableAmount(i)-outPaidFor('srb',i.id),0);
-  const biltiesCur=allScoped('trips').filter(t=>inRange(t.date||'',rng)).length;
-  const biltiesPrev=allScoped('trips').filter(t=>inRange(t.date||'',prevRng)).length;
-  const journeysCur=allScoped('journeys').filter(j=>inRange(j.date||'',rng)).length;
-  const journeysPrev=allScoped('journeys').filter(j=>inRange(j.date||'',prevRng)).length;
-  const openClaims=allScoped('claims').filter(c=>c.status==='open'||c.status==='under_review').length;
-  const receivedCur=allScoped('inpayments').filter(p=>inRange(p.date||'',rng)).reduce((s,p)=>s+(p.amount_paisa||0),0);
-  const receivedPrev=allScoped('inpayments').filter(p=>inRange(p.date||'',prevRng)).reduce((s,p)=>s+(p.amount_paisa||0),0);
+    +all('invoices').filter(i=>invParts(i).srb>0).reduce((s,i)=>s+srbPayableAmount(i)-outPaidFor('srb',i.id),0);
+  const biltiesCur=all('trips').filter(t=>inRange(t.date||'',rng)).length;
+  const biltiesPrev=all('trips').filter(t=>inRange(t.date||'',prevRng)).length;
+  const journeysCur=all('journeys').filter(j=>inRange(j.date||'',rng)).length;
+  const journeysPrev=all('journeys').filter(j=>inRange(j.date||'',prevRng)).length;
+  const openClaims=all('claims').filter(c=>c.status==='open'||c.status==='under_review').length;
+  const receivedCur=all('inpayments').filter(p=>inRange(p.date||'',rng)).reduce((s,p)=>s+(p.amount_paisa||0),0);
+  const receivedPrev=all('inpayments').filter(p=>inRange(p.date||'',prevRng)).reduce((s,p)=>s+(p.amount_paisa||0),0);
   const recvAging=agingBuckets(invs,invDate,i=>invOutstanding(i));
   const payItems=[].concat(
-    allScoped('payables').map(p=>({date:payDate(p),due:payOutstanding(p)})),
-    allScoped('vendortx').map(x=>({date:x.date,due:x.amount_paisa-outPaidFor('vendortx',x.id)})),
-    allScoped('agentcharges').filter(x=>(x.direction||'payable')!=='receivable').map(x=>({date:x.date,due:x.amount_paisa-outPaidFor('agentcharge',x.id)})),
+    all('payables').map(p=>({date:payDate(p),due:payOutstanding(p)})),
+    all('vendortx').map(x=>({date:x.date,due:x.amount_paisa-outPaidFor('vendortx',x.id)})),
+    all('agentcharges').filter(x=>(x.direction||'payable')!=='receivable').map(x=>({date:x.date,due:x.amount_paisa-outPaidFor('agentcharge',x.id)})),
     all('overheads').map(x=>({date:x.date,due:x.amount_paisa-outPaidFor('overhead',x.id)})),
-    allScoped('invoices').filter(i=>invParts(i).srb>0).map(i=>({date:srbDueDate(i),due:srbPayableAmount(i)-outPaidFor('srb',i.id)}))
+    all('invoices').filter(i=>invParts(i).srb>0).map(i=>({date:srbDueDate(i),due:srbPayableAmount(i)-outPaidFor('srb',i.id)}))
   );
   const payAging=agingBuckets(payItems,x=>x.date,x=>x.due);
   // bilties per month, last 6 months
@@ -6478,14 +6478,14 @@ function pageDashboard(){
   for(let k=5;k>=0;k--){const m=new Date(d.getFullYear(),d.getMonth()-k,1);
     months.push({key:m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0'),
       lbl:m.toLocaleString('en',{month:'short'})});}
-  months.forEach(m=>m.n=allScoped('trips').filter(t=>(t.date||'').slice(0,7)===m.key).length);
+  months.forEach(m=>m.n=all('trips').filter(t=>(t.date||'').slice(0,7)===m.key).length);
   const maxN=Math.max(1,...months.map(m=>m.n));
   /* Expense breakdown — carrier-first (combining Trip Expenses + Diesel/Fuel + Engine Oil/Filter):
      a carrier running several trips in the period used to show as several separate rows, burying
      the total under a pile of individual trip lines. Grouped by carrier now, one row with the
      combined total, click to see the per-trip breakdown behind it. */
   const byCarrierMap=new Map();
-  allScoped('journeys').forEach(j=>{
+  all('journeys').forEach(j=>{
     const key=String(j.carrier_id||'none');
     if(!byCarrierMap.has(key))byCarrierMap.set(key,{carrierId:j.carrier_id,journeys:[],total:0});
     const g=byCarrierMap.get(key);
@@ -6502,12 +6502,12 @@ function pageDashboard(){
   const maxE=Math.max(1,...byCarrier.map(g=>g.total));
   window._dashExpExpanded=window._dashExpExpanded||new Set();
   // per-customer receivables / per-carrier payables
-  const byCust=allScoped('customers').map(c=>{
+  const byCust=all('customers').map(c=>{
     const iv=invs.filter(i=>i.customer_id==c.id);
     return [c.name,iv.reduce((s,i)=>s+invTotal(i),0),iv.reduce((s,i)=>s+invOutstanding(i),0)];
   }).filter(x=>x[1]>0);
-  const byCarr=allScoped('carriers').map(c=>{
-    const ps=allScoped('payables').filter(p=>p.carrier_id==c.id);
+  const byCarr=all('carriers').map(c=>{
+    const ps=all('payables').filter(p=>p.carrier_id==c.id);
     return [c.name,ps.reduce((s,p)=>s+payTotal(p),0),ps.reduce((s,p)=>s+payOutstanding(p),0)];
   }).filter(x=>x[1]>0);
   // Count items for each KPI
@@ -6515,12 +6515,12 @@ function pageDashboard(){
   const recvCount=custIds.size;
   // Payable breakdown by type
   const carrierIds=new Set(),vendorIds2=new Set(),agentIds=new Set();
-  allScoped('payables').filter(p=>payOutstanding(p)>0).forEach(p=>{if(p.carrier_id)carrierIds.add(p.carrier_id)});
-  allScoped('vendortx').forEach(x=>{const v=byId('vendors',x.vendor_id);if(x.vendor_id&&(!v||v.category!=='fuel_pump')&&(x.amount_paisa-outPaidFor('vendortx',x.id))>0)vendorIds2.add(x.vendor_id)});
-  allScoped('agentcharges').forEach(x=>{if(x.agent_id&&(x.direction||'payable')==='payable'&&(x.amount_paisa-outPaidFor('agentcharge',x.id))>0)agentIds.add(x.agent_id)});
+  all('payables').filter(p=>payOutstanding(p)>0).forEach(p=>{if(p.carrier_id)carrierIds.add(p.carrier_id)});
+  all('vendortx').forEach(x=>{const v=byId('vendors',x.vendor_id);if(x.vendor_id&&(!v||v.category!=='fuel_pump')&&(x.amount_paisa-outPaidFor('vendortx',x.id))>0)vendorIds2.add(x.vendor_id)});
+  all('agentcharges').forEach(x=>{if(x.agent_id&&(x.direction||'payable')==='payable'&&(x.amount_paisa-outPaidFor('agentcharge',x.id))>0)agentIds.add(x.agent_id)});
   const payCount=carrierIds.size+vendorIds2.size+agentIds.size;
   const payBreakdown=`C:${carrierIds.size} V:${vendorIds2.size} A:${agentIds.size}`;
-  const recvdCount=allScoped('inpayments').filter(p=>inRange(p.date||'',rng)).length;
+  const recvdCount=all('inpayments').filter(p=>inRange(p.date||'',rng)).length;
   const kpis=[
     [pkr0(recv),'Receivable','','#/finance',recvCount+' customers',''],
     [pkr0(payOut),'Payable','','#/payables',payCount+' vendors',payBreakdown],
@@ -6531,14 +6531,14 @@ function pageDashboard(){
   const srbOverdue=invs.filter(i=>invParts(i).srb>0).map(i=>({bal:srbPayableAmount(i)-outPaidFor('srb',i.id),due:srbDueDate(i)}))
     .filter(x=>x.bal>0&&x.due<today());
   const srbOverdueTotal=srbOverdue.reduce((s,x)=>s+x.bal,0);
-  const maintDue=allScoped('carriers').filter(c=>maintenanceLevel(c)>=1).length;
+  const maintDue=all('carriers').filter(c=>maintenanceLevel(c)>=1).length;
   const in5=new Date(new Date(today()).getTime()+5*86400000).toISOString().slice(0,10);
   /* Cheques stop being reminded once the clearing date passes — by then the bank has either
      honoured it or it's out of our hands, so nagging forever would just be noise. A broken
      payment promise, on the other hand, keeps showing until someone actually resolves it. */
-  const chequesDue=allScoped('outpayments').filter(p=>p.method==='cheque'&&p.cheque_date&&p.cheque_date>=today()&&p.cheque_date<=in5);
+  const chequesDue=all('outpayments').filter(p=>p.method==='cheque'&&p.cheque_date&&p.cheque_date>=today()&&p.cheque_date<=in5);
   const chequesDueTotal=chequesDue.reduce((s,p)=>s+(p.amount_paisa||0),0);
-  const promisesDue=allScoped('paypromises').filter(p=>!p.resolved_at&&p.promised_date<=in5);
+  const promisesDue=all('paypromises').filter(p=>!p.resolved_at&&p.promised_date<=in5);
   const promisesDueTotal=promisesDue.reduce((s,p)=>s+(p.amount_paisa||0),0);
   const attention=[];
   if(srbOverdue.length)attention.push({label:srbOverdue.length+' SRB payment(s) overdue — '+pkr0(srbOverdueTotal),action:'srbPortalReport()',color:'var(--danger)'});
@@ -6628,12 +6628,12 @@ ENTITIES.accounts={title:'Accounts',sing:'Account',fields:[
   {k:'acct_subtype',l:'Account type',t:'select',opts:BANK_ACCT_SUBTYPE}],
  cols:[['name','Account'],['type','Type',['enum',ACC_TYPE]],['bank_name','Bank'],['opening_paisa','Opening',['money']]]};
 function accFlows(accId){
-  const inn=allScoped('inpayments').filter(p=>(p.account_id||null)==accId).reduce((s,p)=>s+(p.amount_paisa||0),0)
-    +allScoped('contras').filter(c=>(c.to_account_id||null)==accId).reduce((s,c)=>s+(c.amount_paisa||0),0);
-  const out=allScoped('outpayments').filter(p=>(p.account_id||null)==accId).reduce((s,p)=>s+(p.amount_paisa||0),0)
-    +allScoped('expenses').filter(e=>(e.account_id||null)==accId).reduce((s,e)=>s+(e.amount_paisa||0),0)
-    +allScoped('fuel').filter(f=>(f.account_id||null)==accId).reduce((s,f)=>s+(f.total_paisa||0),0)
-    +allScoped('contras').filter(c=>(c.from_account_id||null)==accId).reduce((s,c)=>s+(c.amount_paisa||0),0);
+  const inn=all('inpayments').filter(p=>(p.account_id||null)==accId).reduce((s,p)=>s+(p.amount_paisa||0),0)
+    +all('contras').filter(c=>(c.to_account_id||null)==accId).reduce((s,c)=>s+(c.amount_paisa||0),0);
+  const out=all('outpayments').filter(p=>(p.account_id||null)==accId).reduce((s,p)=>s+(p.amount_paisa||0),0)
+    +all('expenses').filter(e=>(e.account_id||null)==accId).reduce((s,e)=>s+(e.amount_paisa||0),0)
+    +all('fuel').filter(f=>(f.account_id||null)==accId).reduce((s,f)=>s+(f.total_paisa||0),0)
+    +all('contras').filter(c=>(c.from_account_id||null)==accId).reduce((s,c)=>s+(c.amount_paisa||0),0);
   return {inn:inn,out:out};
 }
 function contraForm(id){
@@ -6675,15 +6675,15 @@ function contraDel(id){
 function isCompanyCashExpense(e){return e.type!=='driver_advance'||(e.advance_source||'company')==='company';}
 function finTotals(from,to){
   const inRange=(d)=>d>=from&&d<=to;
-  const income=allScoped('inpayments').filter(p=>inRange(p.date)).reduce((s,p)=>s+(p.amount_paisa||0),0);
+  const income=all('inpayments').filter(p=>inRange(p.date)).reduce((s,p)=>s+(p.amount_paisa||0),0);
   const ohFixed=OH_CATS.filter(c=>c[2]==='fixed').map(c=>c[0]);
   let fixedSpend=0,runningSpend=0;
-  allScoped('outpayments').filter(p=>inRange(p.date)).forEach(p=>{
+  all('outpayments').filter(p=>inRange(p.date)).forEach(p=>{
     const oh=p.ttype==='overhead'?byId('overheads',p.tid):null;
     if(oh&&ohFixed.includes(oh.category))fixedSpend+=p.amount_paisa||0; else runningSpend+=p.amount_paisa||0;
   });
-  allScoped('expenses').filter(e=>inRange(e.date)&&isCompanyCashExpense(e)).forEach(e=>runningSpend+=e.amount_paisa||0);
-  allScoped('fuel').filter(f=>inRange(f.date)).forEach(f=>runningSpend+=f.total_paisa||0);
+  all('expenses').filter(e=>inRange(e.date)&&isCompanyCashExpense(e)).forEach(e=>runningSpend+=e.amount_paisa||0);
+  all('fuel').filter(f=>inRange(f.date)).forEach(f=>runningSpend+=f.total_paisa||0);
   return {income:income,fixedSpend:fixedSpend,runningSpend:runningSpend,spend:fixedSpend+runningSpend};
 }
 function finPrevPeriod(from,to){
@@ -6707,29 +6707,29 @@ function finCategoryBreakdown(from,to){
   const inRange=(d)=>d>=from&&d<=to;
   const byCat=new Map();
   const addCat=(label,amt)=>{if(!amt)return;byCat.set(label,(byCat.get(label)||0)+amt);};
-  allScoped('outpayments').filter(p=>inRange(p.date)&&p.ttype==='overhead').forEach(p=>{
+  all('outpayments').filter(p=>inRange(p.date)&&p.ttype==='overhead').forEach(p=>{
     const oh=byId('overheads',p.tid);
     const cat=oh?OH_CATS.find(c=>c[0]===oh.category):null;
     addCat(cat?cat[1]:'Other overhead',p.amount_paisa||0);
   });
-  EXP_TYPE.forEach(c=>addCat(c[1],allScoped('expenses').filter(e=>inRange(e.date)&&e.type===c[0]&&isCompanyCashExpense(e)).reduce((s,e)=>s+(e.amount_paisa||0),0)));
-  addCat('Diesel / Fuel',allScoped('fuel').filter(f=>inRange(f.date)).reduce((s,f)=>s+(f.total_paisa||0),0));
+  EXP_TYPE.forEach(c=>addCat(c[1],all('expenses').filter(e=>inRange(e.date)&&e.type===c[0]&&isCompanyCashExpense(e)).reduce((s,e)=>s+(e.amount_paisa||0),0)));
+  addCat('Diesel / Fuel',all('fuel').filter(f=>inRange(f.date)).reduce((s,f)=>s+(f.total_paisa||0),0));
   return Array.from(byCat.entries()).map(([label,amt])=>({label:label,amt:amt})).sort((a,b)=>b.amt-a.amt);
 }
 function accHistoryRows(accId){
   const acc=byId('accounts',accId); if(!acc)return null;
   const rows=[];
-  allScoped('inpayments').filter(p=>(p.account_id||null)===accId).forEach(p=>{
+  all('inpayments').filter(p=>(p.account_id||null)===accId).forEach(p=>{
     const inv=byId('invoices',p.invoice_id);
     rows.push({date:p.date,desc:'Received — '+(inv?inv.number:'invoice'),amount:p.amount_paisa,inn:true});
   });
-  allScoped('outpayments').filter(p=>(p.account_id||null)===accId).forEach(p=>{
+  all('outpayments').filter(p=>(p.account_id||null)===accId).forEach(p=>{
     rows.push({date:p.date,desc:'Paid — '+targetLabel(p.ttype,p.tid),amount:p.amount_paisa,inn:false});
   });
-  allScoped('expenses').filter(e=>(e.account_id||null)===accId).forEach(e=>{
+  all('expenses').filter(e=>(e.account_id||null)===accId).forEach(e=>{
     rows.push({date:e.date,desc:'Trip expense — '+enumLbl(EXP_TYPE,e.type),amount:e.amount_paisa,inn:false});
   });
-  allScoped('fuel').filter(f=>(f.account_id||null)===accId).forEach(f=>{
+  all('fuel').filter(f=>(f.account_id||null)===accId).forEach(f=>{
     rows.push({date:f.date,desc:'Fuel — '+(f.pump||'—'),amount:f.total_paisa,inn:false});
   });
   rows.sort((a,b)=>a.date<b.date?1:(a.date>b.date?-1:0));
@@ -6782,10 +6782,10 @@ function pageFinance(){
   const from=window._finRange.from, to=window._finRange.to;
   const cur=finTotals(from,to);
   const prevRange=finPrevPeriod(from,to), prevTot=finTotals(prevRange.from,prevRange.to);
-  const unIn=allScoped('inpayments').filter(p=>!p.account_id).length
-    +allScoped('outpayments').filter(p=>!p.account_id).length
-    +allScoped('expenses').filter(e=>!e.account_id).length
-    +allScoped('fuel').filter(f=>!f.account_id).length;
+  const unIn=all('inpayments').filter(p=>!p.account_id).length
+    +all('outpayments').filter(p=>!p.account_id).length
+    +all('expenses').filter(e=>!e.account_id).length
+    +all('fuel').filter(f=>!f.account_id).length;
   const cats=finCategoryBreakdown(from,to);
   const maxCat=Math.max(1,...cats.map(c=>c.amt));
   const monthsF=[]; const dNow=new Date();
@@ -6869,8 +6869,8 @@ function pageFinance(){
       <div class="bfill" style="height:${Math.round(Math.abs(m.net)/maxAbsNet*88)+2}px;background:${m.net<0?'var(--danger)':'var(--ok)'}"></div><div class="blbl">${m.lbl}</div></div>`).join('')}</div>
   </div>
   <div class="card"><h2>Recent transfers</h2>
-    ${allScoped('contras').length?`<div class="tblwrap" style="margin:0"><table><thead><tr><th>Date</th><th>From</th><th>To</th><th class="num">Amount</th><th></th></tr></thead><tbody>
-    ${allScoped('contras').slice().sort((a,b)=>b.id-a.id).slice(0,10).map(c=>`<tr><td>${esc(fmtDate(c.date))}</td><td>${esc(nm('accounts',c.from_account_id))}</td><td>${esc(nm('accounts',c.to_account_id))}</td>
+    ${all('contras').length?`<div class="tblwrap" style="margin:0"><table><thead><tr><th>Date</th><th>From</th><th>To</th><th class="num">Amount</th><th></th></tr></thead><tbody>
+    ${all('contras').slice().sort((a,b)=>b.id-a.id).slice(0,10).map(c=>`<tr><td>${esc(fmtDate(c.date))}</td><td>${esc(nm('accounts',c.from_account_id))}</td><td>${esc(nm('accounts',c.to_account_id))}</td>
       <td class="num">${pkr(c.amount_paisa)}</td><td class="num"><button class="btn ghost sm" onclick="contraForm(${c.id})">Edit</button>
       <button class="btn danger sm" onclick="contraDel(${c.id})">Delete</button></td></tr>`).join('')}
     </tbody></table></div>`:'<div class="mut small">No transfers between accounts recorded yet.</div>'}
@@ -6879,7 +6879,7 @@ function pageFinance(){
 
 /* ===== reports hub ===== */
 function pageReports(){
-  const journeys=allScoped('journeys').slice().sort((a,b)=>a.date<b.date?1:-1);
+  const journeys=all('journeys').slice().sort((a,b)=>a.date<b.date?1:-1);
   return `<div class="pagehead"><h1>Reports</h1></div>
   <div class="small mut" style="margin-bottom:14px">Printable reports in one place. Each opens the same form you'd otherwise find on its own page.</div>
   <div class="grid2">
@@ -7237,7 +7237,7 @@ function voucherSignToggle(no){
 }
 function pageVouchers(){
   const rows=[];
-  allScoped('outpayments').forEach(p=>{
+  all('outpayments').forEach(p=>{
     let jid='none';
     if(p.ttype==='payable'){const pb=byId('payables',p.tid);if(pb)jid=jidOfBilty(pb.trip_id);}
     else if(p.ttype==='vendortx'){const x=byId('vendortx',p.tid);if(x)jid=x.journey_id?String(x.journey_id):'none';}
@@ -7245,23 +7245,23 @@ function pageVouchers(){
     rows.push({jid,kind:'out',lbl:'Payment',cls:'b-red',no:'PV-'+p.id,date:p.date,
       desc:targetLabel(p.ttype,p.tid),amount:p.amount_paisa,id:p.id,account:nm('accounts',p.account_id)});
   });
-  allScoped('inpayments').forEach(p=>{const i=byId('invoices',p.invoice_id);
+  all('inpayments').forEach(p=>{const i=byId('invoices',p.invoice_id);
     rows.push({jid:i?jidOfBilty(i.trip_id):'none',kind:'in',lbl:'Receipt',cls:'b-green',no:'RV-'+p.id,date:p.date,
     desc:'Received from '+(i?nm('customers',i.customer_id)+' — '+i.number:'—'),amount:p.amount_paisa,id:p.id,account:nm('accounts',p.account_id)});});
-  groupByTrip(allScoped('expenses').filter(e=>e.type!=='driver_advance'),'amount_paisa').forEach(g=>{
+  groupByTrip(all('expenses').filter(e=>e.type!=='driver_advance'),'amount_paisa').forEach(g=>{
     const accts=[...new Set(g.items.map(e=>nm('accounts',e.account_id)))];
     rows.push({jid:String(g.jid),kind:'exp_trip',lbl:'Expense',cls:'b-amber',
       no:'EV-'+(g.journey?g.journey.trip_no:'LEGACY'),date:g.date,
       desc:g.items.length+' item(s)',
       amount:g.total,id:g.jid,account:accts.length===1?accts[0]:'Multiple'});
   });
-  groupByTrip(allScoped('expenses').filter(e=>e.type==='driver_advance'),'amount_paisa').forEach(g=>{
+  groupByTrip(all('expenses').filter(e=>e.type==='driver_advance'),'amount_paisa').forEach(g=>{
     rows.push({jid:String(g.jid),kind:'adv_trip',lbl:'Advance',cls:'b-teal',
       no:'AV-'+(g.journey?g.journey.trip_no:'LEGACY'),date:g.date,
       desc:g.items.length+' item(s)',
       amount:g.total,id:g.jid,account:'Driver advance'});
   });
-  allScoped('fuel').forEach(f=>rows.push({jid:f.journey_id?String(f.journey_id):'none',kind:'fuel',lbl:'Fuel',cls:'b-blue',no:'FV-'+f.id,date:f.date,
+  all('fuel').forEach(f=>rows.push({jid:f.journey_id?String(f.journey_id):'none',kind:'fuel',lbl:'Fuel',cls:'b-blue',no:'FV-'+f.id,date:f.date,
     desc:'Fuel — '+(f.pump||'')+(f.litres?' ('+f.litres+' L)':''),amount:f.total_paisa,id:f.id,account:nm('accounts',f.account_id)}));
   const vkey='vouchers',vq=tfGet(vkey,'q'),vtypeF=tfGet(vkey,'type');
   const filtRows=rows.filter(r=>(!vtypeF||r.lbl===vtypeF)&&(!vq||tfTextMatch(vq,r.no,r.desc,r.account)));
@@ -7360,7 +7360,7 @@ function voucherPrint(kind,id){
   }else if(kind==='exp_trip'){
     const jid=parseInt(id,10)||null;
     const j=jid?byId('journeys',jid):null;
-    const items=allScoped('expenses').filter(e=>(e.journey_id||null)===jid&&e.type!=='driver_advance').sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
+    const items=all('expenses').filter(e=>(e.journey_id||null)===jid&&e.type!=='driver_advance').sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
     if(!items.length)return;
     title='Expense Voucher — Trip Total';
     no='EV-'+(j?j.trip_no:'LEGACY');date=items[items.length-1].date;
@@ -7371,7 +7371,7 @@ function voucherPrint(kind,id){
   }else if(kind==='adv_trip'){
     const jid=parseInt(id,10)||null;
     const j=jid?byId('journeys',jid):null;
-    const items=allScoped('expenses').filter(e=>(e.journey_id||null)===jid&&e.type==='driver_advance').sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
+    const items=all('expenses').filter(e=>(e.journey_id||null)===jid&&e.type==='driver_advance').sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
     if(!items.length)return;
     title='Driver Advance Voucher — Trip Total';
     no='AV-'+(j?j.trip_no:'LEGACY');date=items[items.length-1].date;
@@ -7387,7 +7387,7 @@ function voucherPrint(kind,id){
   }else if(kind==='fuel_trip'){
     const jid=parseInt(id,10)||null;
     const j=jid?byId('journeys',jid):null;
-    const items=allScoped('fuel').filter(f=>(f.journey_id||null)===jid).sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
+    const items=all('fuel').filter(f=>(f.journey_id||null)===jid).sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
     if(!items.length)return;
     title='Fuel Voucher — Trip Total';
     no='FV-'+(j?j.trip_no:'LEGACY');date=items[items.length-1].date;
@@ -7535,10 +7535,10 @@ function tripManifestPrint(jid){
   const oil=jOilFilter(jid).slice().sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
   const agentLoads=loads.filter(t=>t.agent_id!=null&&t.agent_cost_paisa>0);
   const tripIdSet=new Set(loads.map(t=>t.id));
-  const settledClaims=allScoped('claims').filter(c=>tripIdSet.has(c.trip_id)&&c.status==='settled'&&c.cost_bearer==='company')
+  const settledClaims=all('claims').filter(c=>tripIdSet.has(c.trip_id)&&c.status==='settled'&&c.cost_bearer==='company')
     .slice().sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
-  const ftReceived=allScoped('fueltransfers').filter(f=>f.to_journey_id==jid).slice().sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
-  const ftGiven=allScoped('fueltransfers').filter(f=>f.from_journey_id==jid).slice().sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
+  const ftReceived=all('fueltransfers').filter(f=>f.to_journey_id==jid).slice().sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
+  const ftGiven=all('fueltransfers').filter(f=>f.from_journey_id==jid).slice().sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
   const earning=jEarning(jid), expTotal=exps.reduce((s,e)=>s+(e.amount_paisa||0),0),
     advTotal=advs.reduce((s,a)=>s+(a.amount_paisa||0),0), advBalance=advTotal-expTotal,
     fuelTotal=fuel.reduce((s,f)=>s+(f.total_paisa||0),0),
@@ -7825,7 +7825,7 @@ function pageSettings(){
     <p class="small mut" style="margin-bottom:10px">"Quick click" accounts have no password — fine for a shared office device. "Username + Password"
     accounts require a real login — use this for staff working from different locations, and for any account (like Admin) that shouldn't be one click away for anyone at the device.
     This is a client-side check only (no server behind it), so treat it as a deterrent against casual access, not bank-grade security.</p>
-    ${allScoped('users').map((u,i)=>`<div class="rowline"><span><span class="avatar ${i%2?'gold':'navy'}">${esc(u.name[0])}</span>
+    ${all('users').map((u,i)=>`<div class="rowline"><span><span class="avatar ${i%2?'gold':'navy'}">${esc(u.name[0])}</span>
     <span style="margin-left:8px">${esc(u.name)} <span class="badge b-gray">${esc(enumLbl(USER_ROLES,u.role))}</span>${u.auth_mode==='password'?` <span class="badge b-blue">🔒 ${esc(u.username)}</span>`:''}</span></span>
     <span><button class="btn ghost sm" onclick="userForm(${u.id})">Edit</button> <button class="btn ghost sm" onclick="userDel(${u.id})">Delete</button></span></div>`).join('')}
     <div style="margin-top:10px"><button class="btn" onclick="userForm(null)">+ Add User</button></div>
@@ -7877,7 +7877,7 @@ function userSave(id){
   if(authMode==='password'){
     const uname=V('u_username');
     if(!uname){toast('Username is required for password login',true);return;}
-    const dup=allScoped('users').find(u=>u.username===uname&&u.id!==id);
+    const dup=all('users').find(u=>u.username===uname&&u.id!==id);
     if(dup){toast('That username is already in use',true);return;}
     obj.username=uname;
     const pass=V('u_password');
@@ -7924,7 +7924,7 @@ function resetData(){
 }
 function genTestBookings(){
   if(!can('settings')){toast('Not permitted',true);return;}
-  const custs=allScoped('customers');
+  const custs=all('customers');
   if(!custs.length){toast('Add at least one customer first (Master data → Customers)',true);return;}
   const cities=listVals('city');
   if(cities.length<2){toast('Add at least 2 cities first (Master data → Dropdown Lists)',true);return;}
@@ -7990,9 +7990,9 @@ function loginHero(){
     <div class="loadyar-tag">${esc(PRODUCT_TAGLINE)}</div>
     <!-- Removed UTN branding from login hero - this is neutral LoadYar login page for all tenants -->
     <div class="stats">
-      <div class="metric"><b>${allScoped('trips').length}</b>Bilties logged</div>
-      <div class="metric"><b>${allScoped('carriers').length}</b>Carriers</div>
-      <div class="metric"><b>${allScoped('customers').length}</b>Customers</div>
+      <div class="metric"><b>${all('trips').length}</b>Bilties logged</div>
+      <div class="metric"><b>${all('carriers').length}</b>Carriers</div>
+      <div class="metric"><b>${all('customers').length}</b>Customers</div>
     </div>
     <div class="clockline">${esc(topClockText())} · Powered by ${esc(PRODUCT_NAME)}</div>
   </div>`;
@@ -8023,7 +8023,7 @@ function loginHTML(){
     </div></div></div>`;
   }
 
-  const users=allScoped('users');
+  const users=all('users');
   const selUser=window._loginSelected!=null?byId('users',window._loginSelected):null;
   if(selUser){
     return `<div class="loginwrap">${loginHero()}<div class="login-card-side"><div class="loginbox">
