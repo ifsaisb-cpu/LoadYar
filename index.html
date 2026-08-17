@@ -310,7 +310,7 @@ td.actions .btn.sm:first-child{margin-left:0}
 <script>
 "use strict";
 /* ===== S1: constants, enums, permissions ===== */
-const APP_VER='v4.225-20260817-2501'; // Phase 2.5: Login + Multi-Tenant
+const APP_VER='v4.225-20260817-2502'; // Phase 2.5: Login + Branding Fix
 /* Phase 1 ledger (chart_of_accounts/journal_entries/journal_lines) live behind the scenes only —
    driver advances, trip expenses and fuel now post balanced entries via postEntry()/reverseEntry().
    Nothing on screen changed; this is the foundation for re-pointing totals in a later step. */
@@ -1595,7 +1595,6 @@ function login(uid){
   location.hash=defaultRoute(); render();
 }
 function toggleSection(sectionName){const collapsed=JSON.parse(localStorage.getItem('navCollapsed')||'{}');collapsed[sectionName]=!collapsed[sectionName];localStorage.setItem('navCollapsed',JSON.stringify(collapsed));render();}
-function logout(){state.user=null;window._loginSelected=null;sessionStorage.removeItem('mucrm_uid');location.hash='';render();}
 function defaultRoute(){return state.user&&state.user.role==='admin'?'#/dashboard':'#/trips';}
 
 /* router */
@@ -1686,7 +1685,7 @@ function render(){
   app.innerHTML=`
   <div class="shell">
     <nav class="side">
-      <div class="brand"><img src="${UTN_LOGO_3D}" alt="${esc(CO_NAME)}" class="brand-logo"><span class="ver">TMS CRM · MVP ${APP_VER}</span></div>
+      <div class="brand"><img src="${UTN_LOGO_3D}" alt="" class="brand-logo"><span class="ver">${state.tenant?esc(state.tenant.name):'LoadYar'} · MVP ${APP_VER}</span></div>
       ${navHTML}
       <div class="side-copy"><span class="powered">Powered by ${esc(PRODUCT_NAME)}</span>© ${new Date().getFullYear()} Dreamers. All rights reserved.</div>
     </nav>
@@ -7975,14 +7974,7 @@ function loginHero(){
     <div class="mark">↗</div>
     <div class="loadyar-mark"><span class="ly-load">Load</span><span class="ly-yar">Yar</span></div>
     <div class="loadyar-tag">${esc(PRODUCT_TAGLINE)}</div>
-    <div class="workspace-wrap">
-      <img src="${UTN_LOGO_3D}" alt="${esc(CO_NAME)} logo" class="utn-logo">
-      <div class="client-block">
-        <div class="client-lbl">Client workspace</div>
-        <h1>${esc(CO_NAME)}</h1>
-        <div class="tag">Car carrier &amp; logistics operations</div>
-      </div>
-    </div>
+    <!-- Removed UTN branding from login hero - this is neutral LoadYar login page for all tenants -->
     <div class="stats">
       <div class="metric"><b>${all('trips').length}</b>Bilties logged</div>
       <div class="metric"><b>${all('carriers').length}</b>Carriers</div>
@@ -7998,8 +7990,6 @@ function loginHTML(){
     const tenants=all('tenants').filter(t=>t.status==='active');
     if(!u||tenants.length===0){return '<div class="loginwrap">Error loading tenants</div>';}
     return `<div class="loginwrap">${loginHero()}<div class="login-card-side"><div class="loginbox">
-    <img src="${UTN_LOGO_3D}" alt="" class="card-logo">
-    <h1>${esc(CO_NAME)}</h1>
     <div class="sub">Select your workspace</div>
     <div class="userbtn" style="cursor:default;margin-bottom:14px">
       <span class="av navy">${esc(u.name[0])}</span>
@@ -8023,8 +8013,6 @@ function loginHTML(){
   const selUser=window._loginSelected!=null?byId('users',window._loginSelected):null;
   if(selUser){
     return `<div class="loginwrap">${loginHero()}<div class="login-card-side"><div class="loginbox">
-    <img src="${UTN_LOGO_3D}" alt="" class="card-logo">
-    <h1>${esc(CO_NAME)}</h1>
     <div class="sub">Transport operations — <span class="vtag">MVP ${APP_VER}</span></div>
     <div class="userbtn" style="cursor:default">
       <span class="av navy">${esc(selUser.name[0])}</span>
@@ -8041,9 +8029,8 @@ function loginHTML(){
     </div></div></div>`;
   }
   return `<div class="loginwrap">${loginHero()}<div class="login-card-side"><div class="loginbox">
-  <img src="${UTN_LOGO_3D}" alt="" class="card-logo">
-  <h1>${esc(CO_NAME)}</h1>
-  <div class="sub">Transport operations — <span class="vtag">MVP ${APP_VER}</span>. Choose a user to sign in.</div>
+  <h1>LoadYar</h1>
+  <div class="sub">Transport management — <span class="vtag">MVP ${APP_VER}</span>. Choose a user to sign in.</div>
   <div class="frow full"><label style="color:rgba(255,255,255,.75)">User</label>
     <select id="login_user_select" onkeydown="if(event.key==='Enter')loginSelectContinue()">
       <option value="">— Select your name —</option>
@@ -8103,7 +8090,6 @@ function login(uid,tenantId){
 }
 // PHASE 2.5: Logout function
 function logout(){
-  if(!confirm('Sign out? You will need to log in again.'))return;
   state.user=null;
   state.tenant=null;
   sessionStorage.removeItem('mucrm_uid');
@@ -8111,7 +8097,8 @@ function logout(){
   window._loginSelected=null;
   window._loginUserId=null;
   window._showTenantSelection=false;
-  toast('Signed out successfully');
+  location.hash='';
+  toast('Signed out');
   render();
 }
 /* Live clock in the topbar — set up once at boot, not inside render(), since render() runs on
