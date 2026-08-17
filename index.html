@@ -2869,14 +2869,10 @@ function gatePassForm(){
     <div class="frow"><label>Transporter code</label><input id="gp_transcode"></div>
     <div class="frow full"><label><input type="checkbox" id="gp_open_market" onchange="gpRefreshRows()" style="width:auto;margin-right:6px">Private / Open market (no company rate agreement — set freight myself)</label></div>
   </div>
-  <hr style="margin:16px 0;border:0;border-top:1px solid var(--line)">
-  <h3 style="font-size:14px;margin-bottom:12px">Vehicle Rows</h3>
-  <div id="gp_table_container" style="max-height:400px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;margin-bottom:12px">
-    <div class="tblwrap" style="margin:0;border:none;border-radius:0"><table><thead style="position:sticky;top:0;background:var(--bg);z-index:10"><tr>
-      <th>Destination</th><th>Consignee / dealer</th><th>Vehicle code</th><th>Chassis #</th><th>Engine #</th><th>Colour</th>
-      <th>Freight (PKR)</th><th>Clearing agent</th><th>Clearing cost (PKR)</th><th></th>
-    </tr></thead><tbody id="gpRows"></tbody></table></div>
-  </div>
+  <div class="tblwrap" style="margin:10px 0"><table><thead><tr>
+    <th>Destination</th><th>Consignee / dealer</th><th>Vehicle code</th><th>Chassis #</th><th>Engine #</th><th>Colour</th>
+    <th>Freight (PKR)</th><th>Clearing agent</th><th>Clearing cost (PKR)</th><th></th>
+  </tr></thead><tbody id="gpRows"></tbody></table></div>
   <button class="btn ghost sm" onclick="gpAddRow()">+ Add vehicle row</button>
   <div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button>
   <button class="btn" onclick="gpSaveAll()">Save all bilties</button></div>`,true);
