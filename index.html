@@ -310,7 +310,8 @@ td.actions .btn.sm:first-child{margin-left:0}
 <script>
 "use strict";
 /* ===== S1: constants, enums, permissions ===== */
-const APP_VER='v4.225-20260817-2505'; // Phase 2.5: Complete Data Scoping
+const APP_VER='v4.225-20260817-2506'; // Phase 2.5: Security Hardening
+const SESSION_TIMEOUT_MS=30*60*1000; // 30 minutes inactivity timeout (Phase 2.5)
 /* Phase 1 ledger (chart_of_accounts/journal_entries/journal_lines) live behind the scenes only —
    driver advances, trip expenses and fuel now post balanced entries via postEntry()/reverseEntry().
    Nothing on screen changed; this is the foundation for re-pointing totals in a later step. */
@@ -1665,6 +1666,23 @@ function navItems(){
 function render(){
   closeModal();
   const app=document.getElementById('app');
+
+  // Phase 2.5: Check session timeout (30 min inactivity)
+  if(state.user){
+    const lastActivityTime=parseInt(sessionStorage.getItem('lastActivityTime')||'0',10);
+    const now=Date.now();
+    if(lastActivityTime && (now-lastActivityTime)>SESSION_TIMEOUT_MS){
+      state.user=null;
+      state.tenant=null;
+      sessionStorage.removeItem('mucrm_uid');
+      sessionStorage.removeItem('mucrm_tid');
+      sessionStorage.removeItem('lastActivityTime');
+      toast('Session expired due to inactivity. Please log in again.');
+    } else {
+      sessionStorage.setItem('lastActivityTime',String(now)); // Update activity timestamp
+    }
+  }
+
   if(!state.user){app.innerHTML=loginHTML();return;}
   const h=location.hash||defaultRoute();
   const parts=h.replace(/^#\//,'').split('/');
