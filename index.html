@@ -100,7 +100,8 @@ label{display:block;font-size:12.5px;font-weight:600;color:var(--mut);margin:0 0
 .welcome-banner .nm{color:var(--acc);font-weight:700}
 .agedot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px}
 table{width:100%;border-collapse:collapse;background:var(--card)}
-.tblwrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:16px}
+.tblwrap{overflow-x:auto !important;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:16px !important;height:auto !important;min-height:150px !important;display:block !important}
+.tblwrap table{display:table !important;width:100% !important;table-layout:fixed}
 th{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
 /* Tables scroll sideways, so nothing needs to break mid-value — a trip number, a date or a
    name split across two lines is what made rows ragged and tall. Cells holding real prose opt
@@ -310,7 +311,7 @@ td.actions .btn.sm:first-child{margin-left:0}
 <script>
 "use strict";
 /* ===== S1: constants, enums, permissions ===== */
-const APP_VER='v4.225-20260817-2509'; // Fix: Bulk Gate Pass modal width and height
+const APP_VER='v4.225-20260817-2512'; // Fix: Aggressive CSS for table display with !important
 const SESSION_TIMEOUT_MS=30*60*1000; // 30 minutes inactivity timeout (Phase 2.5)
 /* Phase 1 ledger (chart_of_accounts/journal_entries/journal_lines) live behind the scenes only —
    driver advances, trip expenses and fuel now post balanced entries via postEntry()/reverseEntry().
