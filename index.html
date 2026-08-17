@@ -1348,6 +1348,8 @@ function seedDB(){
   const tenantTestB=a('tenants',{name:'Test Client B',slug:'test_b',status:'active',region:'Lahore',contact_email:'test@b.local'});
 
   // users (with tenant_id for multi-tenant scoping)
+  // Super Admin — can see all tenants (tenant_id = null)
+  a('users',{name:'LoadYar Super Admin',role:'admin',auth_mode:'password',username:'superadmin',password_hash:simpleHash('SuperAdmin@2026'),tenant_id:null});
   a('users',{name:'Ali (Admin)',role:'admin',tenant_id:tenantUTN.id});
   a('users',{name:'Dispatcher — Karachi Pipri',role:'dispatcher',auth_mode:'password',username:'kpipri',password_hash:simpleHash('KPipri@2026'),tenant_id:tenantUTN.id});
   a('users',{name:'Dispatcher — Hyderabad',role:'dispatcher',auth_mode:'password',username:'hyderabad',password_hash:simpleHash('Hyderabad@2026'),tenant_id:tenantUTN.id});
@@ -8106,7 +8108,9 @@ function loginHTML(){
   // PHASE 2.5: Tenant selection screen
   if(window._showTenantSelection){
     const u=byId('users',window._loginUserId);
-    const tenants=all('tenants').filter(t=>t.status==='active');
+    // Super admin (tenant_id=null) sees all tenants; regular admin sees only their tenant
+    let tenants=all('tenants').filter(t=>t.status==='active');
+    if(u&&u.tenant_id!==null){tenants=tenants.filter(t=>t.id===u.tenant_id);}
     if(!u||tenants.length===0){return '<div class="loginwrap">Error loading tenants</div>';}
     return `<div class="loginwrap">${loginHero()}<div class="login-card-side"><div class="loginbox">
     <div class="sub">Select your workspace</div>
