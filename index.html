@@ -310,7 +310,7 @@ td.actions .btn.sm:first-child{margin-left:0}
 <script>
 "use strict";
 /* ===== S1: constants, enums, permissions ===== */
-const APP_VER='v4.225-20260817-2502'; // Phase 2.5: Login + Branding Fix
+const APP_VER='v4.225-20260817-2503'; // Phase 2.5: User Management
 /* Phase 1 ledger (chart_of_accounts/journal_entries/journal_lines) live behind the scenes only —
    driver advances, trip expenses and fuel now post balanced entries via postEntry()/reverseEntry().
    Nothing on screen changed; this is the foundation for re-pointing totals in a later step. */
@@ -1628,6 +1628,7 @@ const ROUTES={
   agents:{cap:'master',fn:()=>pageEnt('agents'),title:'Clearing Agents'},
   glaccountsmgmt:{cap:'master',fn:()=>pageEnt('chart_of_accounts'),title:'GL Accounts'},
   lists:{cap:'master',fn:()=>pageListOpts(),title:'Dropdown Lists'},
+  users:{cap:'settings',fn:()=>pageEnt('users'),title:'Users'},
   settings:{cap:'settings',fn:()=>pageSettings(),title:'Settings & Backup'}
 };
 function navItems(){
@@ -1657,7 +1658,7 @@ function navItems(){
   if(can('master'))items.push(['SEP','Master data'],['#/customers','Customers'],['#/agreements','Rate Agreements'],
     ['#/carriers','Carriers'],['#/drivers','Drivers'],['#/vendors','Vendors'],['#/agents','Clearing Agents'],
     ['#/glaccountsmgmt','GL Accounts'],['#/lists','Dropdown Lists']);
-  if(can('settings'))items.push(['SEP',''],['#/settings','Settings & Backup']);
+  if(can('settings'))items.push(['SEP',''],['#/users','Users'],['#/settings','Settings & Backup']);
   return items;
 }
 function render(){
@@ -1841,7 +1842,16 @@ const ENTITIES={
     {k:'name',l:'Account name',t:'text',req:1,hint:'e.g. Cash & Bank, Accounts Payable, Freight Revenue'},
     {k:'type',l:'Account type',t:'select',opts:COA_TYPES,req:1},
     {k:'is_control',l:'Is control account (summary level)',t:'checkbox',hint:'Check if this account is a subtotal/category for GL reporting'}],
-   cols:[['code','Code'],['name','Account Name'],['type','Type',['enum',COA_TYPES]],['is_control','Control']]}
+   cols:[['code','Code'],['name','Account Name'],['type','Type',['enum',COA_TYPES]],['is_control','Control']]},
+  users:{title:'Users',sing:'User',fields:[
+    {k:'name',l:'Full name',t:'text',req:1},
+    {k:'email',l:'Email',t:'email'},
+    {k:'role',l:'Role',t:'select',opts:ROLES,req:1},
+    {k:'auth_mode',l:'Authentication',t:'select',opts:[['no_pwd','No password'],['password','Password required']],req:1},
+    {k:'password_hash',l:'Password',t:'password',hint:'Leave blank to keep existing password'},
+    {k:'status',l:'Status',t:'select',opts:[['active','Active'],['inactive','Inactive']],req:1}],
+   cols:[['name','Name'],['email','Email'],['role','Role',['enum',ROLES]],['status','Status',['enum',[['active','Active'],['inactive','Inactive']]]]],
+   transform:(vals)=>{if(vals.password_hash){vals.password_hash=simpleHash(vals.password_hash);}}}
 };
 /* rate agreements: CSV bulk import; customers: attach rate file */
 ENTITIES.agreements.headExtra=()=>`<button class="btn ghost" onclick="csvTemplate()">CSV template</button>
@@ -2166,8 +2176,10 @@ function pageEnt(coll){
   </tbody></table></div>`;
 }
 function entForm(coll,id,pre){
-  if(!can('master')){toast('Not permitted',true);return;}
+  const cap=coll==='users'?'settings':'master';
+  if(!can(cap)){toast('Not permitted',true);return;}
   const E=ENTITIES[coll], rec=id?byId(coll,id):Object.assign({},pre||{});
+  if(coll==='users'&&!id){rec.tenant_id=state.tenant.id;rec.status='active';rec.auth_mode='password';}
   openModal(`<h2>${id?'Edit':'New'} ${esc(E.sing)}</h2>
   <div class="fgrid">${E.fields.map(f=>fieldInput(f,rec[f.k])).join('')}</div>
   <div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button>
@@ -2177,6 +2189,7 @@ function entSave(coll,id){
   const E=ENTITIES[coll], vals=readFields(E.fields);
   if(!vals)return;
   if(E.transform)E.transform(vals);
+  if(coll==='users'&&!id){vals.tenant_id=state.tenant.id;}
   const rec=id?upd(coll,id,vals):add(coll,vals);
   if(coll==='accounts')postAccountOpeningBalance(rec);
   toast(E.sing+' saved');render();
