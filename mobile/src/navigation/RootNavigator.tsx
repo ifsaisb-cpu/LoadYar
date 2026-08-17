@@ -11,6 +11,9 @@ import TripsScreen from '../screens/main/TripsScreen';
 import TripDetailScreen from '../screens/main/TripDetailScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
 import SettingsScreen from '../screens/main/SettingsScreen';
+import ChecklistScreen from '../screens/main/ChecklistScreen';
+import ExpenseScreen from '../screens/main/ExpenseScreen';
+import LocationTrackingScreen from '../screens/main/LocationTrackingScreen';
 
 export type RootStackParamList = {
   Auth: undefined;
@@ -25,6 +28,9 @@ export type AuthStackParamList = {
 export type MainStackParamList = {
   TripsTab: undefined;
   TripDetail: { tripId: number };
+  Checklist: { tripId: number };
+  Expenses: { tripId: number };
+  LocationTracking: { tripId: number };
   ProfileTab: undefined;
   SettingsTab: undefined;
 };
@@ -74,6 +80,27 @@ function TripsNavigator() {
         component={TripDetailScreen}
         options={{
           title: 'Trip Details',
+        }}
+      />
+      <MainStack.Screen
+        name="Checklist"
+        component={ChecklistScreen}
+        options={{
+          title: 'Vehicle Checklist',
+        }}
+      />
+      <MainStack.Screen
+        name="Expenses"
+        component={ExpenseScreen}
+        options={{
+          title: 'Trip Expenses',
+        }}
+      />
+      <MainStack.Screen
+        name="LocationTracking"
+        component={LocationTrackingScreen}
+        options={{
+          title: 'GPS Tracking',
         }}
       />
     </MainStack.Navigator>
