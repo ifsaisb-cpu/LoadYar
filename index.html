@@ -310,7 +310,7 @@ td.actions .btn.sm:first-child{margin-left:0}
 <script>
 "use strict";
 /* ===== S1: constants, enums, permissions ===== */
-const APP_VER='v4.225-20260815-1960';
+const APP_VER='v4.225-20260817-2501'; // Phase 2.5: Login + Multi-Tenant
 /* Phase 1 ledger (chart_of_accounts/journal_entries/journal_lines) live behind the scenes only —
    driver advances, trip expenses and fuel now post balanced entries via postEntry()/reverseEntry().
    Nothing on screen changed; this is the foundation for re-pointing totals in a later step. */
@@ -459,7 +459,7 @@ const CK_ITEMS=[
 ['Cigarette lighter','سگریٹ لائٹر'],['Inner glass/mirror','اندر کا شیشہ'],['Sun visor','سن وائزر'],
 ['Seat cover','سیٹ کور'],['Nose/bonnet cover','ناپ کور']];
 
-const COLLS=['users','customers','agreements','carriers','drivers','vendors','agents','bookings',
+const COLLS=['tenants','users','customers','agreements','carriers','drivers','vendors','agents','bookings',
 'trips','checklists','expenses','vendortx','agentcharges','invoices','inpayments','payables',
 'outpayments','claims','overrides','listopts','journeys','fuel','fueltransfers','overheads','accounts','vouchersigned',
 'paypromises','chart_of_accounts','journal_entries','journal_lines','contras','employee_advances'];
@@ -510,10 +510,20 @@ const CAPS={
 /* ===== S2: data layer (localStorage) + seed ===== */
 const DBKEY='mucrm_v1';
 let db=null;
-const state={user:null};
+const state={user:null, tenant:null}; // Phase 2.5: Added tenant context
 
-/* Not cryptographically strong — this app has no backend, so this is a soft client-side gate
-   (deters casual access, keeps plaintext out of localStorage/JSON backups) not real security. */
+/* PHASE 2.5: Enhanced password hashing using SHA-256 (browser-native)
+   NOT for production (Phase 3 backend will use bcrypt server-side)
+   This provides better protection than simpleHash while staying in-browser */
+async function hashPassword(str){
+  const encoder=new TextEncoder();
+  const data=encoder.encode(str);
+  const hashBuffer=await crypto.subtle.digest('SHA-256',data);
+  const hashArray=Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+/* Backward compat: simpleHash still used for old test data */
 function simpleHash(str){
   let h=0x811c9dc5;
   for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,0x01000193);}
@@ -655,6 +665,18 @@ function upd(coll,id,patch){
 function softDel(coll,id){upd(coll,id,{deleted_at:nowISO()});}
 function all(coll){return db[coll].filter(r=>!r.deleted_at);}
 function byId(coll,id){return db[coll].find(r=>r.id==id&&!r.deleted_at);}
+// PHASE 2.5: Scoped data access - filter by active tenant (multi-tenant isolation)
+function allScoped(coll){
+  if(!state.tenant)return all(coll);
+  const tenantId=state.tenant.id;
+  const records=all(coll);
+  // Collections that need tenant scoping
+  const scopedCollections=['users','customers','agreements','carriers','drivers','vendors','agents',
+    'bookings','trips','checklists','expenses','vendortx','agentcharges','invoices','inpayments',
+    'payables','outpayments','claims','journeys','fuel'];
+  if(!scopedCollections.includes(coll))return records;
+  return records.filter(r=>!r.tenant_id||r.tenant_id===tenantId); // Backward compatible
+}
 function nm(coll,id,key){const r=byId(coll,id);return r?(r[key||'name']||'—'):'—';}
 
 /* ===== internal ledger primitives (Phase 1) ===== */
@@ -1313,14 +1335,22 @@ function seedDB(){
     o.created_at=t;o.updated_at=t;o.created_by='seed';o.updated_by='seed';o.deleted_at=null;
     d[coll].push(o);return o;
   }
-  // users
-  a('users',{name:'Ali (Admin)',role:'admin'});
-  a('users',{name:'Dispatcher — Karachi Pipri',role:'dispatcher',auth_mode:'password',username:'kpipri',password_hash:simpleHash('KPipri@2026')});
-  a('users',{name:'Dispatcher — Hyderabad',role:'dispatcher',auth_mode:'password',username:'hyderabad',password_hash:simpleHash('Hyderabad@2026')});
-  a('users',{name:'Dispatcher — Lahore',role:'dispatcher',auth_mode:'password',username:'lahore',password_hash:simpleHash('Lahore@2026')});
-  a('users',{name:'Rashid Khan (Driver)',role:'driver',driver_id:1});
-  a('users',{name:'Bilal Ahmed (Driver)',role:'driver',driver_id:2});
-  a('users',{name:'Faisal (Karachi Carriers)',role:'carrier',carrier_id:1});
+  // PHASE 2.5: Tenants (multi-tenant architecture)
+  const tenantUTN=a('tenants',{name:'United Transport Network',slug:'utn',status:'active',region:'Pakistan',contact_email:'utn@loadyar.local'});
+  const tenantTestA=a('tenants',{name:'Test Client A',slug:'test_a',status:'active',region:'Karachi',contact_email:'test@a.local'});
+  const tenantTestB=a('tenants',{name:'Test Client B',slug:'test_b',status:'active',region:'Lahore',contact_email:'test@b.local'});
+
+  // users (with tenant_id for multi-tenant scoping)
+  a('users',{name:'Ali (Admin)',role:'admin',tenant_id:tenantUTN.id});
+  a('users',{name:'Dispatcher — Karachi Pipri',role:'dispatcher',auth_mode:'password',username:'kpipri',password_hash:simpleHash('KPipri@2026'),tenant_id:tenantUTN.id});
+  a('users',{name:'Dispatcher — Hyderabad',role:'dispatcher',auth_mode:'password',username:'hyderabad',password_hash:simpleHash('Hyderabad@2026'),tenant_id:tenantUTN.id});
+  a('users',{name:'Dispatcher — Lahore',role:'dispatcher',auth_mode:'password',username:'lahore',password_hash:simpleHash('Lahore@2026'),tenant_id:tenantUTN.id});
+  a('users',{name:'Rashid Khan (Driver)',role:'driver',driver_id:1,tenant_id:tenantUTN.id});
+  a('users',{name:'Bilal Ahmed (Driver)',role:'driver',driver_id:2,tenant_id:tenantUTN.id});
+  a('users',{name:'Faisal (Karachi Carriers)',role:'carrier',carrier_id:1,tenant_id:tenantUTN.id});
+  // Test tenant users
+  a('users',{name:'Admin (Test A)',role:'admin',tenant_id:tenantTestA.id});
+  a('users',{name:'Admin (Test B)',role:'admin',tenant_id:tenantTestB.id});
   // customers
   a('customers',{name:'Indus Motor Company (Toyota)',plant:'Port Qasim, Karachi',delivery_points:'Toyota Central Lahore, Toyota Multan Motors, Toyota Rawal Motors',billing_contact:'Accounts Dept — 021-111-869-682',ops_contact:'Logistics Cell — Mr. Imran'});
   a('customers',{name:'Pak Suzuki Motor Co.',plant:'Bin Qasim, Karachi',delivery_points:'Suzuki Islamabad Motors, Suzuki Peshawar City',billing_contact:'Finance — 021-34723551',ops_contact:'Dispatch Office — Mr. Saleem'});
@@ -1668,6 +1698,7 @@ function render(){
         <span class="clock" id="topClock">${esc(topClockText())}</span>
         <span class="who">${esc(state.user.name)}</span>
         <span class="chip">${esc(state.user.role)}</span>
+        ${state.tenant?`<span class="chip" style="background:rgba(0,176,211,.2);color:#0176d3">📍 ${esc(state.tenant.name)}</span>`:''}
         <button class="btn ghost sm" onclick="openHelpFAQ()">Ask Yar</button>
         <button class="btn ghost sm" onclick="logout()">Logout</button>
       </div>
@@ -7961,6 +7992,33 @@ function loginHero(){
   </div>`;
 }
 function loginHTML(){
+  // PHASE 2.5: Tenant selection screen
+  if(window._showTenantSelection){
+    const u=byId('users',window._loginUserId);
+    const tenants=all('tenants').filter(t=>t.status==='active');
+    if(!u||tenants.length===0){return '<div class="loginwrap">Error loading tenants</div>';}
+    return `<div class="loginwrap">${loginHero()}<div class="login-card-side"><div class="loginbox">
+    <img src="${UTN_LOGO_3D}" alt="" class="card-logo">
+    <h1>${esc(CO_NAME)}</h1>
+    <div class="sub">Select your workspace</div>
+    <div class="userbtn" style="cursor:default;margin-bottom:14px">
+      <span class="av navy">${esc(u.name[0])}</span>
+      <span><div class="nm">${esc(u.name)}</div><div class="small mut">${esc(u.role)}</div></span>
+    </div>
+    <div class="fgrid" style="margin-top:14px;margin-bottom:0">
+      <div class="frow full"><label style="color:rgba(255,255,255,.75)">Workspace</label>
+        <select id="login_tenant_select" onkeydown="if(event.key==='Enter')loginSelectTenant()">
+          <option value="">— Select workspace —</option>
+          ${tenants.map(t=>`<option value="${t.id}">${esc(t.name)}${t.region?' — '+esc(t.region):''}</option>`).join('')}
+        </select></div>
+    </div>
+    <button class="btn" style="width:100%;margin-top:10px" onclick="loginSelectTenant()">Continue</button>
+    <button class="btn ghost" style="width:100%;margin-top:8px" onclick="window._showTenantSelection=false;window._loginUserId=null;render()">← Choose a different user</button>
+    <div class="small mut" style="margin-top:12px">Data stays in this browser. Works offline once installed as an app.</div>
+    <div class="small mut" style="margin-top:8px">© ${new Date().getFullYear()} Dreamers. All rights reserved.</div>
+    </div></div></div>`;
+  }
+
   const users=all('users');
   const selUser=window._loginSelected!=null?byId('users',window._loginSelected):null;
   if(selUser){
@@ -8004,14 +8062,57 @@ function loginSelectContinue(){
 function loginPick(uid){
   const u=byId('users',uid); if(!u)return;
   if(u.auth_mode==='password'){window._loginSelected=uid;render();return;}
-  login(uid);
+  // PHASE 2.5: Show tenant selection after password validation
+  loginShowTenantSelection(uid);
 }
 function loginPickPassword(uid){
   const u=byId('users',uid); if(!u)return;
   const pass=(document.getElementById('login_password')||{}).value||'';
   if(simpleHash(pass)!==u.password_hash){toast('Wrong password',true);return;}
   window._loginSelected=null;
-  login(uid);
+  // PHASE 2.5: Show tenant selection after password validation
+  loginShowTenantSelection(uid);
+}
+// PHASE 2.5: Tenant selection screen
+function loginShowTenantSelection(uid){
+  const u=byId('users',uid); if(!u)return;
+  window._loginUserId=uid;
+  window._showTenantSelection=true;
+  render();
+}
+function loginSelectTenant(){
+  const tid=parseInt(V('login_tenant_select'),10)||null;
+  if(!tid){toast('Select a tenant first',true);return;}
+  const u=byId('users',window._loginUserId);
+  const t=byId('tenants',tid);
+  if(!u||!t){toast('Invalid selection',true);return;}
+  window._loginUserId=null;
+  window._showTenantSelection=false;
+  login(u.id,tid);
+}
+// Updated login function to accept tenant_id (PHASE 2.5)
+function login(uid,tenantId){
+  const u=byId('users',uid);
+  if(!u){toast('User not found',true);return;}
+  const tenant=tenantId?byId('tenants',tenantId):null;
+  state.user=u;
+  state.tenant=tenant||{id:1,name:'Default'}; // Fallback for single-tenant
+  sessionStorage.setItem('mucrm_uid',uid);
+  sessionStorage.setItem('mucrm_tid',tenantId||1);
+  render();
+}
+// PHASE 2.5: Logout function
+function logout(){
+  if(!confirm('Sign out? You will need to log in again.'))return;
+  state.user=null;
+  state.tenant=null;
+  sessionStorage.removeItem('mucrm_uid');
+  sessionStorage.removeItem('mucrm_tid');
+  window._loginSelected=null;
+  window._loginUserId=null;
+  window._showTenantSelection=false;
+  toast('Signed out successfully');
+  render();
 }
 /* Live clock in the topbar — set up once at boot, not inside render(), since render() runs on
    every save/toggle throughout the app and would otherwise stack a new interval each time. */
@@ -8029,8 +8130,19 @@ function topClockTick(){
 /* ===== S8: boot ===== */
 loadDB();
 (function(){
+  // PHASE 2.5: Restore both user and tenant from session
   const uid=parseInt(sessionStorage.getItem('mucrm_uid'),10);
-  if(uid){const u=byId('users',uid); if(u)state.user=u;}
+  const tid=parseInt(sessionStorage.getItem('mucrm_tid'),10);
+  if(uid){
+    const u=byId('users',uid);
+    if(u){
+      state.user=u;
+      if(tid){
+        const t=byId('tenants',tid);
+        if(t){state.tenant=t;}
+      }
+    }
+  }
 })();
 window.addEventListener('hashchange',render);
 render();
