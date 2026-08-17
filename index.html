@@ -155,8 +155,8 @@ td.actions .btn.sm:first-child{margin-left:0}
 
 /* modal */
 .overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:4vh 12px;overflow-y:auto}
-.modal{background:#fff;border-radius:14px;padding:20px;width:100%;max-width:70%;max-height:75vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25)}
-.modal.wide{max-width:75%}
+.modal{background:#fff;border-radius:14px;padding:20px;width:100%;max-width:70%;max-height:85vh;display:flex;flex-direction:column;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.modal.wide{max-width:90%}
 .modal h2{font-size:17px;margin-bottom:14px}
 .modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 
@@ -310,7 +310,7 @@ td.actions .btn.sm:first-child{margin-left:0}
 <script>
 "use strict";
 /* ===== S1: constants, enums, permissions ===== */
-const APP_VER='v4.225-20260817-2508'; // Phase 2.5: Tenant-scoped Settings & Backup
+const APP_VER='v4.225-20260817-2509'; // Fix: Bulk Gate Pass modal width and height
 const SESSION_TIMEOUT_MS=30*60*1000; // 30 minutes inactivity timeout (Phase 2.5)
 /* Phase 1 ledger (chart_of_accounts/journal_entries/journal_lines) live behind the scenes only —
    driver advances, trip expenses and fuel now post balanced entries via postEntry()/reverseEntry().
