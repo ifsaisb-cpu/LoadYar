@@ -7874,7 +7874,10 @@ function userForm(id){
   if(!can('settings')){toast('Not permitted',true);return;}
   const rec=id?byId('users',id):{role:'dispatcher',auth_mode:'click'};
   if(id&&!rec){toast('Not found',true);return;}
-  openModal(`<h2>${id?'Edit User':'+ Add User'}</h2>
+  const isEdit=!!id;
+  const tenantName=state.tenant?state.tenant.name:'Unknown Tenant';
+  openModal(`<h2>${isEdit?'Edit User':'+ Add User'}</h2>
+  <div class="small mut" style="margin-bottom:12px">👤 Tenant: <b>${esc(tenantName)}</b> (users created here belong to this tenant only)</div>
   <div class="fgrid">
     <div class="frow full"><label class="req">Name</label><input id="u_name" value="${esc(rec.name||'')}"></div>
     <div class="frow"><label class="req">Role</label><select id="u_role" onchange="userRoleToggle()">${optHTML(USER_ROLES,rec.role)}</select></div>
@@ -7906,6 +7909,7 @@ function userSave(id){
   if(!can('settings')){toast('Not permitted',true);return;}
   const name=V('u_name'),role=V('u_role'),authMode=V('u_auth_mode');
   if(!name){toast('Name is required',true);return;}
+  if(!state.tenant&&!id){toast('No tenant context — cannot create users without a selected tenant',true);return;}
   const obj={name:name,role:role,auth_mode:authMode,
     driver_id:role==='driver'?(parseInt(V('u_driver_id'),10)||null):null,
     carrier_id:role==='carrier'?(parseInt(V('u_carrier_id'),10)||null):null};
@@ -7921,6 +7925,8 @@ function userSave(id){
   }else{
     obj.username=null;obj.password_hash=null;
   }
+  // Set tenant_id for new users (ensuring they belong to current tenant)
+  if(!id){obj.tenant_id=state.tenant.id;}
   if(id)upd('users',id,obj);else add('users',obj);
   toast('User saved');closeModal();render();
 }
