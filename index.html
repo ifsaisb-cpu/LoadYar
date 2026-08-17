@@ -310,7 +310,7 @@ td.actions .btn.sm:first-child{margin-left:0}
 <script>
 "use strict";
 /* ===== S1: constants, enums, permissions ===== */
-const APP_VER='v4.225-20260817-2507'; // Phase 2.5: Tenant Management UI
+const APP_VER='v4.225-20260817-2508'; // Phase 2.5: Tenant-scoped Settings & Backup
 const SESSION_TIMEOUT_MS=30*60*1000; // 30 minutes inactivity timeout (Phase 2.5)
 /* Phase 1 ledger (chart_of_accounts/journal_entries/journal_lines) live behind the scenes only —
    driver advances, trip expenses and fuel now post balanced entries via postEntry()/reverseEntry().
@@ -7803,8 +7803,10 @@ function geminiKeyClear(){
   toast('Key removed'); render();
 }
 function pageSettings(){
-  const counts=COLLS.filter(c=>!LEDGER_COLLS.includes(c)).map(c=>[c,all(c).length]).filter(x=>x[1]>0);
+  const counts=COLLS.filter(c=>!LEDGER_COLLS.includes(c)).map(c=>[c,allScoped(c).length]).filter(x=>x[1]>0);
   const hasKey=!!geminiKey();
+  const isAdmin=can('settings');
+  const backupScope=isAdmin?'(all tenants — admin access)':'(current tenant only)';
   return `<div class="pagehead"><h1>Settings &amp; Backup</h1></div>
   <div class="card accent"><h2>Document scanning (Gemini API)</h2>
     <p class="small mut" style="margin-bottom:10px">Used by "Scan document" buttons (e.g. Bulk Gate Pass Entry) to read vehicle data
@@ -7822,8 +7824,8 @@ function pageSettings(){
   </div>
   <div class="card"><h2>Data</h2>
     <p class="small mut" style="margin-bottom:10px">All data lives in this browser (localStorage). Export regularly as a backup,
-    and use import to move data to another device. This MVP has no server — any login (see Users &amp; Logins below) is a client-side check only, not real server-backed authentication.</p>
-    <button class="btn" onclick="exportData()">⬇ Export backup (JSON)</button>
+    and use import to move data to another device. ${isAdmin?'As an admin, your backup includes all tenants\' data.':'Your backup is scoped to your current tenant only — other clients\' data is not included.'} This MVP has no server — any login (see Users &amp; Logins below) is a client-side check only, not real server-backed authentication.</p>
+    <button class="btn" onclick="exportData()">⬇ Export backup (JSON) ${backupScope}</button>
     <label class="btn ghost" style="display:inline-block">⬆ Import backup
       <input type="file" accept=".json,application/json" style="display:none" onchange="importData(this)"></label>
     <div class="dangerzone">
@@ -7923,30 +7925,82 @@ function userDel(id){
   toast('User deleted');render();
 }
 function exportData(){
-  const blob=new Blob([JSON.stringify(db,null,1)],{type:'application/json'});
+  const isAdmin=can('settings');
+  const tenantId=state.tenant?.id;
+  let exportDb;
+  if(isAdmin){
+    exportDb=db;
+  }else{
+    if(!tenantId){toast('No tenant selected',true);return;}
+    exportDb={seq:db.seq||{}};
+    const scopedCollections=['users','customers','agreements','carriers','drivers','vendors','agents',
+      'trips','checklists','expenses','vendortx','agentcharges','invoices','inpayments',
+      'payables','outpayments','claims','journeys','fuel','employee_advances','fueltransfers',
+      'contras','paypromises'];
+    scopedCollections.forEach(coll=>{
+      const filtered=all(coll).filter(r=>!r.tenant_id||r.tenant_id===tenantId);
+      if(filtered.length>0)exportDb[coll]=filtered;
+    });
+  }
+  const blob=new Blob([JSON.stringify(exportDb,null,1)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download='mucrm-backup-'+today()+'.json';
+  const suffix=isAdmin?'all-tenants':'tenant-'+tenantId;
+  a.download='mucrm-backup-'+suffix+'-'+today()+'.json';
   a.click();
   URL.revokeObjectURL(a.href);
-  toast('Backup downloaded');
+  toast('Backup downloaded'+(isAdmin?' (all tenants)':' (current tenant only)'));
 }
 function importData(inp){
   const f=inp.files[0]; if(!f)return;
+  const isAdmin=can('settings');
+  const tenantId=state.tenant?.id;
   const r=new FileReader();
   r.onload=()=>{
     try{
       const d=JSON.parse(r.result);
       if(!d.seq||!d.trips||!d.users)throw new Error('bad');
-      db=d; saveDB(); toast('Data imported'); render();
+      if(isAdmin){
+        db=d;
+      }else{
+        if(!tenantId){toast('No tenant selected',true);return;}
+        db.seq=d.seq||db.seq;
+        const scopedCollections=['users','customers','agreements','carriers','drivers','vendors','agents',
+          'trips','checklists','expenses','vendortx','agentcharges','invoices','inpayments',
+          'payables','outpayments','claims','journeys','fuel','employee_advances','fueltransfers',
+          'contras','paypromises'];
+        scopedCollections.forEach(coll=>{
+          if(d[coll]){
+            const existing=all(coll).filter(r=>!r.tenant_id||r.tenant_id!==tenantId);
+            const imported=d[coll].filter(r=>!r.tenant_id||r.tenant_id===tenantId);
+            db[coll]=[...existing,...imported];
+          }
+        });
+      }
+      saveDB(); toast('Data imported'+(isAdmin?' (all tenants)':' (current tenant only)')); render();
     }catch(e){toast('Invalid backup file',true);}
   };
   r.readAsText(f);
 }
 function resetData(){
-  if(!confirm('Reset ALL data to the demo seed? Current data in this browser will be lost.'))return;
-  db=seedDB(); saveDB(); state.user=byId('users',state.user?state.user.id:1)||null;
-  toast('Demo data restored'); render();
+  const isAdmin=can('settings');
+  const msg=isAdmin?'Reset ALL data to the demo seed? Current data in this browser will be lost.':
+    'Reset '+state.tenant.name+'\'s data to the demo seed? Current data will be lost.';
+  if(!confirm(msg))return;
+  if(isAdmin){
+    db=seedDB();
+  }else{
+    const tenantId=state.tenant.id;
+    const WIPE=['users','customers','agreements','carriers','drivers','vendors','agents',
+      'trips','checklists','expenses','vendortx','agentcharges','invoices','inpayments',
+      'payables','outpayments','claims','journeys','fuel','employee_advances','fueltransfers','contras','paypromises'];
+    WIPE.forEach(c=>{
+      db[c]=db[c].filter(r=>r.tenant_id&&r.tenant_id!==tenantId);
+      if(!db.seq)db.seq={};
+    });
+  }
+  saveDB(); state.user=byId('users',state.user?state.user.id:1)||null;
+  toast('Demo data restored'+(isAdmin?' for all tenants':' for '+state.tenant.name)); render();
 }
 function genTestBookings(){
   if(!can('settings')){toast('Not permitted',true);return;}
@@ -7985,21 +8039,41 @@ function genTestBookings(){
   render();
 }
 function wipeTransactions(){
-  if(!confirm('This clears all bookings, bilties/trips, journeys, expenses, fuel, invoices, payables, claims, checklists and related records in this browser — keeping your customers, carriers, drivers, vendors, clearing agents and rate agreements intact.\n\nA full backup will download automatically first, just in case.\n\nContinue?'))return;
+  const isAdmin=can('settings');
+  const scope=isAdmin?'all tenants':state.tenant.name;
+  if(!confirm('This clears all bookings, bilties/trips, journeys, expenses, fuel, invoices, payables, claims, checklists and related records ('+scope+') — keeping your customers, carriers, drivers, vendors, clearing agents and rate agreements intact.\n\nA full backup will download automatically first, just in case.\n\nContinue?'))return;
   exportData();
-  const WIPE=['bookings','trips','checklists','expenses','vendortx','agentcharges','invoices','inpayments','payables','outpayments','claims','overrides','journeys','fuel','fueltransfers','overheads','vouchersigned','journal_entries','journal_lines','contras','paypromises'];
-  WIPE.forEach(c=>{ db[c]=[]; db.seq[c]=0; });
+  const tenantId=state.tenant?.id;
+  const WIPE=['trips','checklists','expenses','vendortx','agentcharges','invoices','inpayments','payables','outpayments','claims','journeys','fuel','fueltransfers','contras','paypromises'];
+  if(isAdmin){
+    WIPE.forEach(c=>{ db[c]=[]; db.seq[c]=0; });
+    db.overrides=[];
+    db.overheads=[];
+    db.vouchersigned=[];
+    db.journal_entries=[];
+    db.journal_lines=[];
+  }else{
+    WIPE.forEach(c=>{ db[c]=db[c].filter(r=>r.tenant_id&&r.tenant_id!==tenantId); });
+  }
   saveDB();
-  toast('Backup downloaded — bookings/trips cleared, master data kept');
+  toast('Backup downloaded — bookings/trips cleared ('+scope+'), master data kept');
   render();
 }
 function wipeToBlank(){
-  if(!confirm('This permanently erases ALL business data in this browser — customers, rate agreements, carriers, drivers, vendors, bookings, bilties, trips, expenses, fuel, invoices, payables, claims, everything — keeping only the login users, dropdown lists and default accounts.\n\nA full backup will download automatically first, just in case.\n\nContinue?'))return;
+  const isAdmin=can('settings');
+  const scope=isAdmin?'all tenants':state.tenant.name;
+  if(!confirm('This permanently erases ALL business data ('+scope+') — customers, rate agreements, carriers, drivers, vendors, bookings, bilties, trips, expenses, fuel, invoices, payables, claims, everything — keeping only the login users, dropdown lists and default accounts.\n\nA full backup will download automatically first, just in case.\n\nContinue?'))return;
   exportData();
-  const KEEP=['users','listopts','accounts','chart_of_accounts'];
-  COLLS.forEach(c=>{ if(!KEEP.includes(c)){ db[c]=[]; db.seq[c]=0; } });
+  const tenantId=state.tenant?.id;
+  const KEEP=['users','listopts','accounts','chart_of_accounts','tenants'];
+  if(isAdmin){
+    COLLS.forEach(c=>{ if(!KEEP.includes(c)){ db[c]=[]; if(db.seq)db.seq[c]=0; } });
+  }else{
+    const WIPE=['customers','agreements','carriers','drivers','vendors','agents','trips','checklists','expenses','vendortx','agentcharges','invoices','inpayments','payables','outpayments','claims','journeys','fuel','employee_advances','fueltransfers','contras','paypromises'];
+    WIPE.forEach(c=>{ db[c]=db[c].filter(r=>r.tenant_id&&r.tenant_id!==tenantId); });
+  }
   saveDB();
-  toast('Backup downloaded — all business data cleared, starting from a clean slate');
+  toast('Backup downloaded — all business data ('+scope+') cleared, starting from a clean slate');
   render();
 }
 
