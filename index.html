@@ -100,9 +100,12 @@ label{display:block;font-size:12.5px;font-weight:600;color:var(--mut);margin:0 0
 .welcome-banner .nm{color:var(--acc);font-weight:700}
 .agedot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px}
 table{width:100%;border-collapse:collapse;background:var(--card)}
-.tblwrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:16px;visibility:visible !important}
-.tblwrap table{visibility:visible !important}
-.tblwrap thead, .tblwrap tbody, .tblwrap tr, .tblwrap th, .tblwrap td{visibility:visible !important;display:revert !important}
+.tblwrap{overflow-x:auto !important;background:var(--card) !important;border:1px solid var(--line) !important;border-radius:12px;margin-bottom:16px;display:block !important;width:100% !important;min-height:100px !important}
+.tblwrap table{display:table !important;width:100% !important}
+thead{display:table-header-group !important}
+tbody{display:table-row-group !important}
+tr{display:table-row !important}
+th, td{display:table-cell !important}
 th{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
 /* Tables scroll sideways, so nothing needs to break mid-value — a trip number, a date or a
    name split across two lines is what made rows ragged and tall. Cells holding real prose opt
@@ -312,7 +315,7 @@ td.actions .btn.sm:first-child{margin-left:0}
 <script>
 "use strict";
 /* ===== S1: constants, enums, permissions ===== */
-const APP_VER='v4.225-20260817-2515'; // Fix: visibility:visible and display:revert for table
+const APP_VER='v4.225-20260817-2517'; // Fix: Aggressive CSS with !important for table display
 const SESSION_TIMEOUT_MS=30*60*1000; // 30 minutes inactivity timeout (Phase 2.5)
 /* Phase 1 ledger (chart_of_accounts/journal_entries/journal_lines) live behind the scenes only —
    driver advances, trip expenses and fuel now post balanced entries via postEntry()/reverseEntry().
@@ -2866,10 +2869,14 @@ function gatePassForm(){
     <div class="frow"><label>Transporter code</label><input id="gp_transcode"></div>
     <div class="frow full"><label><input type="checkbox" id="gp_open_market" onchange="gpRefreshRows()" style="width:auto;margin-right:6px">Private / Open market (no company rate agreement — set freight myself)</label></div>
   </div>
-  <div class="tblwrap" style="margin:10px 0"><table><thead><tr>
-    <th>Destination</th><th>Consignee / dealer</th><th>Vehicle code</th><th>Chassis #</th><th>Engine #</th><th>Colour</th>
-    <th>Freight (PKR)</th><th>Clearing agent</th><th>Clearing cost (PKR)</th><th></th>
-  </tr></thead><tbody id="gpRows"></tbody></table></div>
+  <hr style="margin:16px 0;border:0;border-top:1px solid var(--line)">
+  <h3 style="font-size:14px;margin-bottom:12px">Vehicle Rows</h3>
+  <div id="gp_table_container" style="max-height:400px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;margin-bottom:12px">
+    <div class="tblwrap" style="margin:0;border:none;border-radius:0"><table><thead style="position:sticky;top:0;background:var(--bg);z-index:10"><tr>
+      <th>Destination</th><th>Consignee / dealer</th><th>Vehicle code</th><th>Chassis #</th><th>Engine #</th><th>Colour</th>
+      <th>Freight (PKR)</th><th>Clearing agent</th><th>Clearing cost (PKR)</th><th></th>
+    </tr></thead><tbody id="gpRows"></tbody></table></div>
+  </div>
   <button class="btn ghost sm" onclick="gpAddRow()">+ Add vehicle row</button>
   <div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button>
   <button class="btn" onclick="gpSaveAll()">Save all bilties</button></div>`,true);
