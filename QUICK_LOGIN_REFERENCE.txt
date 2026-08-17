@@ -1,0 +1,121 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                     LoadYar Multi-Tenant Login Reference                    ║
+║                                                                              ║
+║ Test URL: http://192.168.100.48:8471 or http://localhost:8471              ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+═══════════════════════════════════════════════════════════════════════════════
+ QUICK TEST SCENARIOS
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─ SCENARIO 1: Super Admin Views All Tenants ──────────────────────────────┐
+│                                                                             │
+│ User: LoadYar Super Admin                                                   │
+│ Password: SuperAdmin@2026                                                   │
+│ Expected Workspaces: 3 (UTN + Test A + Test B)                             │
+│ Can Access: All tenant data after selecting workspace                       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─ SCENARIO 2: UTN Admin Limited to Own Tenant ─────────────────────────────┐
+│                                                                             │
+│ User: Ali (Admin)                                                           │
+│ Password: [None - no password needed]                                       │
+│ Expected Workspaces: 1 (UTN only)                                           │
+│ Can Access: Only United Transport Network data                              │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─ SCENARIO 3: Dispatcher with Password ────────────────────────────────────┐
+│                                                                             │
+│ User: Dispatcher — Karachi Pipri                                            │
+│ Password: KPipri@2026                                                       │
+│ Expected Workspaces: 1 (UTN only)                                           │
+│ Can Access: Trips & Expenses (no admin/reports)                             │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─ SCENARIO 4: Client Admin (Test A) ───────────────────────────────────────┐
+│                                                                             │
+│ User: Admin (Test A)                                                        │
+│ Password: [None - no password needed]                                       │
+│ Expected Workspaces: 1 (Test Client A only)                                 │
+│ Can Access: Only Test A data (currently empty)                              │
+│ Cannot See: UTN data, Test B data                                           │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+ ALL TEST USERS
+═══════════════════════════════════════════════════════════════════════════════
+
+🔑 LOADYAR PLATFORM (All Tenants)
+├─ LoadYar Super Admin      | Pass: SuperAdmin@2026
+│
+
+🏢 UNITED TRANSPORT NETWORK (UTN)
+├─ Ali (Admin)              | No password
+├─ Dispatcher Karachi       | Pass: KPipri@2026
+├─ Dispatcher Hyderabad     | Pass: Hyderabad@2026
+├─ Dispatcher Lahore        | Pass: Lahore@2026
+├─ Rashid Khan (Driver)     | No password
+├─ Bilal Ahmed (Driver)     | No password
+└─ Faisal (Carrier)         | No password
+
+🏢 TEST CLIENT A
+└─ Admin (Test A)           | No password
+
+🏢 TEST CLIENT B
+└─ Admin (Test B)           | No password
+
+═══════════════════════════════════════════════════════════════════════════════
+ DATA ISOLATION VERIFICATION
+═══════════════════════════════════════════════════════════════════════════════
+
+LOGIN AS ALI (UTN Admin):
+  ✓ Can see: Bookings, Trips (bilty MU-2026-0001, 50435)
+  ✓ Can see: Customers (Indus, Pak Suzuki, Honda)
+  ✓ Can see: Invoices (INV-2026-0001)
+  ✗ Cannot see: Test A/B data
+
+LOGIN AS ADMIN (Test A):
+  ✓ Dashboard shows empty (no data seeded yet)
+  ✗ Cannot see: UTN trips, customers, invoices
+  ✗ Cannot see: Test B data
+
+═══════════════════════════════════════════════════════════════════════════════
+ VERIFICATION CHECKLIST
+═══════════════════════════════════════════════════════════════════════════════
+
+[ ] 1. Super admin password works (SuperAdmin@2026)
+[ ] 2. Super admin sees 3 workspaces in selector
+[ ] 3. Regular admin (Ali) sees 1 workspace only
+[ ] 4. Test A admin cannot see Test B or UTN data
+[ ] 5. Dispatcher can only access trips/expenses
+[ ] 6. Driver can only see own trips
+[ ] 7. Each tenant's data is completely isolated
+[ ] 8. Tenant context (state.tenant) is set correctly
+[ ] 9. URL navigation respects tenant context
+[ ] 10. Settings & Backup shows only current tenant's config
+
+═══════════════════════════════════════════════════════════════════════════════
+ NEXT STEPS
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ Phase 2.5 Complete:
+   - Multi-tenant login system
+   - Workspace/tenant selection
+   - Data isolation by tenant_id
+   - Super admin with platform access
+   - Regular admin limited to own tenant
+
+⏳ Phase 3 (User Creation UI):
+   - Build user creation form in Settings
+   - Add bulk import from CSV
+   - Add password reset
+   - Add audit log
+   - Add 2FA for super admin
+
+════════════════════════════════════════════════════════════════════════════════
+Last Updated: 2026-08-17 | Status: READY FOR TESTING
+════════════════════════════════════════════════════════════════════════════════
