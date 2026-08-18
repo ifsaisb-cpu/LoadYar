@@ -74,14 +74,24 @@ jobs:
         run: npm ci
 
       - name: Setup test database
-        working-directory: ./backend
         env:
-          DB_HOST: localhost
-          DB_PORT: 5432
-          DB_USER: test
-          DB_PASSWORD: test
-          DB_NAME: loadyar_test
-        run: npm run migration:run
+          PGHOST: localhost
+          PGPORT: 5432
+          PGUSER: test
+          PGPASSWORD: test
+          PGDATABASE: loadyar_test
+        run: |
+          # Wait for PostgreSQL to be ready
+          until pg_isready -h localhost -U test; do
+            echo "Waiting for PostgreSQL..."
+            sleep 1
+          done
+
+          # Run migrations
+          for f in backend/src/database/migrations/*.sql; do
+            echo "Running migration: $f"
+            psql -f "$f"
+          done
 
       - name: Run unit tests
         working-directory: ./backend
