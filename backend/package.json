@@ -16,8 +16,8 @@
     "test:cov": "jest --coverage",
     "typeorm": "typeorm",
     "migration:generate": "typeorm migration:generate",
-    "migration:run": "typeorm migration:run",
-    "migration:revert": "typeorm migration:revert",
+    "migration:run": "ts-node -O '{\"module\":\"commonjs\"}' src/database/run-migrations.ts",
+    "migration:revert": "typeorm migration:revert -d src/database/data-source.ts",
     "seed:run": "ts-node src/database/seeds/index.ts",
     "lint": "eslint \"src/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" --fix"
