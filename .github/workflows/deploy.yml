@@ -12,19 +12,21 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
-    - name: Install doctl
+    - name: Install and authenticate doctl
       uses: digitalocean/action-doctl@v2
       with:
         token: ${{ secrets.DIGITALOCEAN_TOKEN }}
 
-    - name: Build and push to DigitalOcean
+    - name: Create DigitalOcean App
       run: |
-        doctl apps create --spec app.yaml --wait
+        set -e
+        echo "Deploying LoadYar to DigitalOcean..."
+        doctl apps create --spec app.yaml --wait --format id,default_ingress,status
+        echo "✅ Deployment successful!"
 
-    - name: Verify deployment
+    - name: Get app details
       run: |
-        echo "LoadYar deployed to DigitalOcean! 🚀"
-        echo "API: https://api.loadyar.pk"
-        echo "Web: https://app.loadyar.pk"
+        echo "LoadYar is now live! 🚀"
+        doctl apps list --format name,id,status
