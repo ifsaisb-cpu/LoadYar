@@ -1,0 +1,30 @@
+name: Deploy to DigitalOcean
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Install doctl
+      uses: digitalocean/action-doctl@v2
+      with:
+        token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+
+    - name: Build and push to DigitalOcean
+      run: |
+        doctl apps create --spec app.yaml --wait
+
+    - name: Verify deployment
+      run: |
+        echo "LoadYar deployed to DigitalOcean! 🚀"
+        echo "API: https://api.loadyar.pk"
+        echo "Web: https://app.loadyar.pk"

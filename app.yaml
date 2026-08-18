@@ -1,0 +1,44 @@
+name: loadyar
+services:
+- name: api
+  github:
+    repo: United-Transport-Network/loadyar
+    branch: main
+    deploy_on_push: true
+  build_command: npm install && npm run build
+  run_command: npm run start:prod
+  envs:
+  - key: NODE_ENV
+    value: production
+  - key: DATABASE_URL
+    scope: RUN_AND_BUILD_TIME
+    value: ${db.connection_string}
+  - key: PORT
+    value: "3001"
+  - key: CORS_ORIGIN
+    value: http://localhost:3000,https://app.loadyar.pk
+  http_port: 3001
+  health_check:
+    http_path: /health
+  source_dir: backend
+
+- name: web
+  github:
+    repo: United-Transport-Network/loadyar
+    branch: main
+    deploy_on_push: true
+  build_command: cd frontend && npm install && npm run build
+  run_command: npm run preview -- --host 0.0.0.0
+  envs:
+  - key: VITE_API_BASE_URL
+    value: https://api.loadyar.pk/api/v1
+  - key: VITE_WEBSOCKET_URL
+    value: https://api.loadyar.pk
+  http_port: 5173
+  source_dir: frontend
+
+databases:
+- name: db
+  engine: PG
+  version: "15"
+  production: true
