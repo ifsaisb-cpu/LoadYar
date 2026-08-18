@@ -5,6 +5,9 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
+# Install build dependencies for native modules
+RUN apk add --no-cache python3 make g++
+
 # Install dependencies
 COPY package*.json ./
 RUN npm ci
@@ -30,9 +33,13 @@ RUN addgroup -g 1001 -S nodejs && \
 # Copy package files
 COPY package*.json ./
 
+# Install build dependencies for native modules
+RUN apk add --no-cache python3 make g++
+
 # Install only production dependencies
 RUN npm ci --omit=dev && \
-    npm cache clean --force
+    npm cache clean --force && \
+    apk del python3 make g++
 
 # Copy built application from builder
 COPY --from=builder /app/dist ./dist
