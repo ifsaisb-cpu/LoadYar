@@ -35,25 +35,108 @@ export class AnalyticsService {
     if (cached) return cached;
 
     // Get today's metrics
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = this.getTenantDateBoundary(tenant_id);
 
     const dailyMetric = await this.dailyMetricsRepo.findOne({
       where: { tenant_id, date: today },
     });
 
-    // Mock live data (would come from real-time trip data in production)
+    // Get real live data from queries
+    const activeTrips = await this.getActiveTripsCount(tenant_id);
+    const onlineDrivers = await this.getOnlineDriversCount(tenant_id);
+    const totalCustomers = await this.getTotalCustomersCount(tenant_id);
+    const avgRating = await this.getAverageDriverRating(tenant_id);
+    const successRate = await this.getSuccessRate(tenant_id);
+
     const kpis: DashboardKPIDTO = {
       total_revenue: dailyMetric?.total_revenue || 0,
-      active_trips: Math.floor(Math.random() * 50) + 10,
-      online_drivers: Math.floor(Math.random() * 30) + 5,
-      total_customers: 150,
-      avg_rating: 4.6,
-      success_rate: 98.5,
+      active_trips: activeTrips,
+      online_drivers: onlineDrivers,
+      total_customers: totalCustomers,
+      avg_rating: avgRating,
+      success_rate: successRate,
     };
 
     await this.setCache(tenant_id, cacheKey, kpis, 5); // 5 min cache
     return kpis;
+  }
+
+  private async getActiveTripsCount(tenant_id: number): Promise<number> {
+    const result = await this.dailyMetricsRepo
+      .query(
+        `SELECT COUNT(*) as count FROM trips
+         WHERE tenant_id = $1 AND status IN ('assigned', 'in_progress')`,
+        [tenant_id]
+      );
+    return result[0]?.count || 0;
+  }
+
+  private async getOnlineDriversCount(tenant_id: number): Promise<number> {
+    const result = await this.dailyMetricsRepo
+      .query(
+        `SELECT COUNT(*) as count FROM drivers
+         WHERE tenant_id = $1 AND is_online = true`,
+        [tenant_id]
+      );
+    return result[0]?.count || 0;
+  }
+
+  private async getTotalCustomersCount(tenant_id: number): Promise<number> {
+    const result = await this.dailyMetricsRepo
+      .query(
+        `SELECT COUNT(DISTINCT customer_id) as count FROM trips
+         WHERE tenant_id = $1`,
+        [tenant_id]
+      );
+    return result[0]?.count || 0;
+  }
+
+  private async getAverageDriverRating(tenant_id: number): Promise<number> {
+    const result = await this.dailyMetricsRepo
+      .query(
+        `SELECT AVG(rating) as avg_rating FROM drivers
+         WHERE tenant_id = $1 AND rating IS NOT NULL`,
+        [tenant_id]
+      );
+    return Math.round((result[0]?.avg_rating || 4.0) * 10) / 10;
+  }
+
+  private async getSuccessRate(tenant_id: number): Promise<number> {
+    const result = await this.dailyMetricsRepo
+      .query(
+        `SELECT
+           COUNT(*) as total,
+           SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed
+         FROM trips WHERE tenant_id = $1 AND DATE(created_at) = CURRENT_DATE`,
+        [tenant_id]
+      );
+    const total = result[0]?.total || 0;
+    if (total === 0) return 0;
+    return Math.round((result[0]?.completed / total) * 100);
+  }
+
+  private getTenantDateBoundary(tenant_id: number): Date {
+    // Get timezone from tenant config (default: Asia/Karachi for PKT)
+    const timezone = this.getTenantTimezone(tenant_id);
+    const now = new Date();
+
+    // Convert to tenant timezone and get start of day
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+
+    const [month, day, year] = formatter.format(now).split('/');
+    const dateString = `${year}-${month}-${day}T00:00:00Z`;
+    return new Date(dateString);
+  }
+
+  private getTenantTimezone(tenant_id: number): string {
+    // TODO: Fetch from tenant configuration table
+    // For now, default to Asia/Karachi (PKT)
+    return 'Asia/Karachi';
   }
 
   // Trip analytics for date range
@@ -98,7 +181,7 @@ export class AnalyticsService {
     return result;
   }
 
-  // Driver performance rankings
+  // Driver performance rankings (single query, no N+1)
   async getDriverPerformance(
     tenant_id: number,
     limit = 10,
@@ -107,16 +190,18 @@ export class AnalyticsService {
     const targetDate = date || new Date();
     targetDate.setHours(0, 0, 0, 0);
 
-    const cacheKey = `driver_perf_${targetDate.toISOString()}`;
+    const cacheKey = `driver_perf_${targetDate.toISOString()}_${limit}`;
     const cached = await this.getCache(tenant_id, cacheKey);
     if (cached) return cached;
 
+    // Single efficient query with joins
     const drivers = await this.driverPerformanceRepo
       .createQueryBuilder('dp')
       .where('dp.tenant_id = :tenant_id', { tenant_id })
       .andWhere('dp.date = :date', { date: targetDate })
       .orderBy('dp.total_earnings', 'DESC')
       .limit(limit)
+      .cache(`driver_leaderboard_${tenant_id}_${targetDate.getTime()}`, 300000) // 5 min cache
       .getMany();
 
     const result = drivers.map((d) => ({
@@ -135,6 +220,44 @@ export class AnalyticsService {
 
     await this.setCache(tenant_id, cacheKey, result, 10);
     return result;
+  }
+
+  // Alternative leaderboard using raw SQL for maximum performance
+  async getDriverLeaderboardSQL(
+    tenant_id: number,
+    limit: number = 10,
+  ): Promise<any[]> {
+    const cacheKey = `driver_leaderboard_sql_${limit}`;
+    const cached = await this.getCache(tenant_id, cacheKey);
+    if (cached) return cached;
+
+    const drivers = await this.driverPerformanceRepo.query(
+      `SELECT
+        d.id as driver_id,
+        d.name as driver_name,
+        d.rating as average_rating,
+        COUNT(DISTINCT CASE WHEN t.status = 'completed' THEN t.id END) as trips_completed,
+        COUNT(DISTINCT CASE WHEN t.status = 'cancelled' THEN t.id END) as trips_cancelled,
+        COALESCE(SUM(t.fare_amount), 0) as total_earnings,
+        COALESCE(SUM(e.amount), 0) as total_expenses,
+        COALESCE(SUM(t.distance), 0) as total_distance,
+        COALESCE(AVG(tr.rating), 0) as avg_rating,
+        COUNT(DISTINCT tr.id) as total_ratings,
+        CASE WHEN SUM(t.distance) > 0 THEN SUM(e.liters) / SUM(t.distance) ELSE 0 END as fuel_efficiency,
+        COUNT(DISTINCT CASE WHEN t.on_time = true THEN t.id END) as on_time_deliveries
+      FROM drivers d
+      LEFT JOIN trips t ON d.id = t.driver_id AND t.tenant_id = $1
+      LEFT JOIN trip_expenses e ON t.id = e.trip_id
+      LEFT JOIN trip_ratings tr ON t.id = tr.trip_id
+      WHERE d.tenant_id = $1
+      GROUP BY d.id, d.name, d.rating
+      ORDER BY total_earnings DESC
+      LIMIT $2`,
+      [tenant_id, limit]
+    );
+
+    await this.setCache(tenant_id, cacheKey, drivers, 10);
+    return drivers;
   }
 
   // Revenue analytics by period

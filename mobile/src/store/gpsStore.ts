@@ -12,19 +12,24 @@ export interface LocationData {
   timestamp: number;
 }
 
+type TrackingMode = 'active' | 'assigned' | 'idle' | 'off';
+
 interface GpsStore {
   currentLocation: LocationData | null;
   isTracking: boolean;
+  trackingMode: TrackingMode;
   trackingHistory: LocationData[];
   lastError: string | null;
 
   setCurrentLocation: (location: LocationData | null) => void;
   setIsTracking: (tracking: boolean) => void;
+  setTrackingMode: (mode: TrackingMode) => void;
   addToHistory: (location: LocationData) => void;
   setLastError: (error: string | null) => void;
 
-  startTracking: () => Promise<void>;
+  startTracking: (mode?: TrackingMode) => Promise<void>;
   stopTracking: () => void;
+  setTripStatus: (status: 'in_progress' | 'assigned' | 'completed' | 'idle') => Promise<void>;
   requestLocationPermission: () => Promise<boolean>;
   saveTrackingHistory: () => Promise<void>;
   loadTrackingHistory: () => Promise<void>;
@@ -36,11 +41,13 @@ let locationSubscription: Location.LocationSubscription | null = null;
 export const useGpsStore = create<GpsStore>((set, get) => ({
   currentLocation: null,
   isTracking: false,
+  trackingMode: 'off',
   trackingHistory: [],
   lastError: null,
 
   setCurrentLocation: (location) => set({ currentLocation: location }),
   setIsTracking: (tracking) => set({ isTracking: tracking }),
+  setTrackingMode: (mode) => set({ trackingMode: mode }),
   addToHistory: (location) => {
     const history = get().trackingHistory;
     const newHistory = [...history, location];
@@ -67,37 +74,56 @@ export const useGpsStore = create<GpsStore>((set, get) => ({
     }
   },
 
-  startTracking: async () => {
+  startTracking: async (mode: TrackingMode = 'active') => {
     try {
       const hasPermission = await get().requestLocationPermission();
       if (!hasPermission) return;
 
-      set({ isTracking: true, lastError: null });
+      set({ isTracking: true, trackingMode: mode, lastError: null });
 
-      // High accuracy location updates every 5 seconds
       if (locationSubscription) {
         locationSubscription.remove();
       }
 
-      locationSubscription = await Location.watchPositionAsync(
-        {
+      // Adaptive GPS settings based on tracking mode
+      const trackingConfig = {
+        active: {
           accuracy: Location.Accuracy.High,
           timeInterval: 5000, // 5 seconds
           distanceInterval: 10, // 10 meters
         },
-        (location) => {
-          const locationData: LocationData = {
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-            altitude: location.coords.altitude || 0,
-            accuracy: location.coords.accuracy || 0,
-            speed: location.coords.speed || 0,
-            heading: location.coords.heading || 0,
-            timestamp: location.timestamp,
-          };
+        assigned: {
+          accuracy: Location.Accuracy.Balanced,
+          timeInterval: 30000, // 30 seconds
+          distanceInterval: 50, // 50 meters
+        },
+        idle: {
+          accuracy: Location.Accuracy.Low,
+          timeInterval: 120000, // 2 minutes
+          distanceInterval: 200, // 200 meters
+        },
+        off: null,
+      };
 
-          set({ currentLocation: locationData });
-          get().addToHistory(locationData);
+      const config = trackingConfig[mode];
+      if (!config) {
+        set({ isTracking: false });
+        return;
+      }
+
+      locationSubscription = await Location.watchPositionAsync(config, (location) => {
+        const locationData: LocationData = {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          altitude: location.coords.altitude || 0,
+          accuracy: location.coords.accuracy || 0,
+          speed: location.coords.speed || 0,
+          heading: location.coords.heading || 0,
+          timestamp: location.timestamp,
+        };
+
+        set({ currentLocation: locationData });
+        get().addToHistory(locationData);
         },
       );
     } catch (error) {
@@ -111,7 +137,27 @@ export const useGpsStore = create<GpsStore>((set, get) => ({
       locationSubscription.remove();
       locationSubscription = null;
     }
-    set({ isTracking: false });
+    set({ isTracking: false, trackingMode: 'off' });
+  },
+
+  setTripStatus: async (status: 'in_progress' | 'assigned' | 'completed' | 'idle') => {
+    // Adaptive GPS tracking based on trip status
+    // Reduces battery drain by using lower accuracy and longer intervals when not actively delivering
+    switch (status) {
+      case 'in_progress':
+        // Active delivery: high accuracy, 5-second intervals
+        await get().startTracking('active');
+        break;
+      case 'assigned':
+        // Waiting for pickup: balanced accuracy, 30-second intervals
+        await get().startTracking('assigned');
+        break;
+      case 'completed':
+      case 'idle':
+        // Not on trip: stop GPS completely or low-frequency polling
+        get().stopTracking();
+        break;
+    }
   },
 
   saveTrackingHistory: async () => {

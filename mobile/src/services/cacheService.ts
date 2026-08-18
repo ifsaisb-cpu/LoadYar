@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 
 export interface CacheEntry<T> {
   key: string;
@@ -52,10 +53,11 @@ class CacheService {
   }
 
   /**
-   * Get from cache (memory first, then persistent)
+   * Get from cache (memory first, then persistent, then async storage)
+   * No promotion to prevent memory duplication
    */
   async get<T>(key: string): Promise<T | null> {
-    // Check memory cache
+    // Check memory cache only
     const memEntry = this.memoryCache.entries.get(key);
     if (memEntry) {
       if (this.isExpired(memEntry)) {
@@ -67,7 +69,7 @@ class CacheService {
       }
     }
 
-    // Check persistent cache
+    // Check persistent cache only (don't promote)
     const persEntry = this.persistentCache.entries.get(key);
     if (persEntry) {
       if (this.isExpired(persEntry)) {
@@ -76,28 +78,34 @@ class CacheService {
       } else {
         persEntry.hits++;
         this.hits++;
-
-        // Promote to memory cache for faster access
-        this.memoryCache.entries.set(key, persEntry);
         return persEntry.value as T;
       }
     }
 
-    // Try AsyncStorage directly
+    // Try AsyncStorage directly (fallback only, no promotion)
     try {
-      const stored = await AsyncStorage.getItem(`cache_${key}`);
+      const isSensitive = this.isSensitiveKey(key);
+      let stored: string | null = null;
+
+      if (isSensitive) {
+        try {
+          stored = await SecureStore.getItemAsync(`cache_${key}`);
+        } catch (error) {
+          console.warn(`SecureStore unavailable, falling back to AsyncStorage for ${key}`);
+          stored = await AsyncStorage.getItem(`cache_${key}`);
+        }
+      } else {
+        stored = await AsyncStorage.getItem(`cache_${key}`);
+      }
+
       if (stored) {
         const entry = JSON.parse(stored);
         if (!this.isExpired(entry)) {
           entry.hits++;
           this.hits++;
-
-          // Promote to both cache layers
-          this.memoryCache.entries.set(key, entry);
-          this.persistentCache.entries.set(key, entry);
           return entry.value as T;
         } else {
-          await AsyncStorage.removeItem(`cache_${key}`);
+          await this.deleteFromStorage(key, isSensitive);
         }
       }
     } catch (error) {
@@ -109,10 +117,17 @@ class CacheService {
   }
 
   /**
-   * Set cache entry (store in both layers)
+   * Set cache entry (store in layers with proper eviction)
    */
   async set<T>(key: string, value: T, ttlMs: number = 5 * 60 * 1000): Promise<void> {
     const size = this.estimateSize(value);
+
+    // Reject oversized entries to prevent cache bloat
+    if (size > this.memoryCache.maxSize / 2) {
+      console.warn(`Entry ${key} (${size} bytes) exceeds cache capacity, skipping`);
+      return;
+    }
+
     const entry: CacheEntry<T> = {
       key,
       value,
@@ -122,29 +137,63 @@ class CacheService {
       size,
     };
 
-    // Store in memory cache
-    if (this.canFitInCache(this.memoryCache, size)) {
-      this.memoryCache.entries.set(key, entry);
-    } else {
-      // Evict if necessary
+    // Store in memory cache with eviction loop
+    while (!this.canFitInCache(this.memoryCache, size)) {
       this.evictLRU(this.memoryCache);
-      this.memoryCache.entries.set(key, entry);
     }
+    this.memoryCache.entries.set(key, entry);
 
-    // Store in persistent cache
-    if (this.canFitInCache(this.persistentCache, size)) {
-      this.persistentCache.entries.set(key, entry);
-    } else {
+    // Store in persistent cache with eviction loop
+    while (!this.canFitInCache(this.persistentCache, size)) {
       this.evictLRU(this.persistentCache);
-      this.persistentCache.entries.set(key, entry);
     }
+    this.persistentCache.entries.set(key, entry);
 
-    // Persist to AsyncStorage
+    // Persist to storage (encryption for sensitive data)
     try {
-      await AsyncStorage.setItem(`cache_${key}`, JSON.stringify(entry));
+      const isSensitive = this.isSensitiveKey(key);
+      const storedEntry = { ...entry, encrypted: isSensitive };
+      const entryJson = JSON.stringify(storedEntry);
+
+      if (isSensitive) {
+        try {
+          await SecureStore.setItemAsync(`cache_${key}`, entryJson);
+        } catch (error) {
+          console.warn(`SecureStore unavailable, falling back to AsyncStorage for ${key}`);
+          await AsyncStorage.setItem(`cache_${key}`, entryJson);
+        }
+      } else {
+        await AsyncStorage.setItem(`cache_${key}`, entryJson);
+      }
     } catch (error) {
       console.error(`Failed to persist cache for ${key}:`, error);
     }
+  }
+
+  private async deleteFromStorage(key: string, isSensitive: boolean): Promise<void> {
+    try {
+      if (isSensitive) {
+        try {
+          await SecureStore.deleteItemAsync(`cache_${key}`);
+        } catch (error) {
+          await AsyncStorage.removeItem(`cache_${key}`);
+        }
+      } else {
+        await AsyncStorage.removeItem(`cache_${key}`);
+      }
+    } catch (error) {
+      console.error(`Failed to delete cache for ${key}:`, error);
+    }
+  }
+
+  private isSensitiveKey(key: string): boolean {
+    return key.includes('payment') ||
+           key.includes('transaction') ||
+           key.includes('token') ||
+           key.includes('auth') ||
+           key.includes('card') ||
+           key.includes('password') ||
+           key.includes('credential');
   }
 
   /**
@@ -296,20 +345,40 @@ class CacheService {
   }
 
   private evictLRU(layer: CacheLayer): void {
-    // Find least recently used entry (lowest hits + oldest timestamp)
+    // Find least recently used entry based on hit-weighted age
+    // Entries with few hits and old age are evicted first
     let lruKey: string | null = null;
     let lruScore = Infinity;
+    const now = Date.now();
 
     for (const [key, entry] of layer.entries) {
-      const score = entry.hits + (Date.now() - entry.timestamp) / 1000;
-      if (score < lruScore) {
+      // Age in seconds
+      const ageSeconds = (now - entry.timestamp) / 1000;
+      // Score: prioritize old entries with few hits
+      // Higher age = higher score (more likely to evict)
+      // Lower hits = higher score (less valuable)
+      const score = ageSeconds / Math.max(1, entry.hits);
+
+      if (score > lruScore) {
         lruScore = score;
         lruKey = key;
       }
     }
 
     if (lruKey) {
-      layer.entries.delete(lruKey);
+      const evictedEntry = layer.entries.get(lruKey);
+      if (evictedEntry) {
+        layer.entries.delete(lruKey);
+        console.debug(`[CACHE] Evicted ${lruKey} (age: ${Math.round((now - evictedEntry.timestamp) / 1000)}s, hits: ${evictedEntry.hits})`);
+      }
+    } else if (layer.entries.size > 0) {
+      // Fallback: evict oldest entry if no LRU key found
+      const firstEntry = layer.entries.entries().next();
+      if (!firstEntry.done) {
+        const [key] = firstEntry.value;
+        layer.entries.delete(key);
+        console.debug(`[CACHE] Evicted oldest entry ${key}`);
+      }
     }
   }
 }
