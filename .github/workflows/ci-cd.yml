@@ -11,6 +11,10 @@ env:
   IMAGE_NAME: ${{ github.repository }}
   NODE_VERSION: '18'
 
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
   # Lint & Format Check
   lint:
