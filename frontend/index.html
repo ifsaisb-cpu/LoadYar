@@ -3319,6 +3319,9 @@ function tripSave(id){
   let bilty=V('f_bilty');
   if(em==='manual_logged'){
     if(!bilty){toast('Bilty no. is required for a manual-logged trip',true);return;}
+  }
+  // Check for duplicate bilty across all entries (manual + digital)
+  if(bilty){
     const dup=all('trips').find(t=>t.id!=id&&String(t.bilty_no).toLowerCase()===bilty.toLowerCase());
     if(dup&&!confirm('Warning: bilty no. "'+bilty+'" already exists on trip of '+fmtDate(dup.date)+' ('+dup.route+').\n\nPaper errors happen — you may proceed. Save anyway?'))return;
   }
