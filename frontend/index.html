@@ -3131,13 +3131,19 @@ function pageTrips(){
   const money=can('totals')||r==='dispatcher';
   const key='register';
   const q=tfGet(key,'q'),stF=tfGet(key,'status'),dupF=tfGet(key,'dupfilter');
-  // Find duplicates
-  const biltyCount={};
+  // Find duplicate vehicles (same engine+chassis in different trips)
+  const vehKey={};
   allRows.forEach(t=>{
-    const bn=String(t.bilty_no).toLowerCase();
-    biltyCount[bn]=(biltyCount[bn]||0)+1;
+    if(t.veh_engine&&t.veh_chassis){
+      const key=(String(t.veh_engine)+String(t.veh_chassis)).toLowerCase();
+      if(!vehKey[key])vehKey[key]=[];
+      vehKey[key].push(t.id);
+    }
   });
-  const dupIds=new Set(allRows.filter(t=>biltyCount[String(t.bilty_no).toLowerCase()]>1).map(t=>t.id));
+  const dupIds=new Set();
+  Object.values(vehKey).forEach(ids=>{
+    if(ids.length>1)ids.forEach(id=>dupIds.add(id));
+  });
   const rows=allRows.filter(t=>
     (!stF||t.status===stF)&&
     (!dupF||(dupF==='dups'?dupIds.has(t.id):!dupIds.has(t.id)))&&
@@ -3328,10 +3334,16 @@ function tripSave(id){
   if(em==='manual_logged'){
     if(!bilty){toast('Bilty no. is required for a manual-logged trip',true);return;}
   }
-  // Check for duplicate bilty across all entries (manual + digital)
-  if(bilty){
-    const dup=all('trips').find(t=>t.id!=id&&String(t.bilty_no).toLowerCase()===bilty.toLowerCase());
-    if(dup&&!confirm('Warning: bilty no. "'+bilty+'" already exists on trip of '+fmtDate(dup.date)+' ('+dup.route+').\n\nPaper errors happen — you may proceed. Save anyway?'))return;
+  // Check for duplicate vehicles (same engine+chassis)
+  const vEngine=V('f_veh_engine'), vChassis=V('f_veh_chassis');
+  if(vEngine&&vChassis){
+    const dup=all('trips').find(t=>t.id!=id&&String(t.veh_engine).toLowerCase()===vEngine.toLowerCase()&&String(t.veh_chassis).toLowerCase()===vChassis.toLowerCase());
+    if(dup&&!confirm('⚠ Same vehicle (engine '+vEngine+' / chassis '+vChassis+') already exists on bilty '+dup.bilty_no+' ('+fmtDate(dup.date)+').\n\nGate pass duplicates happen — you may proceed. Save anyway?'))return;
+  }
+  // Also check for duplicate bilty numbers for manual entries
+  if(bilty&&em==='manual_logged'){
+    const dupBilty=all('trips').find(t=>t.id!=id&&String(t.bilty_no).toLowerCase()===bilty.toLowerCase());
+    if(dupBilty&&!confirm('Warning: bilty no. "'+bilty+'" already exists on trip of '+fmtDate(dupBilty.date)+' ('+dupBilty.route+').\n\nPaper errors happen — you may proceed. Save anyway?'))return;
   }
   const freight=P(V('f_freight'));
   const obj={entry_mode:em,date:date,customer_id:cid,route:route,
