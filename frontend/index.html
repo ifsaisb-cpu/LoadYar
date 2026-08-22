@@ -3130,9 +3130,17 @@ function pageTrips(){
   const r=state.user.role, allRows=scopedTrips().slice().sort((a,b)=>a.date<b.date?1:-1);
   const money=can('totals')||r==='dispatcher';
   const key='register';
-  const q=tfGet(key,'q'),stF=tfGet(key,'status');
+  const q=tfGet(key,'q'),stF=tfGet(key,'status'),dupF=tfGet(key,'dupfilter');
+  // Find duplicates
+  const biltyCount={};
+  allRows.forEach(t=>{
+    const bn=String(t.bilty_no).toLowerCase();
+    biltyCount[bn]=(biltyCount[bn]||0)+1;
+  });
+  const dupIds=new Set(allRows.filter(t=>biltyCount[String(t.bilty_no).toLowerCase()]>1).map(t=>t.id));
   const rows=allRows.filter(t=>
     (!stF||t.status===stF)&&
+    (!dupF||(dupF==='dups'?dupIds.has(t.id):!dupIds.has(t.id)))&&
     (!q||tfTextMatch(q,t.bilty_no,nm('customers',t.customer_id),t.route,nm('carriers',t.carrier_id),nm('drivers',t.driver_id),t.veh_chassis,t.veh_engine,t.veh_reg))
   );
   const byMonth=new Map();
@@ -3145,7 +3153,7 @@ function pageTrips(){
   const groups=Array.from(byMonth.entries());
   return `${welcomeBanner()}<div class="pagehead"><h1>${r==='driver'||r==='carrier'?bi('My Trips','میرے ٹرپ'):bi('Booking Register','بکنگ رجسٹر')}</h1><div class="sp"></div>
     ${can('trips_entry')?`<button class="btn" onclick="goto('#/bookings')">${biShort('+ New Bilty','+ نئی بلٹی')}</button>`:''}</div>
-  ${allRows.length>6?tfBar(key,[{field:'status',label:'Status',options:TRIP_STATUS}],'Search bilty, customer, route, carrier…'):''}
+  ${allRows.length>6?tfBar(key,[{field:'status',label:'Status',options:TRIP_STATUS},{field:'dupfilter',label:'Filter',options:[['','All'],['dups','Duplicates only']]}],'Search bilty, customer, route, carrier…'):''}
   ${groups.length?groups.map(([gkey,items])=>{
     const expanded=window._regExpanded.has(gkey);
     let html=`<div class="card" style="margin-bottom:10px">
@@ -3165,7 +3173,7 @@ function pageTrips(){
           :(can('journeys')?'<span class="badge b-amber">Unloaded</span>':'<span class="badge b-gray">—</span>')}</td>
         <td>${payStatusCell(t,can('trips_entry'))}</td>
         <td>${stBadge(t.status)}</td>
-        <td class="num"><button class="btn ghost sm" onclick="biltyPrint(${t.id})">🖨</button></td></tr>`).join('')}
+        <td class="num"><button class="btn ghost sm" onclick="biltyPrint(${t.id})" title="Print">🖨</button>${dupIds.has(t.id)?`<button class="btn ghost sm" onclick="tripDelete(${t.id})" title="Delete duplicate" style="color:var(--danger)">🗑</button>`:''}</td></tr>`).join('')}
       </tbody></table></div></div>`;
     }
     html+='</div>';
@@ -3360,6 +3368,13 @@ function statusSet(id,st){
   const t=byId('trips',id);
   if(!t||!can('status')||!tripAccessible(t)){toast('Not permitted',true);return;}
   upd('trips',id,{status:st});toast('Status: '+enumLbl(TRIP_STATUS,st));render();
+}
+function tripDelete(id){
+  const t=byId('trips',id);
+  if(!t||!can('trips_entry')||!tripAccessible(t)){toast('Not permitted',true);return;}
+  if(!confirm('Soft delete bilty '+t.bilty_no+'? It will be archived but remain in history.')){return;}
+  softDel('trips',id);
+  toast('Bilty '+t.bilty_no+' archived.');render();
 }
 
 /* ===== journeys (Trips: carrier runs with multiple loads) ===== */
