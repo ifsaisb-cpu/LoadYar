@@ -544,6 +544,11 @@ function loadDB(){
   try{const raw=localStorage.getItem(DBKEY); if(raw) db=JSON.parse(raw);}catch(e){db=null;}
   if(!db||!db.seq){db=seedDB(); saveDB(); migrateDB();}
   else migrateDB();
+  if(window.API_CONFIG && window.API_CONFIG.syncEnabled && window.state && window.state.user){
+    fetch(window.API_CONFIG.url+'/sync/load?user_id='+window.state.user.id,{
+      credentials:'include'
+    }).then(r=>r.json()).then(d=>{if(d&&d.data) Object.assign(db,d.data);}).catch(e=>console.warn('Backend load failed:',e.message));
+  }
 }
 function migrateDB(){
   let dirty=false;
@@ -653,7 +658,17 @@ function migrateDB(){
     if(made)console.info('Created '+made+' clearing charge(s) from bilties that had an agent but no charge.');
   })();
 }
-function saveDB(){localStorage.setItem(DBKEY,JSON.stringify(db));}
+function saveDB(){
+  localStorage.setItem(DBKEY,JSON.stringify(db));
+  if(window.API_CONFIG && window.API_CONFIG.syncEnabled && window.state && window.state.user){
+    fetch(window.API_CONFIG.url+'/sync/save',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      credentials:'include',
+      body:JSON.stringify({user_id:window.state.user.id,data:db})
+    }).catch(e=>console.warn('Backend sync failed:',e.message));
+  }
+}
 function nextId(coll){db.seq[coll]=(db.seq[coll]||0)+1;return db.seq[coll];}
 function add(coll,obj){
   obj.id=nextId(coll); obj.created_at=nowISO(); obj.updated_at=obj.created_at;
