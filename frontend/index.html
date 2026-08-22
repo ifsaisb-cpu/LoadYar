@@ -3962,6 +3962,7 @@ function pageTripDetail(id){
       .map(s=>`<button class="btn ghost sm" onclick="statusSet(${t.id},'${s[0]}')">→ ${esc(s[1])}</button>`).join(''):''}
     <button class="btn ghost sm" onclick="biltyPrint(${t.id})">🖨 Print Bilty</button>
     ${office?`<button class="btn" onclick="tripForm(${t.id})">${biShort('Edit','تبدیل کریں')}</button>`:''}
+    ${office?`<button class="btn ghost sm" onclick="tripDelete(${t.id})" style="color:var(--danger)">🗑 ${biShort('Delete','حذف کریں')}</button>`:''}
   </div>
   <div class="grid2">
   <div class="card"><h2>${bi('Trip info','ٹرپ کی تفصیل')}</h2>
