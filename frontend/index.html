@@ -3179,7 +3179,7 @@ function pageTrips(){
           :(can('journeys')?'<span class="badge b-amber">Unloaded</span>':'<span class="badge b-gray">—</span>')}</td>
         <td>${payStatusCell(t,can('trips_entry'))}</td>
         <td>${stBadge(t.status)}</td>
-        <td class="num"><button class="btn ghost sm" onclick="biltyPrint(${t.id})" title="Print">🖨</button>${dupIds.has(t.id)?`<button class="btn ghost sm" onclick="tripDelete(${t.id})" title="Delete duplicate" style="color:var(--danger)">🗑</button>`:''}</td></tr>`).join('')}
+        <td class="num"><button class="btn ghost sm" onclick="biltyPrint(${t.id})" title="Print">🖨</button><button class="btn ghost sm" onclick="tripDelete(${t.id})" title="Delete bilty" style="color:var(--danger)">🗑</button></td></tr>`).join('')}
       </tbody></table></div></div>`;
     }
     html+='</div>';
