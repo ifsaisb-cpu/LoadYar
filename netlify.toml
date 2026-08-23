@@ -1,3 +1,4 @@
+# Netlify deployment config - v2
 [build]
   publish = "frontend"
   command = ""
