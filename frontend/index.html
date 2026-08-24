@@ -375,26 +375,48 @@ const INV_TYPE=[['company','Company'],['private','Private / open market']];
    Every operational total (trip cost, carrier balance, receivable) should eventually read from this
    instead of re-scanning expenses/fuel with ad-hoc filters — see chart_of_accounts/journal_entries/journal_lines. */
 const COA_SEED=[
-  ['1000','Cash & Bank','asset',true],['1100','Accounts Receivable','asset',true],
-  ['1200','Driver Advance Recoverable','asset',true],['1500','Employee Advance Receivable','asset',true],
-  ['2000','Accounts Payable — Carriers','liability',true],
-  ['2100','Accounts Payable — Vendors','liability',true],['2200','SRB Payable','liability',false],
-  ['2900','Due to Payee','liability',false],
-  ['1160','Insurance Claim Receivable','asset',false],
-  ['2150','Clearing Agents','liability',true],['2400','Overheads Payable','liability',false],
-  ['3000','Owner’s Capital','equity',false],['3100','Retained Earnings','equity',false],
-  ['4000','Freight Revenue','income',false],['4200','Claims Recovery','income',false],
-  ['5000','Carrier Freight Expense','expense',false],['5100','Fuel Expense','expense',false],
-  ['5210','Toll Tax Expense','expense',false],['5220','Food Expense','expense',false],
-  ['5230','Challan Expense','expense',false],['5240','Police Expense','expense',false],
-  ['5250','Tyre Expense','expense',false],['5260','Loading Expense','expense',false],
-  ['5261','Unloading Expense','expense',false],['5270','Repairs Expense','expense',false],
-  ['5280','Engine Oil & Filter Expense','expense',false],
-  ['5500','Clearing Agent Charges','expense',false],['5600','Claims Expense','expense',false],
-  ['5710','Staff Salaries','expense',false],['5720','Driver Salaries','expense',false],
-  ['5730','Office Rent','expense',false],['5740','Utilities & Bills','expense',false],
-  ['5900','Other Trip Expense','expense',false],['5950','Office & Admin Overhead','expense',false],
-  ['9999','Suspense — needs checking','asset',false]
+  [‘1000’,’Cash & Bank’,’asset’,true],[‘1100’,’Accounts Receivable’,’asset’,true],
+  [‘1200’,’Driver Advance Recoverable’,’asset’,true],[‘1500’,’Employee Advance Receivable’,’asset’,true],
+  [‘2000’,’Accounts Payable — Carriers’,’liability’,true],
+  [‘2100’,’Accounts Payable — Vendors’,’liability’,true],[‘2200’,’SRB Payable’,’liability’,false],
+  [‘2900’,’Due to Payee’,’liability’,false],
+  [‘1160’,’Insurance Claim Receivable’,’asset’,false],
+  [‘2150’,’Clearing Agents’,’liability’,true],[‘2400’,’Overheads Payable’,’liability’,false],
+  [‘3000’,’Owner’s Capital’,’equity’,false],[‘3100’,’Retained Earnings’,’equity’,false],
+  [‘4000’,’Freight Revenue’,’income’,false],[‘4200’,’Claims Recovery’,’income’,false],
+  [‘5000’,’Carrier Freight Expense’,’expense’,false],[‘5100’,’Fuel Expense’,’expense’,false],
+  [‘5210’,’Toll Tax Expense’,’expense’,false],[‘5220’,’Food Expense’,’expense’,false],
+  [‘5230’,’Challan Expense’,’expense’,false],[‘5240’,’Police Expense’,’expense’,false],
+  [‘5250’,’Tyre Expense’,’expense’,false],[‘5260’,’Loading Expense’,’expense’,false],
+  [‘5261’,’Unloading Expense’,’expense’,false],[‘5270’,’Repairs Expense’,’expense’,false],
+  [‘5280’,’Engine Oil & Filter Expense’,’expense’,false],
+  [‘5500’,’Clearing Agent Charges’,’expense’,false],[‘5600’,’Claims Expense’,’expense’,false],
+  [‘5710’,’Staff Salaries’,’expense’,false],[‘5720’,’Driver Salaries’,’expense’,false],
+  [‘5730’,’Office Rent’,’expense’,false],[‘5740’,’Utilities & Bills’,’expense’,false],
+  [‘5900’,’Other Trip Expense’,’expense’,false],[‘5950’,’Office & Admin Overhead’,’expense’,false],
+  [‘9999’,’Suspense — needs checking’,’asset’,false]
+];
+const GL_ACCOUNTS_SEED=[
+  [‘1000’,’Cash & Bank’,’Asset’],[‘1100’,’Accounts Receivable’,’Asset’],
+  [‘1200’,’Driver Advance Recoverable’,’Asset’],[‘1500’,’Employee Advance Receivable’,’Asset’],
+  [‘1160’,’Insurance Claim Receivable’,’Asset’],
+  [‘2000’,’Accounts Payable — Carriers’,’Liability’],
+  [‘2100’,’Accounts Payable — Vendors’,’Liability’],[‘2200’,’SRB Payable’,’Liability’],
+  [‘2900’,’Due to Payee’,’Liability’],[‘2150’,’Clearing Agents’,’Liability’],
+  [‘2400’,’Overheads Payable’,’Liability’],
+  [‘3000’,’Owner’s Capital’,’Equity’],[‘3100’,’Retained Earnings’,’Equity’],
+  [‘4000’,’Freight Revenue’,’Revenue’],[‘4200’,’Claims Recovery’,’Revenue’],
+  [‘5000’,’Carrier Freight Expense’,’Expense’],[‘5100’,’Fuel Expense’,’Expense’],
+  [‘5210’,’Toll Tax Expense’,’Expense’],[‘5220’,’Food Expense’,’Expense’],
+  [‘5230’,’Challan Expense’,’Expense’],[‘5240’,’Police Expense’,’Expense’],
+  [‘5250’,’Tyre Expense’,’Expense’],[‘5260’,’Loading Expense’,’Expense’],
+  [‘5261’,’Unloading Expense’,’Expense’],[‘5270’,’Repairs Expense’,’Expense’],
+  [‘5280’,’Engine Oil & Filter Expense’,’Expense’],
+  [‘5500’,’Clearing Agent Charges’,’Expense’],[‘5600’,’Claims Expense’,’Expense’],
+  [‘5710’,’Staff Salaries’,’Expense’],[‘5720’,’Driver Salaries’,’Expense’],
+  [‘5730’,’Office Rent’,’Expense’],[‘5740’,’Utilities & Bills’,’Expense’],
+  [‘5900’,’Other Trip Expense’,’Expense’],[‘5950’,’Office & Admin Overhead’,’Expense’],
+  [‘9999’,’Suspense — needs checking’,’Asset’]
 ];
 const EXP_TYPE_COA={toll_tax:'5210',food:'5220',challan:'5230',police:'5240',tyre_air:'5250',
   loading:'5260',unloading:'5261',repairs:'5270',other:'5900'};
@@ -586,8 +608,9 @@ function migrateDB(){
   });
   // v4: default cash/bank accounts
   if(!db.accounts.filter(r=>!r.deleted_at).length){
-    db.accounts.push(stamp({id:nextId('accounts'),name:'Cash in Hand',type:'cash',opening_paisa:0}));
-    db.accounts.push(stamp({id:nextId('accounts'),name:'Bank Account',type:'bank',opening_paisa:0}));
+    GL_ACCOUNTS_SEED.forEach(([code,name,type])=>{
+      db.accounts.push(stamp({id:nextId('accounts'),code:code,name:name,type:type,description:''}));
+    });
     dirty=true;
   }
   // v4: vendor category rename
