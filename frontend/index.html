@@ -1053,17 +1053,17 @@ function pageGLAccountsMgmt(){
         <div class="panel">
           <h3>${acct?'Edit':'New'} GL Account</h3>
           <div class="form">
-            <div><label>Code</label><input type="text" placeholder="e.g., 1000" value="${acct?.code||''}" onchange="setV('glAcctCode',this.value)"></div>
-            <div><label>Name</label><input type="text" placeholder="Account Name" value="${acct?.name||''}" onchange="setV('glAcctName',this.value)"></div>
+            <div><label>Code</label><input type="text" placeholder="e.g., 1000" value="${acct?.code||V('glAcctCode')||''}" onchange="setV('glAcctCode',this.value)"></div>
+            <div><label>Name</label><input type="text" placeholder="Account Name" value="${acct?.name||V('glAcctName')||''}" onchange="setV('glAcctName',this.value)"></div>
             <div><label>Type</label><select onchange="setV('glAcctType',this.value)">
               <option value="">Select Type</option>
-              <option value="Asset" ${acct?.type==='Asset'?'selected':''}>Asset</option>
-              <option value="Liability" ${acct?.type==='Liability'?'selected':''}>Liability</option>
-              <option value="Equity" ${acct?.type==='Equity'?'selected':''}>Equity</option>
-              <option value="Revenue" ${acct?.type==='Revenue'?'selected':''}>Revenue</option>
-              <option value="Expense" ${acct?.type==='Expense'?'selected':''}>Expense</option>
+              <option value="Asset" ${(acct?.type||V('glAcctType'))==='Asset'?'selected':''}>Asset</option>
+              <option value="Liability" ${(acct?.type||V('glAcctType'))==='Liability'?'selected':''}>Liability</option>
+              <option value="Equity" ${(acct?.type||V('glAcctType'))==='Equity'?'selected':''}>Equity</option>
+              <option value="Revenue" ${(acct?.type||V('glAcctType'))==='Revenue'?'selected':''}>Revenue</option>
+              <option value="Expense" ${(acct?.type||V('glAcctType'))==='Expense'?'selected':''}>Expense</option>
             </select></div>
-            <div><label>Description</label><textarea placeholder="Description" onchange="setV('glAcctDesc',this.value)">${acct?.description||''}</textarea></div>
+            <div><label>Description</label><textarea placeholder="Description" onchange="setV('glAcctDesc',this.value)">${acct?.description||V('glAcctDesc')||''}</textarea></div>
             <div class="btns">
               <button class="btn blue" onclick="glAcctSave()">Save</button>
               <button class="btn" onclick="setV('glAcctEdit','');render()">Cancel</button>
@@ -1575,6 +1575,7 @@ function optHTML(list,sel){return list.map(o=>`<option value="${esc(o[0])}" ${St
 function enumLbl(list,v){const f=list.find(o=>o[0]===v);return f?f[1]:(v||'—');}
 function fkOptions(coll,sel,labelKey){return '<option value="">—</option>'+all(coll).map(r=>`<option value="${r.id}" ${String(sel)===String(r.id)?'selected':''}>${esc(r[labelKey||'name'])}</option>`).join('');}
 function V(id){const e=document.getElementById(id);return e?e.value.trim():'';}
+function setV(id,val){let e=document.getElementById(id);if(!e){e=document.createElement('input');e.id=id;e.type='hidden';document.body.appendChild(e);}e.value=val;}
 function listVals(kind){return all('listopts').filter(r=>r.kind===kind).map(r=>r.value);}
 function listOpts(kind,sel){
   let vals=listVals(kind);
