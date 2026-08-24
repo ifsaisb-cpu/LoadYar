@@ -1041,6 +1041,65 @@ function pageBalances(){
   </div>`;
 }
 
+function pageGLAccountsMgmt(){
+  const accts=all('accounts').filter(a=>!a.deleted_at).sort((a,b)=>Number(a.code)-Number(b.code));
+  const editId=V('glAcctEdit');
+  const acct=editId?byId('accounts',editId):null;
+  return `<div class="page">
+    <div class="pagehead"><h1>GL Accounts</h1><button class="btn" onclick="setV('glAcctEdit','');render()" style="margin-left:auto">+ New GL Account</button></div>
+    <div class="content">
+      ${editId?`
+        <div class="panel">
+          <h3>${acct?'Edit':'New'} GL Account</h3>
+          <div class="form">
+            <div><label>Code</label><input type="text" placeholder="e.g., 1000" value="${acct?.code||''}" onchange="setV('glAcctCode',this.value)"></div>
+            <div><label>Name</label><input type="text" placeholder="Account Name" value="${acct?.name||''}" onchange="setV('glAcctName',this.value)"></div>
+            <div><label>Type</label><select onchange="setV('glAcctType',this.value)">
+              <option value="">Select Type</option>
+              <option value="Asset" ${acct?.type==='Asset'?'selected':''}>Asset</option>
+              <option value="Liability" ${acct?.type==='Liability'?'selected':''}>Liability</option>
+              <option value="Equity" ${acct?.type==='Equity'?'selected':''}>Equity</option>
+              <option value="Revenue" ${acct?.type==='Revenue'?'selected':''}>Revenue</option>
+              <option value="Expense" ${acct?.type==='Expense'?'selected':''}>Expense</option>
+            </select></div>
+            <div><label>Description</label><textarea placeholder="Description" onchange="setV('glAcctDesc',this.value)">${acct?.description||''}</textarea></div>
+            <div class="btns">
+              <button class="btn blue" onclick="glAcctSave()">Save</button>
+              <button class="btn" onclick="setV('glAcctEdit','');render()">Cancel</button>
+              ${acct?`<button class="btn danger" onclick="glAcctDel(${acct.id})">Delete</button>`:''}
+            </div>
+          </div>
+        </div>
+      `:''}
+      <h3>All GL Accounts (${accts.length})</h3>
+      <table class="striped">
+        <thead><tr><th>Code</th><th>Name</th><th>Type</th><th>Description</th><th></th></tr></thead>
+        <tbody>${accts.map(a=>`<tr><td><strong>${esc(a.code)}</strong></td><td>${esc(a.name)}</td><td><span class="badge">${esc(a.type)}</span></td><td>${esc(a.description||'')}</td><td><button class="btn sm" onclick="setV('glAcctEdit',${a.id});render()">Edit</button></td></tr>`).join('')}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function glAcctSave(){
+  const code=V('glAcctCode'),name=V('glAcctName'),type=V('glAcctType'),desc=V('glAcctDesc');
+  if(!code||!name||!type){toast('Fill all fields',true);return;}
+  const editId=V('glAcctEdit');
+  if(editId){
+    upd('accounts',editId,{code,name,type,description:desc});
+  }else{
+    add('accounts',{code,name,type,description:desc});
+  }
+  setV('glAcctEdit','');setV('glAcctCode','');setV('glAcctName','');setV('glAcctType','');setV('glAcctDesc','');
+  toast('GL Account saved');render();
+}
+
+function glAcctDel(id){
+  if(!confirm('Delete this GL Account?'))return;
+  softDel('accounts',id);
+  setV('glAcctEdit','');
+  toast('GL Account deleted');render();
+}
+
 function pageGLAccountReport(){
   const accts=all('accounts').filter(a=>!a.deleted_at).sort((a,b)=>Number(a.code)-Number(b.code));
   const drillAcct=V('glDrillAcct')||'';
@@ -1609,6 +1668,7 @@ const ROUTES={
   vouchers:{cap:'payables',fn:()=>pageVouchers(),title:'Vouchers'},
   finance:{cap:'finance',fn:()=>pageFinance(),title:'Finance'},
   balances:{cap:'finance',fn:()=>pageBalances(),title:'Balances'},
+  glaccountsmgmt:{cap:'finance',fn:()=>pageGLAccountsMgmt(),title:'GL Accounts'},
   glaccounts:{cap:'finance',fn:()=>pageGLAccountReport(),title:'GL Account Report'},
   financials:{cap:'finance',fn:()=>pageFinancialStatements(),title:'Financial Statements'},
   cashflow:{cap:'finance',fn:()=>pageCashFlow(),title:'Cash Flow Statement'},
@@ -1644,6 +1704,7 @@ function navItems(){
   if(can('payables'))items.push(['#/vouchers','Vouchers']);
   if(can('finance'))items.push(['#/finance','Finance']);
   if(can('finance'))items.push(['#/balances','Balances']);
+  if(can('finance'))items.push(['#/glaccountsmgmt','GL Accounts']);
   if(can('finance'))items.push(['#/glaccounts','GL Account Report']);
   if(can('finance'))items.push(['#/financials','Financial Statements']);
   if(can('finance'))items.push(['#/cashflow','Cash Flow Statement']);
