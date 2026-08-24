@@ -585,12 +585,30 @@ function migrateDB(){
       dirty=true;
     }
   });
-  // v4: default cash/bank accounts
-  if(!db.accounts.filter(r=>!r.deleted_at).length){
-    db.accounts.push(stamp({id:nextId('accounts'),name:'Cash in Hand',type:'cash',opening_paisa:0}));
-    db.accounts.push(stamp({id:nextId('accounts'),name:'Bank Account',type:'bank',opening_paisa:0}));
-    dirty=true;
-  }
+  // v4: default cash/bank accounts + GL chart
+  const haveAcctNames=db.accounts.filter(r=>!r.deleted_at).map(r=>r.name.toLowerCase());
+  const DEFAULT_ACCTS=[
+    ['Cash in Hand','cash'],['Bank Account','bank'],
+    // Assets
+    ['Petty Cash','cash'],['Accounts Receivable - Customers','bank'],['Accounts Receivable - Carriers','bank'],
+    ['Equipment & Vehicles','bank'],['Accumulated Depreciation','bank'],
+    // Liabilities
+    ['Accounts Payable - Carriers','bank'],['Accounts Payable - Vendors','bank'],['Accrued Expenses','bank'],['Short-term Loan','bank'],
+    // Equity
+    ['Capital Account','bank'],['Retained Earnings','bank'],['Drawing Account','bank'],
+    // Income
+    ['Transport Revenue - Freight','bank'],['Transport Revenue - Parcels','bank'],['Commission Income','bank'],['Handling Charges Income','bank'],
+    // Expenses
+    ['Fuel & Diesel Expense','bank'],['Driver Salary','bank'],['Vehicle Maintenance','bank'],['Insurance Premium','bank'],
+    ['Toll Tax Expense','bank'],['Rent Expense','bank'],['Utilities Expense','bank'],['Depreciation Expense','bank'],
+    ['Office Supplies','bank'],['Miscellaneous Expense','bank']
+  ];
+  DEFAULT_ACCTS.forEach(([name,type])=>{
+    if(!haveAcctNames.includes(name.toLowerCase())){
+      db.accounts.push(stamp({id:nextId('accounts'),name:name,type:type,opening_paisa:0}));
+      dirty=true;
+    }
+  });
   // v4: vendor category rename
   db.vendors.forEach(v=>{
     if(v.category==='repair'){v.category='repairs';dirty=true;}
