@@ -80,6 +80,7 @@ label{display:block;font-size:12.5px;font-weight:600;color:var(--mut);margin:0 0
 .nav-ur{display:block;font-size:11px;font-weight:400;opacity:.72;margin-top:1px;direction:rtl}
 .side a:hover{background:rgba(255,255,255,.08);color:#fff}
 .side a.on{background:var(--warn);color:#fff}
+.nav-group{margin-bottom:0}.nav-toggle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;color:var(--side-ink);padding:12px 10px 4px;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:500;user-select:none}.nav-toggle:hover{color:#fff}.nav-caret{display:inline-block;transition:transform .2s;font-size:8px;margin-left:6px}.nav-group[data-open="false"] .nav-caret{transform:rotate(-90deg)}.nav-items{overflow:hidden;transition:max-height .2s ease,opacity .2s ease;max-height:1000px;opacity:1}.nav-group[data-open="false"] .nav-items{max-height:0;opacity:0}
 .side .sep{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:#5f7f7a;padding:12px 10px 4px}
 .main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
 .topbar{background:var(--side-grad);background-attachment:fixed;border-bottom:1px solid rgba(255,255,255,.14);padding:10px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0;z-index:5}
@@ -1691,7 +1692,7 @@ const ROUTES={
 function navItems(){
   const r=state.user.role;
   const items=[];
-  items.push(['SEP','Operations']);
+  items.push(['DROP','Operations']);
   if(r==='admin')items.push(['#/dashboard','Dashboard']);
   if(can('bookings'))items.push(['#/bookings','Booking / Bilty','بکنگ / بلٹی']);
   if(can('journeys'))items.push(['#/journeys','Create Trips','ٹرپ بنائیں']);
@@ -1699,7 +1700,8 @@ function navItems(){
   if(can('expensesPage'))items.push(['#/expenses',r==='driver'?'My Expenses':'Trip Expenses',r==='driver'?'میرے اخراجات':'ٹرپ اخراجات']);
   if(can('expensesPage'))items.push(['#/fuel','Diesel / Fuel','ڈیزل / تیل']);
   if(can('claims'))items.push(['#/claims','Claims']);
-  if(can('invoices')||can('payables')||can('finance')||r==='carrier')items.push(['SEP','Financial']);
+  items.push(['ENDROP']);
+  if(can('invoices')||can('payables')||can('finance')||r==='carrier')items.push(['DROP','Financial']);
   if(can('invoices'))items.push(['#/invoices','Invoices']);
   if(can('payables'))items.push(['#/payables','Payables']);
   if(can('payables'))items.push(['#/empadvances','Employee Advances']);
@@ -1711,6 +1713,7 @@ function navItems(){
   if(can('finance'))items.push(['#/financials','Financial Statements']);
   if(can('finance'))items.push(['#/cashflow','Cash Flow Statement']);
   if(r==='carrier')items.push(['#/mypayments','My Payments']);
+  items.push(['ENDROP']);
   if(can('reports'))items.push(['SEP','Reports']);
   if(can('reports'))items.push(['#/reports','Reports']);
   if(can('master'))items.push(['SEP','Master data'],['#/customers','Customers'],['#/agreements','Rate Agreements'],
@@ -1732,8 +1735,12 @@ function render(){
   <div class="shell">
     <nav class="side">
       <div class="brand"><img src="${UTN_LOGO_3D}" alt="${esc(CO_NAME)}" class="brand-logo"><span class="ver">TMS CRM · MVP ${APP_VER}</span></div>
-      ${navItems().map(it=>it[0]==='SEP'?`<div class="sep">${esc(it[1])}</div>`:
-        `<a href="${it[0]}" class="${cur===it[0]?'on':''}">${esc(it[1])}${it[2]?`<span class="nav-ur">${esc(it[2])}</span>`:''}</a>`).join('')}
+      ${navItems().reduce((html,it,i,arr)=>{
+        if(it[0]==='SEP')return html+`<div class="sep">${esc(it[1])}</div>`;
+        if(it[0]==='DROP')return html+`<div class="nav-group" data-open="true"><div class="nav-toggle" onclick="this.parentElement.dataset.open=this.parentElement.dataset.open==='true'?'false':'true'">${esc(it[1])} <span class="nav-caret">▼</span></div><div class="nav-items">`;
+        if(it[0]==='ENDROP')return html+`</div></div>`;
+        return html+`<a href="${it[0]}" class="${cur===it[0]?'on':''}">${esc(it[1])}${it[2]?`<span class="nav-ur">${esc(it[2])}</span>`:''}</a>`;
+      },'')}
       <div class="side-copy"><span class="powered">Powered by ${esc(PRODUCT_NAME)}</span>© ${new Date().getFullYear()} Dreamers. All rights reserved.</div>
     </nav>
     <div class="main">
