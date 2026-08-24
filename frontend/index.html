@@ -3698,7 +3698,7 @@ function journeyForm(id){
     <div class="frow"><label class="req">${bi('Date','تاریخ')}</label><input type="date" id="j_date" value="${esc(rec.date||'')}"></div>
     <div class="frow"><label>Chalan #</label><input id="j_chalan" value="${esc(rec.chalan_no||nextChalanNo())}">
       <div class="hint">Auto-numbered — overwrite this if you're using your own pre-printed/numbered chalan pad.</div></div>
-    <div class="frow"><label class="req">${bi('Carrier','کیریئر')}</label><select id="j_carrier">${fkOptions('carriers',rec.carrier_id)}</select></div>
+    <div class="frow"><label class="req">${bi('Carrier','کیریئر')}</label><select id="j_carrier" onchange="filterDriversByCarrier()">${fkOptions('carriers',rec.carrier_id)}</select></div>
     <div class="frow"><label>${bi('Driver','ڈرائیور')}</label><select id="j_driver">${fkOptions('drivers',rec.driver_id)}</select></div>
     <div class="frow"><label>${bi('Status','حالت')}</label><select id="j_status" onchange="jStatusToggle()">${optHTML(JOURNEY_STATUS,rec.status)}</select></div>
     <div class="frow" id="j_date_end_row" style="${rec.status==='finished'?'':'display:none'}">
@@ -3752,6 +3752,36 @@ function nextCarrierTripNo(cid){
 function nextChalanNo(){
   return 'CH-'+new Date().getFullYear()+'-'+String((db.seq.chalan||0)+1).padStart(4,'0');
 }
+function filterDriversByCarrier(){
+  const carrierId=parseInt(V('j_carrier'),10);
+  const driverSelect=document.getElementById('j_driver');
+  const currentDriverId=parseInt(V('j_driver'),10);
+
+  if(!carrierId){
+    // If no carrier selected, show all drivers
+    driverSelect.innerHTML=fkOptions('drivers',currentDriverId);
+    return;
+  }
+
+  // Get all drivers and filter by carrier
+  const filteredDrivers=all('drivers').filter(d=>d.carrier_id===carrierId);
+
+  // Build options HTML
+  let html='<option value="">— Select driver —</option>';
+  filteredDrivers.forEach(d=>{
+    const driverId=d.id;
+    const selected=driverId===currentDriverId?'selected':'';
+    html+=`<option value="${driverId}" ${selected}>${esc(d.name||'Unnamed Driver')}</option>`;
+  });
+
+  // If no drivers found for this carrier, show message
+  if(filteredDrivers.length===0){
+    html='<option value="" selected>— No drivers assigned to this carrier —</option>';
+  }
+
+  driverSelect.innerHTML=html;
+}
+
 function journeySave(id){
   if(!can('journeys')){toast('Not permitted',true);return;}
   const date=V('j_date'),cid=parseInt(V('j_carrier'),10)||null,from=V('j_from'),to=V('j_to');
