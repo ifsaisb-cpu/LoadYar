@@ -588,24 +588,24 @@ function migrateDB(){
   // v4: default cash/bank accounts + GL chart
   const haveAcctNames=db.accounts.filter(r=>!r.deleted_at).map(r=>r.name.toLowerCase());
   const DEFAULT_ACCTS=[
-    ['Cash in Hand','cash'],['Bank Account','bank'],
+    ['1010','Cash in Hand','cash'],['1020','Bank Account','bank'],
     // Assets
-    ['Petty Cash','cash'],['Accounts Receivable - Customers','bank'],['Accounts Receivable - Carriers','bank'],
-    ['Equipment & Vehicles','bank'],['Accumulated Depreciation','bank'],
+    ['1030','Petty Cash','cash'],['1200','Accounts Receivable - Customers','bank'],['1210','Accounts Receivable - Carriers','bank'],
+    ['1300','Equipment & Vehicles','bank'],['1310','Accumulated Depreciation','bank'],
     // Liabilities
-    ['Accounts Payable - Carriers','bank'],['Accounts Payable - Vendors','bank'],['Accrued Expenses','bank'],['Short-term Loan','bank'],
+    ['2010','Accounts Payable - Carriers','bank'],['2020','Accounts Payable - Vendors','bank'],['2030','Accrued Expenses','bank'],['2100','Short-term Loan','bank'],
     // Equity
-    ['Capital Account','bank'],['Retained Earnings','bank'],['Drawing Account','bank'],
+    ['3000','Capital Account','bank'],['3100','Retained Earnings','bank'],['3200','Drawing Account','bank'],
     // Income
-    ['Transport Revenue - Freight','bank'],['Transport Revenue - Parcels','bank'],['Commission Income','bank'],['Handling Charges Income','bank'],
+    ['4010','Transport Revenue - Freight','bank'],['4020','Transport Revenue - Parcels','bank'],['4030','Commission Income','bank'],['4040','Handling Charges Income','bank'],
     // Expenses
-    ['Fuel & Diesel Expense','bank'],['Driver Salary','bank'],['Vehicle Maintenance','bank'],['Insurance Premium','bank'],
-    ['Toll Tax Expense','bank'],['Rent Expense','bank'],['Utilities Expense','bank'],['Depreciation Expense','bank'],
-    ['Office Supplies','bank'],['Miscellaneous Expense','bank']
+    ['5010','Fuel & Diesel Expense','bank'],['5020','Driver Salary','bank'],['5030','Vehicle Maintenance','bank'],['5040','Insurance Premium','bank'],
+    ['5050','Toll Tax Expense','bank'],['5060','Rent Expense','bank'],['5070','Utilities Expense','bank'],['5080','Depreciation Expense','bank'],
+    ['5090','Office Supplies','bank'],['5100','Miscellaneous Expense','bank']
   ];
-  DEFAULT_ACCTS.forEach(([name,type])=>{
+  DEFAULT_ACCTS.forEach(([code,name,type])=>{
     if(!haveAcctNames.includes(name.toLowerCase())){
-      db.accounts.push(stamp({id:nextId('accounts'),name:name,type:type,opening_paisa:0}));
+      db.accounts.push(stamp({id:nextId('accounts'),code:code,name:name,type:type,opening_paisa:0}));
       dirty=true;
     }
   });
