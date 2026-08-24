@@ -1749,21 +1749,19 @@ function render(){
   closeModal();
   const app=document.getElementById('app');
   if(!state.user){app.innerHTML=loginHTML();return;}
-  // Save navigation states before re-rendering
-  const navStates={};
-  document.querySelectorAll('.nav-group').forEach(g=>{navStates[g.textContent.split('\n')[0].trim()]=g.dataset.open;});
   const h=location.hash||defaultRoute();
   const parts=h.replace(/^#\//,'').split('/');
   let route=ROUTES[parts[0]]||ROUTES[defaultRoute().replace('#/','')];
   if(!route||!can(route.cap)){route=ROUTES[defaultRoute().replace('#/','')];}
   const cur='#/'+parts[0];
+  const navItemsList=navItems();
   app.innerHTML=`
   <div class="shell">
     <nav class="side">
       <div class="brand"><img src="${UTN_LOGO_3D}" alt="${esc(CO_NAME)}" class="brand-logo"><span class="ver">TMS CRM · MVP ${APP_VER}</span></div>
-      ${navItems().reduce((html,it,i,arr)=>{
+      ${navItemsList.reduce((html,it,i,arr)=>{
         if(it[0]==='SEP')return html+`<div class="sep">${esc(it[1])}</div>`;
-        if(it[0]==='DROP')return html+`<div class="nav-group" data-open="${navStates[it[1]]||'true'}"><div class="nav-toggle" onclick="this.parentElement.dataset.open=this.parentElement.dataset.open==='true'?'false':'true'">${esc(it[1])} <span class="nav-caret">▼</span></div><div class="nav-items">`;
+        if(it[0]==='DROP')return html+`<div class="nav-group" data-open="false"><div class="nav-toggle" onclick="this.parentElement.dataset.open=this.parentElement.dataset.open==='true'?'false':'true'">${esc(it[1])} <span class="nav-caret">▼</span></div><div class="nav-items">`;
         if(it[0]==='ENDROP')return html+`</div></div>`;
         return html+`<a href="${it[0]}" class="${cur===it[0]?'on':''}">${esc(it[1])}${it[2]?`<span class="nav-ur">${esc(it[2])}</span>`:''}</a>`;
       },'')}
@@ -1777,7 +1775,7 @@ function render(){
         <span class="clock" id="topClock">${esc(topClockText())}</span>
         <span class="who">${esc(state.user.name)}</span>
         <span class="chip">${esc(state.user.role)}</span>
-        <button class="btn ghost sm" onclick="openHelpFAQ()">Yar</button>
+        <button class="btn ghost sm" onclick="openHelpFAQ()">Ask Yar</button>
         <button class="btn ghost sm" onclick="logout()">Logout</button>
       </div>
       <div class="scrollarea"><div class="content" id="content"></div></div>
@@ -1785,6 +1783,16 @@ function render(){
   </div>`;
   document.getElementById('content').innerHTML=route.fn(parts[1]);
   const after=window._afterRender; window._afterRender=null; if(after)after();
+  // Close all sections then open only the one with the active link (use setTimeout to ensure DOM is ready)
+  window._updateNavSections=()=>{
+    document.querySelectorAll('.nav-group').forEach(g=>g.dataset.open='false');
+    const activeLink=document.querySelector('.side a.on');
+    if(activeLink){
+      let section=activeLink.closest('.nav-group');
+      if(section)section.dataset.open='true';
+    }
+  };
+  window._updateNavSections();
 }
 function searchTrips(raw){
   const q=String(raw||'').toLowerCase().trim(); if(!q)return [];
