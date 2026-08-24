@@ -1714,12 +1714,17 @@ function navItems(){
   if(can('finance'))items.push(['#/cashflow','Cash Flow Statement']);
   if(r==='carrier')items.push(['#/mypayments','My Payments']);
   items.push(['ENDROP']);
-  if(can('reports'))items.push(['SEP','Reports']);
+  if(can('reports'))items.push(['DROP','Reports']);
   if(can('reports'))items.push(['#/reports','Reports']);
-  if(can('master'))items.push(['SEP','Master data'],['#/customers','Customers'],['#/agreements','Rate Agreements'],
+  if(can('reports'))items.push(['ENDROP']);
+  if(can('master'))items.push(['DROP','Master data']);
+  if(can('master'))items.push(['#/customers','Customers'],['#/agreements','Rate Agreements'],
     ['#/carriers','Carriers'],['#/drivers','Drivers'],['#/vendors','Vendors'],['#/agents','Clearing Agents'],
     ['#/lists','Dropdown Lists']);
-  if(can('settings'))items.push(['SEP',''],['#/settings','Settings & Backup']);
+  if(can('master'))items.push(['ENDROP']);
+  if(can('settings'))items.push(['DROP','Settings']);
+  if(can('settings'))items.push(['#/settings','Settings & Backup']);
+  if(can('settings'))items.push(['ENDROP']);
   return items;
 }
 function render(){
