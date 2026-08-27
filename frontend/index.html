@@ -1436,8 +1436,8 @@ function seedDB(){
   a('agreements',{customer_id:2,route:'Karachi → Islamabad',route_from:'Karachi',route_to:'Islamabad',vehicle_type:'Car',rate_paisa:2100000,valid_from:'2026-01-01',valid_to:'2026-12-31',fuel_clause:'',status:'active'});
   a('agreements',{customer_id:1,route:'Karachi → Multan',route_from:'Karachi',route_to:'Multan',vehicle_type:'Car',rate_paisa:1500000,valid_from:'2026-03-01',valid_to:'2026-12-31',fuel_clause:'',status:'active'});
   // carriers & drivers
-  a('carriers',{name:'Karachi Carriers',contact:'0300-1234567',pay_type:'flat_rate'});
-  a('carriers',{name:'Bismillah Transport',contact:'0321-7654321',pay_type:'cost_plus'});
+  a('carriers',{name:'Karachi Carriers',contact:'0300-1234567',ownership:'hired',pay_type:'flat_rate',monthly_paisa:5000000});
+  a('carriers',{name:'Bismillah Transport',contact:'0321-7654321',ownership:'company',pay_type:'cost_plus'});
   a('drivers',{name:'Rashid Khan',license:'KHI-DL-99812',contact:'0333-1112223',carrier_id:1});
   a('drivers',{name:'Bilal Ahmed',license:'KHI-DL-45671',contact:'0345-9998887',carrier_id:2});
   // vendors & agents
@@ -3614,7 +3614,41 @@ function jCostTotal(jid){
     +jClearingCharges(jid)
     +jFuelTransferReceived(jid)-jFuelTransferGiven(jid);
 }
-function jAdvanceBalance(jid){return jDriverAdvance(jid)-jExpensesExclAdvance(jid);}
+function jAdvanceBalance(jid){const opening=byId('journeys',jid)?.opening_balance_paisa||0;return (opening+jDriverAdvance(jid))-jExpensesExclAdvance(jid);}
+function getLastTripForDriver(did){
+  if(!did)return null;
+  const trips=all('journeys').filter(j=>j.driver_id===did&&j.status==='finished').sort((a,b)=>new Date(b.date)-new Date(a.date));
+  return trips.length?trips[0]:null;
+}
+function getPreviousDriverBalance(did){
+  const lastTrip=getLastTripForDriver(did);
+  if(!lastTrip)return 0;
+  return jAdvanceBalance(lastTrip.id);
+}
+function getCarrierHiringCost(jid){
+  const j=byId('journeys',jid);
+  if(!j||!j.carrier_id)return 0;
+  const c=byId('carriers',j.carrier_id);
+  if(!c||c.ownership!=='hired')return 0;
+  if(c.pay_type==='flat_rate'&&c.monthly_paisa)return c.monthly_paisa;
+  return 0;
+}
+function getCarrierAdvances(jid){
+  return all('expenses').filter(e=>e.journey_id===jid&&e.type==='carrier_advance'&&e.source==='company');
+}
+function getCarrierAdvanceTotal(jid){
+  return getCarrierAdvances(jid).reduce((s,e)=>s+(e.amount_paisa||0),0);
+}
+function getCarrierFuelProvided(jid){
+  return jFuelTransferGiven(jid);
+}
+function getCarrierPayable(jid){
+  const earning=jEarning(jid);
+  const hiringCost=getCarrierHiringCost(jid);
+  const advances=getCarrierAdvanceTotal(jid);
+  const fuel=getCarrierFuelProvided(jid);
+  return earning-hiringCost-advances-fuel;
+}
 function jEarning(jid){return jLoads(jid).reduce((s,t)=>s+(t.freight_paisa||0),0);}
 function jReturnLoadBilty(jid){
   const j=byId('journeys',jid); if(!j)return null;
@@ -3699,7 +3733,8 @@ function journeyForm(id){
     <div class="frow"><label>Chalan #</label><input id="j_chalan" value="${esc(rec.chalan_no||nextChalanNo())}">
       <div class="hint">Auto-numbered — overwrite this if you're using your own pre-printed/numbered chalan pad.</div></div>
     <div class="frow"><label class="req">${bi('Carrier','کیریئر')}</label><select id="j_carrier" onchange="filterDriversByCarrier()">${fkOptions('carriers',rec.carrier_id)}</select></div>
-    <div class="frow"><label>${bi('Driver','ڈرائیور')}</label><select id="j_driver">${fkOptions('drivers',rec.driver_id)}</select></div>
+    <div class="frow"><label>${bi('Driver','ڈرائیور')}</label><select id="j_driver" onchange="updateOpeningBalance()">${fkOptions('drivers',rec.driver_id)}</select></div>
+    <div class="frow" id="j_opening_balance_row" style="${rec.driver_id&&!id?'':'display:none'}"><label style="color:#d97706">📌 Carried forward from previous trip</label><div style="font-size:16px;font-weight:700;color:#0f766e;padding:8px 0" id="j_opening_balance_display">${rec.driver_id&&!id?pkr(getPreviousDriverBalance(rec.driver_id)):''}</div><input type="hidden" id="j_opening_balance" value="${esc(rec.opening_balance_paisa||0)}"></div>
     <div class="frow"><label>${bi('Status','حالت')}</label><select id="j_status" onchange="jStatusToggle()">${optHTML(JOURNEY_STATUS,rec.status)}</select></div>
     <div class="frow" id="j_date_end_row" style="${rec.status==='finished'?'':'display:none'}">
       <label>${bi('Finishing date','تکمیل کی تاریخ')}</label>
@@ -3722,6 +3757,21 @@ function journeyForm(id){
   </div>
   <div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button>
   <button class="btn" onclick="journeySave(${id||'null'})">Save Trip</button></div>`,true);
+}
+function updateOpeningBalance(){
+  const did=parseInt(V('j_driver'),10)||null;
+  const row=document.getElementById('j_opening_balance_row');
+  const display=document.getElementById('j_opening_balance_display');
+  const input=document.getElementById('j_opening_balance');
+  if(did){
+    const balance=getPreviousDriverBalance(did);
+    if(row)row.style.display=balance!==0?'':'none';
+    if(display)display.textContent=pkr(balance);
+    if(input)input.value=balance;
+  }else{
+    if(row)row.style.display='none';
+    if(input)input.value=0;
+  }
 }
 function jStatusToggle(){
   const row=document.getElementById('j_date_end_row');
@@ -3791,9 +3841,10 @@ function journeySave(id){
   if(!stations.includes(to))stations.push(to);
   const status=V('j_status')||'open';
   const date_end=status==='finished'?(V('j_date_end')||today()):null;
+  const opening_balance_paisa=parseInt(V('j_opening_balance'))||0;
   const obj={date:date,carrier_id:cid,driver_id:parseInt(V('j_driver'),10)||null,
     route_from:from,route_to:to,stations:stations,status:status,notes:V('j_notes'),
-    return_load_manual:V('j_return')||null,date_end:date_end,chalan_no:V('j_chalan')||nextChalanNo()};
+    return_load_manual:V('j_return')||null,date_end:date_end,chalan_no:V('j_chalan')||nextChalanNo(),opening_balance_paisa:opening_balance_paisa};
   let j;
   if(id){j=upd('journeys',id,obj);}
   else{
@@ -3834,7 +3885,7 @@ function pageJourneyDetail(id){
   <div class="card"><h2>${bi('Trip info','ٹرپ کی تفصیل')}</h2>
     <div class="rowline"><span class="mut">Chalan #</span><span>${esc(j.chalan_no||'—')}</span></div>
     <div class="rowline"><span class="mut">${biShort('Date','تاریخ')}</span><span>${esc(fmtDate(j.date))}${j.date_end?' → '+esc(fmtDate(j.date_end)):''}</span></div>
-    <div class="rowline"><span class="mut">${biShort('Carrier','کیریئر')}</span><span>${esc(nm('carriers',j.carrier_id))}</span></div>
+    <div class="rowline"><span class="mut">${biShort('Carrier','کیریئر')}</span><span>${esc(nm('carriers',j.carrier_id))} ${(()=>{const c=byId('carriers',j.carrier_id);if(!c)return '';const badge=c.ownership==='hired'?'<span class="badge b-amber">Hired</span>':'<span class="badge b-gray">Company</span>';const paytype=c.pay_type==='flat_rate'?' — Flat: '+pkr(c.monthly_paisa||0)+'/mo':' — Cost+';return badge+paytype;})()}</span></div>
     <div class="rowline"><span class="mut">${biShort('Driver','ڈرائیور')}</span><span>${esc(nm('drivers',j.driver_id))}</span></div>
     <div class="rowline"><span class="mut">${biShort('Route','روٹ')}</span><span>${journeyRouteDisplay(j)}</span></div>
     <div class="rowline"><span class="mut">${biShort('Stations','اسٹیشنز')}</span><span>${(j.stations||[]).map(s=>`<span class="badge b-gray">${esc(s)}</span>`).join(' ')}</span></div>
@@ -3856,8 +3907,11 @@ function pageJourneyDetail(id){
     <div class="rowline"><span class="mut">Clearing agent charge</span><span>${pkr(jClearingCharges(j.id))}</span></div>
     ${jFuelTransferReceived(j.id)>0?`<div class="rowline"><span class="mut">Fuel transfer received (cost)</span><span>${pkr(jFuelTransferReceived(j.id))}</span></div>`:''}
     ${jFuelTransferGiven(j.id)>0?`<div class="rowline"><span class="mut">Fuel transfer given (credit)</span><span>-${pkr(jFuelTransferGiven(j.id))}</span></div>`:''}
-    <div class="rowline"><span class="mut">Total cost</span><span><b>${pkr(jCostTotal(j.id))}</b></span></div>
+    ${getCarrierHiringCost(j.id)>0?`<div class="rowline"><span class="mut">Carrier hiring cost</span><span><b>${pkr(getCarrierHiringCost(j.id))}</b></span></div>`:''}
+    ${getCarrierAdvanceTotal(j.id)>0?`<div class="rowline"><span class="mut">Carrier advance given</span><span>${pkr(getCarrierAdvanceTotal(j.id))}</span></div>`:''}
+    <div class="rowline"><span class="mut">Total cost</span><span><b>${pkr(jCostTotal(j.id)+getCarrierHiringCost(j.id)+getCarrierAdvanceTotal(j.id))}</b></span></div>
     ${jClaimsCost(j.id)>0?`<div class="rowline"><span class="mut">Claims (settled, company-borne)</span><span>${pkr(jClaimsCost(j.id))}</span></div>`:''}
+    ${(()=>{const c=byId('carriers',j.carrier_id);return c&&c.ownership==='hired'?`<div class="rowline" style="border-top:1px solid var(--line);padding-top:8px;margin-top:8px"><span class="mut"><b>Carrier Payable</b></span><span><b style="color:#0f766e">${pkr(getCarrierPayable(j.id))}</b></span></div>`:'';})()}
     <div class="rowline"><span class="mut">Net</span><span><b>${earnVisible?pkr(jEarning(j.id)-jCostTotal(j.id)-jClaimsCost(j.id)):'<span class="mut small">Hidden</span>'}</b></span></div>
     <div style="margin-top:10px">
       <button class="btn sm" onclick="expenseForm(null,null,${j.id})">+ Expense</button>
@@ -3875,6 +3929,16 @@ function pageJourneyDetail(id){
       <button class="btn ghost sm" onclick="expenseDel(${a.id})">Delete</button></td></tr>`).join('')}
     </tbody></table></div>`:'<div class="mut small">No driver advances logged yet.</div>'}
   </div>
+  ${(()=>{const c=byId('carriers',j.carrier_id);if(!c||c.ownership!=='hired')return '';const cadv=getCarrierAdvances(j.id);return `<div class="card"><h2>Carrier Advances (${cadv.length})</h2>
+    ${cadv.length?`<div class="tblwrap" style="border:0;margin:0"><table><thead><tr><th>Date</th><th>Type</th><th class="num">Amount</th><th>Notes</th><th></th></tr></thead><tbody>
+    ${cadv.map(a=>`<tr><td>${esc(fmtDate(a.date))}</td><td>${esc(a.type==='carrier_advance'?'Advance':'Other')}</td>
+      <td class="num">${pkr(a.amount_paisa)}</td><td>${esc(a.notes||'—')}</td>
+      <td class="num"><button class="btn ghost sm" onclick="expenseDel(${a.id})">Delete</button></td></tr>`).join('')}
+    </tbody></table></div>`:'<div class="mut small">No carrier advances logged yet.</div>'}
+    <div style="margin-top:10px">
+      <button class="btn ghost sm" onclick="expenseForm(null,'carrier_advance',${j.id})">+ Carrier Advance</button>
+    </div>
+  </div>`;})()}
   <div class="card"><h2>${bi('Loads on this trip','اس ٹرپ کے لوڈز')} (${loads.length})</h2>
     ${loads.length?`<div class="tblwrap" style="border:0;margin:0"><table><thead><tr><th>${biShort('Bilty','بلٹی')}</th><th>${biShort('Customer','کسٹمر')}</th>
     <th>${biShort('From → To','کہاں سے کہاں تک')}</th><th>${biShort('Vehicle','گاڑی')}</th><th>${biShort('Status','حالت')}</th><th></th></tr></thead><tbody>
