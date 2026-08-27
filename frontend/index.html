@@ -993,7 +993,7 @@ function employeeAdvancesOutstandingByDriver(){
 function driverOutstandingAdvances(driverId){
   return all('employee_advances').filter(a=>a.driver_id==driverId&&!a.deleted_at&&a.status!=='settled');
 }
-function advanceForm(driverId){
+function employeeAdvanceForm(driverId){
   const d=byId('drivers',driverId);
   if(!d)return '';
   return `<div class="fgrid">
@@ -4923,7 +4923,7 @@ function employeeAdvanceNewForm(){
     <div class="fgrid">
       <div class="full"><label class="req">Driver</label><select id="adv_driver"><option value="">— Select —</option>
         ${drivers.map(d=>`<option value="${d.id}">${esc(d.name)}</option>`).join('')}</select></div>
-      ${advanceForm(V('adv_driver')||'')}</div>
+      ${employeeAdvanceForm(V('adv_driver')||'')}</div>
     `, false);
   document.getElementById('adv_driver').addEventListener('change',()=>{render();});
 }
