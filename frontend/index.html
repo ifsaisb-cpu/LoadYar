@@ -4268,11 +4268,9 @@ function jFinish(jid){
       const tyre_item=all('stock_items').find(i=>i.name.includes('Tyre'));
 
       const glLines=[];
-      /* Deduct oil & filters */
+      /* Deduct oil & filters — use getJourneyConsumables values for consistency */
       if((cons.oil>0||cons.filters>0)&&oil_item&&filter_item){
-        const oilCost=(cons.oil||0)*oil_item.unit_cost_paisa;
-        const filterCost=(cons.filters||0)*filter_item.unit_cost_paisa;
-        const totalOilFilter=oilCost+filterCost;
+        const totalOilFilter=cons.oil_cost_paisa+cons.filters_cost_paisa;
         if(totalOilFilter>0){
           glLines.push({account_code:'5280',debit_paisa:totalOilFilter,credit_paisa:0});
           /* Record stock transaction for oil */
@@ -4293,10 +4291,11 @@ function jFinish(jid){
           }
         }
       }
-      /* Deduct tyres */
+      /* Deduct tyres — use getJourneyConsumables values for consistency */
       if(cons.tyres>0&&tyre_item){
-        const tyreCost=cons.tyres*tyre_item.unit_cost_paisa;
-        glLines.push({account_code:'5250',debit_paisa:tyreCost,credit_paisa:0});
+        if(cons.tyres_cost_paisa>0){
+          glLines.push({account_code:'5250',debit_paisa:cons.tyres_cost_paisa,credit_paisa:0});
+        }
         add('stock_transactions',{
           stock_item_id:tyre_item.id,stock_location_id:karachi_depot.id,type:'consumption',
           quantity:cons.tyres,reference:`Trip ${j.trip_no}`,date:today(),
@@ -4307,6 +4306,7 @@ function jFinish(jid){
       if(glLines.length>0){
         const totalExp=glLines.reduce((s,l)=>s+(l.debit_paisa||0),0);
         glLines.push({account_code:'1000',debit_paisa:0,credit_paisa:totalExp});
+        console.log('jFinish: posting GL entries', {trip: j.trip_no, lines: glLines});
         postEntry('consumables_expense','journey',jid,glLines,`Consumables consumed on trip ${j.trip_no}`,j.date);
       }
       if(cons.oil>0||cons.filters>0||cons.tyres>0){
