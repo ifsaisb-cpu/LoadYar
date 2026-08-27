@@ -4253,7 +4253,6 @@ function jChangeCarrierSave(jid){
   toast('Carrier changed and logged');render();
 }
 function jFinish(jid){
-  if(!confirm('Finish this trip? Loads stay linked for records.'))return;
   upd('journeys',jid,{status:'finished',date_end:today()});
 
   /* Phase 3.1: Auto-deduct consumables from warehouse stock */
