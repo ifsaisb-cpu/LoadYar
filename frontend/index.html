@@ -4267,32 +4267,50 @@ function jFinish(jid){
       const filter_item=all('stock_items').find(i=>i.name.includes('Air Filter'));
       const tyre_item=all('stock_items').find(i=>i.name.includes('Tyre'));
 
-      /* Deduct oil */
-      if(cons.oil>0&&oil_item){
-        add('stock_transactions',{
-          stock_item_id:oil_item.id,stock_location_id:karachi_depot.id,type:'consumption',
-          quantity:cons.oil,reference:`Trip ${j.trip_no}`,date:today(),
-          notes:`Trip ${j.trip_no} finished - oil consumption`,unit_cost_paisa:oil_item.unit_cost_paisa
-        });
-      }
-      /* Deduct filters */
-      if(cons.filters>0&&filter_item){
-        add('stock_transactions',{
-          stock_item_id:filter_item.id,stock_location_id:karachi_depot.id,type:'consumption',
-          quantity:cons.filters,reference:`Trip ${j.trip_no}`,date:today(),
-          notes:`Trip ${j.trip_no} finished - filter consumption`,unit_cost_paisa:filter_item.unit_cost_paisa
-        });
+      const glLines=[];
+      /* Deduct oil & filters */
+      if((cons.oil>0||cons.filters>0)&&oil_item&&filter_item){
+        const oilCost=(cons.oil||0)*oil_item.unit_cost_paisa;
+        const filterCost=(cons.filters||0)*filter_item.unit_cost_paisa;
+        const totalOilFilter=oilCost+filterCost;
+        if(totalOilFilter>0){
+          glLines.push({account_code:'5280',debit_paisa:totalOilFilter,credit_paisa:0});
+          /* Record stock transaction for oil */
+          if(cons.oil>0){
+            add('stock_transactions',{
+              stock_item_id:oil_item.id,stock_location_id:karachi_depot.id,type:'consumption',
+              quantity:cons.oil,reference:`Trip ${j.trip_no}`,date:today(),
+              notes:`Trip ${j.trip_no} finished - oil consumption`,unit_cost_paisa:oil_item.unit_cost_paisa
+            });
+          }
+          /* Record stock transaction for filters */
+          if(cons.filters>0){
+            add('stock_transactions',{
+              stock_item_id:filter_item.id,stock_location_id:karachi_depot.id,type:'consumption',
+              quantity:cons.filters,reference:`Trip ${j.trip_no}`,date:today(),
+              notes:`Trip ${j.trip_no} finished - filter consumption`,unit_cost_paisa:filter_item.unit_cost_paisa
+            });
+          }
+        }
       }
       /* Deduct tyres */
       if(cons.tyres>0&&tyre_item){
+        const tyreCost=cons.tyres*tyre_item.unit_cost_paisa;
+        glLines.push({account_code:'5250',debit_paisa:tyreCost,credit_paisa:0});
         add('stock_transactions',{
           stock_item_id:tyre_item.id,stock_location_id:karachi_depot.id,type:'consumption',
           quantity:cons.tyres,reference:`Trip ${j.trip_no}`,date:today(),
           notes:`Trip ${j.trip_no} finished - tyre consumption`,unit_cost_paisa:tyre_item.unit_cost_paisa
         });
       }
+      /* Phase 3.2: GL Posting for consumables expense */
+      if(glLines.length>0){
+        const totalExp=glLines.reduce((s,l)=>s+(l.debit_paisa||0),0);
+        glLines.push({account_code:'1000',debit_paisa:0,credit_paisa:totalExp});
+        postEntry('consumables_expense','journey',jid,glLines,`Consumables consumed on trip ${j.trip_no}`,j.date);
+      }
       if(cons.oil>0||cons.filters>0||cons.tyres>0){
-        toast(`Consumables deducted from Karachi Depot stock`);
+        toast(`Consumables deducted & GL posted`);
       }
     }
   }
