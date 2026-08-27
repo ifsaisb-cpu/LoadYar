@@ -476,7 +476,8 @@ const CK_ITEMS=[
 const COLLS=['users','customers','agreements','carriers','drivers','vendors','agents','bookings',
 'trips','checklists','expenses','vendortx','agentcharges','invoices','inpayments','payables',
 'outpayments','claims','overrides','listopts','journeys','fuel','fueltransfers','overheads','accounts','vouchersigned',
-'paypromises','chart_of_accounts','journal_entries','journal_lines','contras','employee_advances'];
+'paypromises','chart_of_accounts','journal_entries','journal_lines','contras','employee_advances',
+'stock_items','stock_locations','stock_transactions'];
 const COLL_META={
   users:['👤','Users'],customers:['🏢','Customers'],agreements:['📄','Rate Agreements'],
   carriers:['🚚','Carriers'],drivers:['🧑','Drivers'],vendors:['🏭','Vendors'],agents:['🧾','Clearing Agents'],
@@ -1444,6 +1445,17 @@ function seedDB(){
   a('vendors',{name:'Madina Tyres',category:'tyre',contact:'021-32760011'});
   a('vendors',{name:'Al-Karam Auto Repair',category:'repairs',contact:'0312-4445556'});
   a('agents',{name:'Sea Link Clearing',contact:'0301-2223334',city_port:'Karachi Port'});
+  // warehouse stock
+  a('stock_locations',{name:'Karachi Depot',city:'Karachi',capacity_liters:5000});
+  a('stock_locations',{name:'Lahore Depot',city:'Lahore',capacity_liters:3000});
+  a('stock_items',{name:'Engine Oil SAE 40',type:'oil',unit:'liters',unit_cost_paisa:13000,reorder_point:100,reorder_quantity:500});
+  a('stock_items',{name:'Air Filter',type:'filter',unit:'pieces',unit_cost_paisa:80000,reorder_point:20,reorder_quantity:50});
+  a('stock_items',{name:'Tyre Radial 295/80',type:'tyre',unit:'pieces',unit_cost_paisa:850000,reorder_point:5,reorder_quantity:20});
+  a('stock_items',{name:'Spare Parts Kit',type:'parts',unit:'kits',unit_cost_paisa:250000,reorder_point:3,reorder_quantity:10});
+  // stock purchase
+  a('stock_transactions',{stock_item_id:1,stock_location_id:1,type:'purchase',quantity:500,unit_cost_paisa:13000,date:today(),vendor_id:2,reference:'PO-2026-0085',notes:'Bulk purchase for season'});
+  a('stock_transactions',{stock_item_id:2,stock_location_id:1,type:'purchase',quantity:100,unit_cost_paisa:80000,date:today(),vendor_id:2,reference:'PO-2026-0086',notes:'Air filters stock'});
+  a('stock_transactions',{stock_item_id:3,stock_location_id:1,type:'purchase',quantity:25,unit_cost_paisa:850000,date:today(),vendor_id:1,reference:'PO-2026-0087',notes:'Tyre purchase'});
   // booking (open)
   a('bookings',{customer_id:3,booking_date:today(),route:'Lahore → Karachi',requested_pickup:'2026-07-22',status:'open',trip_id:null});
   // trip 1 — digital, in transit
@@ -1704,6 +1716,7 @@ const ROUTES={
   drivers:{cap:'master',fn:()=>pageEnt('drivers'),title:'Drivers'},
   vendors:{cap:'master',fn:()=>pageEnt('vendors'),title:'Vendors'},
   agents:{cap:'master',fn:()=>pageEnt('agents'),title:'Clearing Agents'},
+  warehouse:{cap:'master',fn:()=>pageWarehouse(),title:'Warehouse Stock'},
   lists:{cap:'master',fn:()=>pageListOpts(),title:'Dropdown Lists'},
   settings:{cap:'settings',fn:()=>pageSettings(),title:'Settings & Backup'}
 };
@@ -1738,7 +1751,7 @@ function navItems(){
   if(can('master'))items.push(['DROP','Master data']);
   if(can('master'))items.push(['#/customers','Customers'],['#/agreements','Rate Agreements'],
     ['#/carriers','Carriers'],['#/drivers','Drivers'],['#/vendors','Vendors'],['#/agents','Clearing Agents'],
-    ['#/lists','Dropdown Lists']);
+    ['#/warehouse','Warehouse Stock'],['#/lists','Dropdown Lists']);
   if(can('master'))items.push(['ENDROP']);
   if(can('settings'))items.push(['DROP','Settings']);
   if(can('settings'))items.push(['#/settings','Settings & Backup']);
@@ -2490,6 +2503,104 @@ function agrClearFilter(cid){
   window._agrFilter=window._agrFilter||{};
   window._agrFilter[cid]={from:'',to:''};
   render();
+}
+
+/* warehouse stock management */
+function getStockBalance(itemId,locId){
+  const trans=all('stock_transactions').filter(t=>t.stock_item_id===itemId&&t.stock_location_id===locId);
+  return trans.reduce((sum,t)=>{
+    if(t.type==='purchase'||t.type==='transfer_in')return sum+t.quantity;
+    if(t.type==='consumption'||t.type==='transfer_out'||t.type==='scrap')return sum-t.quantity;
+    return sum;
+  },0);
+}
+function getStockValue(itemId,locId){
+  const item=byId('stock_items',itemId);
+  const balance=getStockBalance(itemId,locId);
+  return balance*(item.unit_cost_paisa||0);
+}
+function pageWarehouse(){
+  const items=all('stock_items').slice().sort((a,b)=>a.name.localeCompare(b.name));
+  const locs=all('stock_locations').slice().sort((a,b)=>a.name.localeCompare(b.name));
+  return `<div class="pagehead"><h1>Warehouse Stock</h1><div class="sp"></div>
+    <button class="btn" onclick="stockItemForm()">+ Add Item</button></div>
+  <div class="card">
+    <h2>Stock Levels by Location</h2>
+    ${locs.map(loc=>{
+      const locBalance=items.reduce((sum,it)=>sum+getStockBalance(it.id,loc.id),0);
+      return `<div class="rowline"><span><b>${esc(loc.name)}</b> (${loc.city})</span>
+        <span class="num">${locBalance.toFixed(0)} units · Rs ${pkr(items.reduce((sum,it)=>sum+getStockValue(it.id,loc.id),0))}</span></div>`;
+    }).join('')}
+  </div>
+  ${items.map(it=>`<div class="card">
+    <h3>${esc(it.name)} (${esc(it.unit)})</h3>
+    <div class="tblwrap"><table><thead><tr><th>Location</th><th class="num">On-Hand</th><th class="num">Value</th><th class="num">Reorder Point</th><th></th></tr></thead><tbody>
+    ${locs.map(loc=>{
+      const bal=getStockBalance(it.id,loc.id);
+      const val=getStockValue(it.id,loc.id);
+      const lowStock=bal<it.reorder_point;
+      return `<tr ${lowStock?'style="background:#fff3cd"':''}>
+        <td>${esc(loc.name)}</td>
+        <td class="num">${bal.toFixed(1)}</td>
+        <td class="num">${pkr(val)}</td>
+        <td class="num">${it.reorder_point} ${lowStock?'<span class="badge b-warn">LOW</span>':''}</td>
+        <td class="num"><button class="btn ghost sm" onclick="stockTransForm(${it.id},${loc.id})">Add</button></td>
+      </tr>`;
+    }).join('')}
+    </tbody></table></div>
+    <div style="margin-top:8px"><button class="btn ghost sm" onclick="entForm('stock_items',${it.id})">Edit Item</button>
+    <button class="btn ghost sm" onclick="entDel('stock_items',${it.id})">Delete</button></div>
+  </div>`).join('')}`;
+}
+function stockItemForm(id){
+  let rec={};if(id){rec=byId('stock_items',id);if(!rec){toast('Not found',true);return;}}
+  openModal(`<h2>${id?'Edit':'Add'} Stock Item</h2>
+  <div class="fgrid">
+    <div class="frow"><label class="req">Item Name</label><input id="si_name" value="${esc(rec.name||'')}"></div>
+    <div class="frow"><label class="req">Type</label><select id="si_type">
+      <option value="oil" ${rec.type==='oil'?'selected':''}>Engine Oil</option>
+      <option value="filter" ${rec.type==='filter'?'selected':''}>Filter</option>
+      <option value="tyre" ${rec.type==='tyre'?'selected':''}>Tyre</option>
+      <option value="parts" ${rec.type==='parts'?'selected':''}>Spare Parts</option>
+    </select></div>
+    <div class="frow"><label class="req">Unit</label><input id="si_unit" placeholder="liters / pieces / kits" value="${esc(rec.unit||'')}"></div>
+    <div class="frow"><label class="req">Unit Cost (PKR)</label><input type="number" step="0.01" id="si_cost" value="${esc(moneyVal(rec.unit_cost_paisa))}"></div>
+    <div class="frow"><label>Reorder Point</label><input type="number" id="si_reorder" value="${rec.reorder_point||0}"></div>
+    <div class="frow"><label>Reorder Quantity</label><input type="number" id="si_qty" value="${rec.reorder_quantity||0}"></div>
+  </div>
+  <div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button>
+  <button class="btn" onclick="stockItemSave(${id||'null'})">Save</button></div>`);
+}
+function stockItemSave(id){
+  const name=V('si_name'),type=V('si_type'),unit=V('si_unit'),cost=P(V('si_cost')),reord=parseInt(V('si_reorder'))||0,qty=parseInt(V('si_qty'))||0;
+  if(!name||!type||!unit||cost==null){toast('Required fields missing',true);return;}
+  const obj={name,type,unit,unit_cost_paisa:cost,reorder_point:reord,reorder_quantity:qty};
+  id?upd('stock_items',id,obj):add('stock_items',obj);
+  toast(id?'Item updated':'Item added');closeModal();render();
+}
+function stockTransForm(itemId,locId){
+  openModal(`<h2>Record Stock Transaction</h2>
+  <div class="fgrid">
+    <div class="frow"><label class="req">Type</label><select id="st_type" onchange="this.value==='purchase'?document.getElementById('st_ven').style.display='':document.getElementById('st_ven').style.display='none'">
+      <option value="purchase">Purchase</option><option value="consumption">Consumption (Trip)</option>
+      <option value="transfer_out">Transfer Out</option><option value="scrap">Scrap/Damage</option>
+    </select></div>
+    <div class="frow" id="st_ven"><label>Vendor</label><select id="st_vendor">${fkOptions('vendors')}</select></div>
+    <div class="frow"><label class="req">Quantity</label><input type="number" step="0.01" id="st_qty" placeholder="Enter quantity"></div>
+    <div class="frow"><label>Reference (PO/Trip)</label><input id="st_ref" placeholder="PO-2026-001 or TRIP-123"></div>
+    <div class="frow"><label>Notes</label><input id="st_notes"></div>
+  </div>
+  <div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button>
+  <button class="btn" onclick="stockTransSave(${itemId},${locId})">Record</button></div>`);
+}
+function stockTransSave(itemId,locId){
+  const type=V('st_type'),qty=parseFloat(V('st_qty')||0),ref=V('st_ref'),notes=V('st_notes');
+  if(qty<=0){toast('Quantity required',true);return;}
+  const obj={stock_item_id:itemId,stock_location_id:locId,type,quantity:qty,date:today(),reference:ref,notes,
+    unit_cost_paisa:byId('stock_items',itemId).unit_cost_paisa};
+  if(type==='purchase')obj.vendor_id=parseInt(V('st_vendor'))||null;
+  add('stock_transactions',obj);
+  toast('Transaction recorded');closeModal();render();
 }
 
 /* dropdown lists — grouped by kind so the list name isn't repeated on every row */
