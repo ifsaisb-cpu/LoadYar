@@ -4255,6 +4255,48 @@ function jChangeCarrierSave(jid){
 function jFinish(jid){
   if(!confirm('Finish this trip? Loads stay linked for records.'))return;
   upd('journeys',jid,{status:'finished',date_end:today()});
+
+  /* Phase 3.1: Auto-deduct consumables from warehouse stock */
+  const j=byId('journeys',jid);
+  if(j){
+    const cons=getJourneyConsumables(jid);
+    const karachi_depot=all('stock_locations').find(l=>l.name.includes('Karachi'));
+    if(karachi_depot&&(cons.oil>0||cons.filters>0||cons.tyres>0)){
+      /* Find stock items */
+      const oil_item=all('stock_items').find(i=>i.name.includes('Engine Oil'));
+      const filter_item=all('stock_items').find(i=>i.name.includes('Air Filter'));
+      const tyre_item=all('stock_items').find(i=>i.name.includes('Tyre'));
+
+      /* Deduct oil */
+      if(cons.oil>0&&oil_item){
+        add('stock_transactions',{
+          stock_item_id:oil_item.id,stock_location_id:karachi_depot.id,type:'consumption',
+          quantity:cons.oil,reference:`Trip ${j.trip_no}`,date:today(),
+          notes:`Trip ${j.trip_no} finished - oil consumption`,unit_cost_paisa:oil_item.unit_cost_paisa
+        });
+      }
+      /* Deduct filters */
+      if(cons.filters>0&&filter_item){
+        add('stock_transactions',{
+          stock_item_id:filter_item.id,stock_location_id:karachi_depot.id,type:'consumption',
+          quantity:cons.filters,reference:`Trip ${j.trip_no}`,date:today(),
+          notes:`Trip ${j.trip_no} finished - filter consumption`,unit_cost_paisa:filter_item.unit_cost_paisa
+        });
+      }
+      /* Deduct tyres */
+      if(cons.tyres>0&&tyre_item){
+        add('stock_transactions',{
+          stock_item_id:tyre_item.id,stock_location_id:karachi_depot.id,type:'consumption',
+          quantity:cons.tyres,reference:`Trip ${j.trip_no}`,date:today(),
+          notes:`Trip ${j.trip_no} finished - tyre consumption`,unit_cost_paisa:tyre_item.unit_cost_paisa
+        });
+      }
+      if(cons.oil>0||cons.filters>0||cons.tyres>0){
+        toast(`Consumables deducted from Karachi Depot stock`);
+      }
+    }
+  }
+
   toast('Trip finished');render();
 }
 
