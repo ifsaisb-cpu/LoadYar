@@ -6889,6 +6889,14 @@ function showPayPopup(){
       }
     }
   });
+  // Fuel pumps
+  all('fuel').forEach((f,i)=>{
+    if((f.total_paisa||0)>0){
+      const key='f'+i;
+      if(!payees.has(key))payees.set(key,{name:f.pump||'Fuel Entry',type:'Fuel Pump',balance:0});
+      payees.get(key).balance+=f.total_paisa||0;
+    }
+  });
   const list=Array.from(payees.values()).sort((a,b)=>b.balance-a.balance);
   const html=`<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999" onclick="event.target.style.display='none'">
     <div style="background:white;border-radius:8px;padding:20px;max-width:500px;max-height:70vh;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.2)" onclick="event.stopPropagation()">
