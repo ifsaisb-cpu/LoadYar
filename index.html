@@ -1685,7 +1685,7 @@ function login(uid){
   location.hash=defaultRoute(); render();
 }
 function logout(){state.user=null;window._loginSelected=null;sessionStorage.removeItem('mucrm_uid');location.hash='';render();}
-function defaultRoute(){return state.user&&state.user.role==='admin'?'#/dashboard':'#/trips';}
+function defaultRoute(){return '#/dashboard';}
 
 /* router */
 const ROUTES={
@@ -1711,6 +1711,7 @@ const ROUTES={
   reports:{cap:'reports',fn:()=>pageReports(),title:'Reports'},
   invoices:{cap:'invoices',fn:()=>pageInvoices(),title:'Invoices & Payments'},
   payables:{cap:'payables',fn:()=>pagePayables(),title:'Payables'},
+  receivable:{cap:'invoices',fn:()=>pageReceivable(),title:'Receivables'},
   mypayments:{cap:'view_trips',fn:()=>pageCarrierPayments(),title:'My Payments'},
   claims:{cap:'claims',fn:()=>pageClaims(),title:'Claims'},
   customers:{cap:'master',fn:()=>pageEnt('customers'),title:'Customers'},
@@ -1726,8 +1727,10 @@ const ROUTES={
 function navItems(){
   const r=state.user.role;
   const items=[];
+
+  // ===== OPERATIONS =====
   items.push(['DROP','Operations']);
-  if(r==='admin')items.push(['#/dashboard','Dashboard']);
+  items.push(['#/dashboard','Dashboard']);
   if(can('bookings'))items.push(['#/bookings','Booking / Bilty','بکنگ / بلٹی']);
   if(can('journeys'))items.push(['#/journeys','Create Trips','ٹرپ بنائیں']);
   items.push(['#/trips',(r==='driver'||r==='carrier')?'My Trips':'Booking Register',(r==='driver'||r==='carrier')?'میرے ٹرپ':'بکنگ رجسٹر']);
@@ -1735,31 +1738,62 @@ function navItems(){
   if(can('expensesPage'))items.push(['#/fuel','Diesel / Fuel','ڈیزل / تیل']);
   if(can('claims'))items.push(['#/claims','Claims']);
   items.push(['ENDROP']);
-  if(can('invoices')||can('payables')||can('finance')||r==='carrier')items.push(['DROP','Accounts']);
-  if(can('invoices'))items.push(['#/invoices','Invoices']);
-  if(can('payables'))items.push(['#/payables','Payables']);
+
+  // ===== ACCOUNTS =====
+  if(can('invoices')||can('payables')||can('finance')||can('reports')||can('payroll')||r==='carrier')items.push(['DROP','Accounts']);
+
+  // Invoice subsection
+  if(can('invoices')){
+    items.push(['#/invoices','Invoices']);
+  }
+
+  // Payables subsection
+  if(can('payables')){
+    items.push(['#/payables','Payables']);
+  }
+
+  // Receivables subsection
+  if(can('invoices')){
+    items.push(['#/receivable','Receivables']);
+  }
+
+  // GL Accounts
+  if(can('finance')){
+    items.push(['#/glaccountsmgmt','GL Accounts']);
+  }
+
+  // Financial Reports
+  if(can('finance')||can('reports')){
+    items.push(['#/reports','Reports']);
+  }
+
+  // Additional account management
   if(can('payables'))items.push(['#/empadvances','Employee Advances']);
   if(can('payables'))items.push(['#/vouchers','Vouchers']);
   if(can('payroll'))items.push(['#/payrollmonths','Payroll'],['#/payslips','Payslips']);
   if(can('finance'))items.push(['#/finance','Finance']);
   if(can('finance'))items.push(['#/balances','Balances']);
-  if(can('finance'))items.push(['#/glaccountsmgmt','GL Accounts']);
   if(can('finance'))items.push(['#/glaccounts','GL Account Report']);
   if(can('finance'))items.push(['#/financials','Financial Statements']);
   if(can('finance'))items.push(['#/cashflow','Cash Flow Statement']);
+
+  // Carrier specific
   if(r==='carrier')items.push(['#/mypayments','My Payments']);
+
   items.push(['ENDROP']);
-  if(can('reports'))items.push(['DROP','Reports']);
-  if(can('reports'))items.push(['#/reports','Reports']);
-  if(can('reports'))items.push(['ENDROP']);
+
+  // ===== MASTER DATA =====
   if(can('master'))items.push(['DROP','Master data']);
   if(can('master'))items.push(['#/customers','Customers'],['#/agreements','Rate Agreements'],
     ['#/carriers','Carriers'],['#/drivers','Drivers'],['#/vendors','Vendors'],['#/agents','Clearing Agents'],
     ['#/warehouse','Warehouse Stock'],['#/lists','Dropdown Lists']);
   if(can('master'))items.push(['ENDROP']);
+
+  // ===== SETTINGS =====
   if(can('settings'))items.push(['DROP','Settings']);
   if(can('settings'))items.push(['#/settings','Settings & Backup']);
   if(can('settings'))items.push(['ENDROP']);
+
   return items;
 }
 function render(){
@@ -6670,6 +6704,42 @@ function pagePayables(){
   ${can('totals')?`<div class="cards"><div class="stat"><div class="l">Total outstanding payables</div><div class="v">${pkr0(outTot)}</div></div>
     ${recvTot?`<div class="stat"><div class="l">Receivable from clearing agents</div><div class="v">${pkr0(recvTot)}</div></div>`:''}</div>`:''}
   ${body}`;
+}
+function pageReceivable(){
+  if(!can('invoices')){toast('Not permitted',true);return '';}
+  const allInvoices=all('invoices');
+  const fk='receivable_flt',q=tfGet(fk,'q'),statF=tfGet(fk,'status');
+  const rows=allInvoices.filter(i=>(!statF||i.status===statF)&&(!q||tfTextMatch(q,i.number,nm('customers',i.customer_id))));
+  const statusOpts=[['draft','Draft'],['sent','Sent'],['partial','Partial'],['paid','Paid'],['overdue','Overdue']];
+  const thead='<th>Invoice</th><th>Customer</th><th>Invoice date</th><th>Due date</th><th class="num">Total</th><th class="num">Received</th><th class="num">Balance</th><th>Status</th><th></th>';
+  const rowFn=i=>{
+    const {total}=invParts(i);
+    const received=invPaidAmount(i);
+    const balance=total-received;
+    const due=i.due_date||i.date;
+    const status=balance===0?'paid':balance>0&&due<today()?'overdue':balance>0?'partial':'draft';
+    return `<tr>
+      <td><a href="#/invoice/${i.id}"><b>${esc(i.number)}</b></a></td>
+      <td>${esc(nm('customers',i.customer_id))}</td>
+      <td>${esc(fmtDate(i.date))}</td>
+      <td>${esc(fmtDate(due))}</td>
+      <td class="num">${pkr(total)}</td>
+      <td class="num">${pkr(received)}</td>
+      <td class="num">${pkr(balance)} ${balBadge(total,received)}</td>
+      <td><span class="badge ${status==='paid'?'b-green':status==='overdue'?'b-red':'b-blue'}">${status}</span></td>
+      <td class="num"><button class="btn ghost sm" onclick="location.hash='#/invoice/${i.id}'">View</button></td></tr>`;
+  };
+  const totalAmount=rows.reduce((s,i)=>s+invParts(i).total,0);
+  const totalReceived=rows.reduce((s,i)=>s+invPaidAmount(i),0);
+  const totalBalance=totalAmount-totalReceived;
+  return `<div class="pagehead"><h1>Receivables</h1><div class="sp"></div></div>
+  <div class="cards">
+    <div class="stat"><div class="l">Total invoiced</div><div class="v">${pkr0(totalAmount)}</div></div>
+    <div class="stat"><div class="l">Received</div><div class="v">${pkr0(totalReceived)}</div></div>
+    <div class="stat"><div class="l">Outstanding</div><div class="v">${pkr0(totalBalance)}</div></div>
+  </div>
+  ${allInvoices.length>6?tfBar(fk,[{field:'status',label:'Status',options:statusOpts}],'Search invoice #, customer…'):''}
+  ${monthGroupedTable(rows,i=>i.date,thead,rowFn,allInvoices.length?'No matches for this filter.':'No invoices yet — create one under Invoices.','receivable')}`;
 }
 function pageCarrierPayments(){
   const cid=state.user.carrier_id;
