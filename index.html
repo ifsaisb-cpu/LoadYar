@@ -1728,9 +1728,11 @@ function navItems(){
   const r=state.user.role;
   const items=[];
 
+  // ===== DASHBOARD (TOP LEVEL) =====
+  items.push(['#/dashboard','Dashboard']);
+
   // ===== OPERATIONS =====
   items.push(['DROP','Operations']);
-  items.push(['#/dashboard','Dashboard']);
   if(can('bookings'))items.push(['#/bookings','Booking / Bilty','بکنگ / بلٹی']);
   if(can('journeys'))items.push(['#/journeys','Create Trips','ٹرپ بنائیں']);
   items.push(['#/trips',(r==='driver'||r==='carrier')?'My Trips':'Booking Register',(r==='driver'||r==='carrier')?'میرے ٹرپ':'بکنگ رجسٹر']);
