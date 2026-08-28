@@ -477,7 +477,7 @@ const COLLS=['users','customers','agreements','carriers','drivers','vendors','ag
 'trips','checklists','expenses','vendortx','agentcharges','invoices','inpayments','payables',
 'outpayments','claims','overrides','listopts','journeys','fuel','fueltransfers','overheads','accounts','vouchersigned',
 'paypromises','chart_of_accounts','journal_entries','journal_lines','contras','employee_advances',
-'stock_items','stock_locations','stock_transactions'];
+'stock_items','stock_locations','stock_transactions','salary_structures','payroll_months','payslips'];
 const COLL_META={
   users:['👤','Users'],customers:['🏢','Customers'],agreements:['📄','Rate Agreements'],
   carriers:['🚚','Carriers'],drivers:['🧑','Drivers'],vendors:['🏭','Vendors'],agents:['🧾','Clearing Agents'],
@@ -489,7 +489,8 @@ const COLL_META={
   journeys:['🚛','Carrier Trips'],fuel:['⛽','Fuel'],fueltransfers:['🔀','Fuel Transfers (between carriers)'],
   overheads:['🏢','Overheads'],accounts:['🏦','Accounts'],
   vouchersigned:['🖊️','Signed Vouchers'],contras:['🔁','Cash/Bank Transfers'],
-  paypromises:['🤝','Vendor Payment Promises']
+  paypromises:['🤝','Vendor Payment Promises'],
+  salary_structures:['💼','Salary Structures'],payroll_months:['📅','Payroll'],payslips:['📋','Payslips']
 };
 
 const MAJOR_OEMS=['Indus Motor Company (Toyota)','Pak Suzuki Motor Co.','Honda Atlas Cars',
@@ -517,7 +518,7 @@ const CAPS={
   dashboard:{admin:1}, master:{admin:1}, settings:{admin:1}, totals:{admin:1}, finance:{admin:1}, viewFreight:{admin:1}, reports:{admin:1},
   journeys:{admin:1,dispatcher:1},
   bookings:{admin:1,dispatcher:1}, trips_entry:{admin:1,dispatcher:1},
-  invoices:{admin:1}, payables:{admin:1}, claims:{admin:1},
+  invoices:{admin:1}, payables:{admin:1}, claims:{admin:1}, payroll:{admin:1},
   expensesPage:{admin:1,driver:1},
   expenses:{admin:1,dispatcher:1,driver:1}, checklist:{admin:1,dispatcher:1,driver:1},
   status:{admin:1,dispatcher:1,driver:1}, view_trips:{admin:1,dispatcher:1,driver:1,carrier:1}
@@ -1699,6 +1700,8 @@ const ROUTES={
   fuel:{cap:'expensesPage',fn:()=>pageFuel(),title:'Diesel / Fuel'},
   empadvances:{cap:'payables',fn:()=>pageEmployeeAdvances(),title:'Employee Advances'},
   vouchers:{cap:'payables',fn:()=>pageVouchers(),title:'Vouchers'},
+  payrollmonths:{cap:'payroll',fn:()=>pagePayrollMonths(),title:'Payroll'},
+  payslips:{cap:'payroll',fn:()=>pagePayslips(),title:'Payslips'},
   finance:{cap:'finance',fn:()=>pageFinance(),title:'Finance'},
   balances:{cap:'finance',fn:()=>pageBalances(),title:'Balances'},
   glaccountsmgmt:{cap:'finance',fn:()=>pageGLAccountsMgmt(),title:'GL Accounts'},
@@ -1737,6 +1740,7 @@ function navItems(){
   if(can('payables'))items.push(['#/payables','Payables']);
   if(can('payables'))items.push(['#/empadvances','Employee Advances']);
   if(can('payables'))items.push(['#/vouchers','Vouchers']);
+  if(can('payroll'))items.push(['#/payrollmonths','Payroll'],['#/payslips','Payslips']);
   if(can('finance'))items.push(['#/finance','Finance']);
   if(can('finance'))items.push(['#/balances','Balances']);
   if(can('finance'))items.push(['#/glaccountsmgmt','GL Accounts']);
@@ -1913,7 +1917,8 @@ const ENTITIES={
     {k:'license_expiry',l:'Licence expiry',t:'date'},
     {k:'license_from',l:'Licence issued from',t:'text'},
     {k:'contact',l:'Contact',t:'text'},
-    {k:'carrier_id',l:'Carrier',t:'fk',coll:'carriers'}],
+    {k:'carrier_id',l:'Carrier',t:'fk',coll:'carriers'},
+    {k:'salary_basic_paisa',l:'Basic Monthly Salary (PKR)',t:'money'}],
    cols:[['name','Driver'],['nic','NIC'],['license','Licence'],['license_expiry','Expiry',['date']],
      ['license_from','Issued from'],['contact','Contact'],['carrier_id','Carrier',['fk','carriers']],
      ['_compliance','Status',['expiry',['license_expiry']]]]},
@@ -7266,6 +7271,116 @@ function finCatToggle(label){
   if(window._finCatExpanded.has(label))window._finCatExpanded.delete(label);else window._finCatExpanded.add(label);
   render();
 }
+// Payroll Module
+function pagePayrollMonths(){
+  const months=all('payroll_months')||[];
+  let html='<div class="pagehead"><h1>📅 Payroll Months</h1><div class="sp"></div>';
+  html+='<button class="btn" onclick="newPayrollMonth()">+ New Payroll Month</button></div>';
+  html+='<div class="tblwrap"><table><thead><tr><th>Month</th><th>Status</th><th>Payslips</th><th>Actions</th></tr></thead><tbody>';
+  months.forEach(m=>{
+    const count=all('payslips').filter(p=>p.payroll_month_id===m.id).length;
+    const status=m.status||'draft';
+    html+='<tr><td>'+esc(m.month)+'</td><td>'+esc(status)+'</td><td>'+count+'</td>';
+    html+='<td><button class="btn ghost sm" onclick="editPayrollMonth(\''+m.id+'\')">Edit</button> ';
+    html+='<button class="btn ghost sm" onclick="genPayslips(\''+m.id+'\')">Generate</button></td></tr>';
+  });
+  html+='</tbody></table></div>';
+  return html;
+}
+
+function newPayrollMonth(){
+  const month=today().slice(0,7);
+  const id=add('payroll_months',{month,status:'draft',created_at:now(),created_by:state.user.id});
+  editPayrollMonth(id);
+}
+
+function editPayrollMonth(id){
+  const m=byId('payroll_months',id);
+  const drivers=all('drivers')||[];
+  let html='<h2>Payroll: '+esc(m.month)+'</h2>';
+  html+='<p>Select drivers to process:</p>';
+  html+='<div style="max-height:300px;overflow:auto;border:1px solid #ddd;padding:10px;border-radius:8px">';
+  drivers.forEach(d=>{
+    const slip=all('payslips').find(p=>p.payroll_month_id===id&&p.driver_id===d.id);
+    html+='<label style="display:block;margin:8px 0"><input type="checkbox" id="drv_'+d.id+'" '+
+      (slip?'checked':'')+' onchange="togglePayslipSelection(\''+id+'\',\''+d.id+'\')"> '+esc(d.name)+'</label>';
+  });
+  html+='</div>';
+  html+='<div style="margin-top:20px"><button class="btn ghost" onclick="closeModal()">Close</button></div>';
+  openModal(html);
+}
+
+function togglePayslipSelection(monthId,driverId){
+  const checked=document.getElementById('drv_'+driverId)?.checked;
+  const existing=all('payslips').find(p=>p.payroll_month_id===monthId&&p.driver_id===driverId);
+  if(checked&&!existing){
+    add('payslips',{payroll_month_id:monthId,driver_id:driverId,status:'draft',created_at:now(),created_by:state.user.id});
+  }else if(!checked&&existing){
+    del('payslips',existing.id);
+  }
+}
+
+function genPayslips(monthId){
+  const month=byId('payroll_months',monthId);
+  const slips=all('payslips').filter(p=>p.payroll_month_id===monthId);
+  let total=0;
+  slips.forEach(slip=>{
+    const driver=byId('drivers',slip.driver_id);
+    if(!driver)return;
+    const basic=driver.salary_basic_paisa||0;
+    const gross=Math.round(basic*1.15);
+    const deductions=Math.round(gross*0.1);
+    const tax=Math.round(gross*0.05);
+    const net=gross-deductions-tax;
+    upd('payslips',slip.id,{basic_salary_paisa:basic,gross_salary_paisa:gross,deductions_paisa:deductions,tax_paisa:tax,net_salary_paisa:net,status:'generated',generated_at:now()});
+    total+=net;
+    const entryId=add('journal_entries',{event_type:'payroll',reference:'Payroll-'+month.month,total_amount_paisa:net,entry_date:today(),status:'posted',created_by:state.user.id,created_at:now()});
+    add('journal_lines',{journal_entry_id:entryId,account_id:'5100',debit_paisa:gross,credit_paisa:0});
+    add('journal_lines',{journal_entry_id:entryId,account_id:'1000',debit_paisa:0,credit_paisa:net});
+    upd('payslips',slip.id,{journal_entry_id:entryId});
+  });
+  upd('payroll_months',monthId,{status:'processed',total_cost_paisa:total,processed_at:now()});
+  alert('Generated '+slips.length+' payslips, total: Rs '+fmt(total/100));
+  render();
+}
+
+function pagePayslips(){
+  const slips=all('payslips')||[];
+  let html='<div class="pagehead"><h1>📋 Payslips</h1></div>';
+  html+='<div class="tblwrap"><table><thead><tr><th>Driver</th><th>Month</th><th class="num">Gross</th><th class="num">Deductions</th><th class="num">Net</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
+  slips.forEach(s=>{
+    const driver=byId('drivers',s.driver_id);
+    const month=byId('payroll_months',s.payroll_month_id);
+    html+='<tr><td>'+esc(driver?.name||'Unknown')+'</td><td>'+esc(month?.month||'—')+'</td>';
+    html+='<td class="num">'+pkr(s.gross_salary_paisa||0)+'</td><td class="num">'+pkr(s.deductions_paisa||0)+'</td>';
+    html+='<td class="num"><b>'+pkr(s.net_salary_paisa||0)+'</b></td>';
+    html+='<td>'+esc(s.status||'draft')+'</td>';
+    html+='<td><button class="btn ghost sm" onclick="viewPayslip(\''+s.id+'\')">View</button></td></tr>';
+  });
+  html+='</tbody></table></div>';
+  return html;
+}
+
+function viewPayslip(id){
+  const slip=byId('payslips',id);
+  const driver=byId('drivers',slip.driver_id);
+  const month=byId('payroll_months',slip.payroll_month_id);
+  let html='<div style="max-width:600px">';
+  html+='<h2>Payslip</h2>';
+  html+='<p><b>Employee:</b> '+esc(driver?.name||'—')+'</p>';
+  html+='<p><b>Period:</b> '+esc(month?.month||'—')+'</p>';
+  html+='<table style="width:100%;margin:20px 0">';
+  html+='<tr><td>Basic Salary</td><td class="r">'+pkr(slip.basic_salary_paisa||0)+'</td></tr>';
+  html+='<tr style="font-weight:bold"><td>Gross Salary</td><td class="r">'+pkr(slip.gross_salary_paisa||0)+'</td></tr>';
+  html+='<tr><td>Deductions</td><td class="r">-'+pkr(slip.deductions_paisa||0)+'</td></tr>';
+  html+='<tr><td>Tax</td><td class="r">-'+pkr(slip.tax_paisa||0)+'</td></tr>';
+  html+='<tr style="font-weight:bold;border-top:2px solid #000"><td>NET SALARY</td><td class="r">'+pkr(slip.net_salary_paisa||0)+'</td></tr>';
+  html+='</table>';
+  html+='<div style="margin-top:20px"><button class="btn ghost" onclick="closeModal()">Close</button></div>';
+  html+='</div>';
+  openModal(html);
+}
+
 function pageFinance(){
   const mon=today().slice(0,7);
   if(!window._finRange)window._finRange={from:mon+'-01',to:today()};
