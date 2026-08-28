@@ -7328,7 +7328,7 @@ function genPayslips(monthId){
   slips.forEach(slip=>{
     const staff=byId('drivers',slip.staff_id);
     if(!staff)return;
-    const basic=driver.salary_basic_paisa||0;
+    const basic=staff.salary_basic_paisa||0;
     const gross=Math.round(basic*1.15);
     const deductions=Math.round(gross*0.1);
     const tax=Math.round(gross*0.05);
@@ -7341,7 +7341,7 @@ function genPayslips(monthId){
     upd('payslips',slip.id,{journal_entry_id:entryId});
   });
   upd('payroll_months',monthId,{status:'processed',total_cost_paisa:total,processed_at:nowISO()});
-  alert('Generated '+slips.length+' payslips, total: Rs '+fmt(total/100));
+  alert('Generated '+slips.length+' payslips, total: '+pkr(total));
   render();
 }
 
@@ -7368,7 +7368,7 @@ function viewPayslip(id){
   const month=byId('payroll_months',slip.payroll_month_id);
   let html='<div style="max-width:600px">';
   html+='<h2>Payslip</h2>';
-  html+='<p><b>Employee:</b> '+esc(driver?.name||'—')+'</p>';
+  html+='<p><b>Employee:</b> '+esc(staff?.name||'—')+'</p>';
   html+='<p><b>Period:</b> '+esc(month?.month||'—')+'</p>';
   html+='<table style="width:100%;margin:20px 0">';
   html+='<tr><td>Basic Salary</td><td class="r">'+pkr(slip.basic_salary_paisa||0)+'</td></tr>';
