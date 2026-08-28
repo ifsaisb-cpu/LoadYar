@@ -7007,7 +7007,7 @@ function pageDashboard(){
   all('agentcharges').forEach(x=>{if(x.agent_id&&(x.direction||'payable')==='payable'&&(x.amount_paisa-outPaidFor('agentcharge',x.id))>0)agentIds.add(x.agent_id)});
   all('overheads').forEach(x=>{if(x.amount_paisa-outPaidFor('overhead',x.id)>0)overheadIds.add(x.id)});
   all('invoices').filter(i=>invParts(i).srb>0).forEach(i=>{if(srbPayableAmount(i)-outPaidFor('srb',i.id)>0)srbIds.add(i.id)});
-  const fuelCount=all('fuel').filter(f=>(f.total_paisa||0)>0).length;
+  const fuelCount=new Set(all('fuel').filter(f=>(f.total_paisa||0)>0).map(f=>f.pump||'Fuel Entry')).size;
   const payCount=carrierIds.size+vendorIds2.size+agentIds.size+overheadIds.size+srbIds.size+fuelCount;
   const payBreakdown=`C:${carrierIds.size} V:${vendorIds2.size} A:${agentIds.size}${fuelCount?` P:${fuelCount}`:''}`;
   const recvdCount=all('inpayments').filter(p=>inRange(p.date||'',rng)).length;
