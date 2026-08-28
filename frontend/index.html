@@ -7296,13 +7296,14 @@ function newPayrollMonth(){
 
 function editPayrollMonth(id){
   const m=byId('payroll_months',id)||{month:today().slice(0,7)};
-  const drivers=all('drivers')||[];
+  const staff=all('drivers')||[];
   let html='<h2>Payroll: '+esc(m.month)+'</h2>';
-  html+='<p>Select drivers to process:</p>';
+  html+='<p>Select staff to process:</p>';
   html+='<div style="max-height:300px;overflow:auto;border:1px solid #ddd;padding:10px;border-radius:8px">';
-  drivers.forEach(d=>{
-    const slip=all('payslips').find(p=>p.payroll_month_id===id&&p.driver_id===d.id);
-    html+='<label style="display:block;margin:8px 0"><input type="checkbox" id="drv_'+d.id+'" '+
+  staff.forEach(d=>{
+    if(d.deleted_at)return;
+    const slip=all('payslips').find(p=>p.payroll_month_id===id&&p.staff_id===d.id);
+    html+='<label style="display:block;margin:8px 0"><input type="checkbox" id="staff_'+d.id+'" '+
       (slip?'checked':'')+' onchange="togglePayslipSelection(\''+id+'\',\''+d.id+'\')"> '+esc(d.name)+'</label>';
   });
   html+='</div>';
@@ -7310,11 +7311,11 @@ function editPayrollMonth(id){
   openModal(html);
 }
 
-function togglePayslipSelection(monthId,driverId){
-  const checked=document.getElementById('drv_'+driverId)?.checked;
-  const existing=all('payslips').find(p=>p.payroll_month_id===monthId&&p.driver_id===driverId);
+function togglePayslipSelection(monthId,staffId){
+  const checked=document.getElementById('staff_'+staffId)?.checked;
+  const existing=all('payslips').find(p=>p.payroll_month_id===monthId&&p.staff_id===staffId);
   if(checked&&!existing){
-    add('payslips',{payroll_month_id:monthId,driver_id:driverId,status:'draft',created_at:nowISO(),created_by:state.user.id});
+    add('payslips',{payroll_month_id:monthId,staff_id:staffId,status:'draft',created_at:nowISO(),created_by:state.user.id});
   }else if(!checked&&existing){
     del('payslips',existing.id);
   }
@@ -7325,8 +7326,8 @@ function genPayslips(monthId){
   const slips=all('payslips').filter(p=>p.payroll_month_id===monthId);
   let total=0;
   slips.forEach(slip=>{
-    const driver=byId('drivers',slip.driver_id);
-    if(!driver)return;
+    const staff=byId('drivers',slip.staff_id);
+    if(!staff)return;
     const basic=driver.salary_basic_paisa||0;
     const gross=Math.round(basic*1.15);
     const deductions=Math.round(gross*0.1);
@@ -7347,11 +7348,11 @@ function genPayslips(monthId){
 function pagePayslips(){
   const slips=all('payslips')||[];
   let html='<div class="pagehead"><h1>📋 Payslips</h1></div>';
-  html+='<div class="tblwrap"><table><thead><tr><th>Driver</th><th>Month</th><th class="num">Gross</th><th class="num">Deductions</th><th class="num">Net</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
+  html+='<div class="tblwrap"><table><thead><tr><th>Staff Member</th><th>Month</th><th class="num">Gross</th><th class="num">Deductions</th><th class="num">Net</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
   slips.forEach(s=>{
-    const driver=byId('drivers',s.driver_id);
+    const staff=byId('drivers',s.staff_id);
     const month=byId('payroll_months',s.payroll_month_id);
-    html+='<tr><td>'+esc(driver?.name||'Unknown')+'</td><td>'+esc(month?.month||'—')+'</td>';
+    html+='<tr><td>'+esc(staff?.name||'Unknown')+'</td><td>'+esc(month?.month||'—')+'</td>';
     html+='<td class="num">'+pkr(s.gross_salary_paisa||0)+'</td><td class="num">'+pkr(s.deductions_paisa||0)+'</td>';
     html+='<td class="num"><b>'+pkr(s.net_salary_paisa||0)+'</b></td>';
     html+='<td>'+esc(s.status||'draft')+'</td>';
@@ -7363,7 +7364,7 @@ function pagePayslips(){
 
 function viewPayslip(id){
   const slip=byId('payslips',id);
-  const driver=byId('drivers',slip.driver_id);
+  const staff=byId('drivers',slip.staff_id);
   const month=byId('payroll_months',slip.payroll_month_id);
   let html='<div style="max-width:600px">';
   html+='<h2>Payslip</h2>';
