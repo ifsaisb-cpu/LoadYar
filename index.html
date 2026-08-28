@@ -7295,7 +7295,7 @@ function newPayrollMonth(){
 }
 
 function editPayrollMonth(id){
-  const m=byId('payroll_months',id);
+  const m=byId('payroll_months',id)||{month:today().slice(0,7)};
   const drivers=all('drivers')||[];
   let html='<h2>Payroll: '+esc(m.month)+'</h2>';
   html+='<p>Select drivers to process:</p>';
