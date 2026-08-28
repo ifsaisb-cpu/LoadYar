@@ -7290,7 +7290,7 @@ function pagePayrollMonths(){
 
 function newPayrollMonth(){
   const month=today().slice(0,7);
-  const id=add('payroll_months',{month,status:'draft',created_at:now(),created_by:state.user.id});
+  const id=add('payroll_months',{month,status:'draft',created_at:nowISO(),created_by:state.user.id});
   editPayrollMonth(id);
 }
 
@@ -7314,7 +7314,7 @@ function togglePayslipSelection(monthId,driverId){
   const checked=document.getElementById('drv_'+driverId)?.checked;
   const existing=all('payslips').find(p=>p.payroll_month_id===monthId&&p.driver_id===driverId);
   if(checked&&!existing){
-    add('payslips',{payroll_month_id:monthId,driver_id:driverId,status:'draft',created_at:now(),created_by:state.user.id});
+    add('payslips',{payroll_month_id:monthId,driver_id:driverId,status:'draft',created_at:nowISO(),created_by:state.user.id});
   }else if(!checked&&existing){
     del('payslips',existing.id);
   }
@@ -7332,14 +7332,14 @@ function genPayslips(monthId){
     const deductions=Math.round(gross*0.1);
     const tax=Math.round(gross*0.05);
     const net=gross-deductions-tax;
-    upd('payslips',slip.id,{basic_salary_paisa:basic,gross_salary_paisa:gross,deductions_paisa:deductions,tax_paisa:tax,net_salary_paisa:net,status:'generated',generated_at:now()});
+    upd('payslips',slip.id,{basic_salary_paisa:basic,gross_salary_paisa:gross,deductions_paisa:deductions,tax_paisa:tax,net_salary_paisa:net,status:'generated',generated_at:nowISO()});
     total+=net;
-    const entryId=add('journal_entries',{event_type:'payroll',reference:'Payroll-'+month.month,total_amount_paisa:net,entry_date:today(),status:'posted',created_by:state.user.id,created_at:now()});
+    const entryId=add('journal_entries',{event_type:'payroll',reference:'Payroll-'+month.month,total_amount_paisa:net,entry_date:today(),status:'posted',created_by:state.user.id,created_at:nowISO()});
     add('journal_lines',{journal_entry_id:entryId,account_id:'5100',debit_paisa:gross,credit_paisa:0});
     add('journal_lines',{journal_entry_id:entryId,account_id:'1000',debit_paisa:0,credit_paisa:net});
     upd('payslips',slip.id,{journal_entry_id:entryId});
   });
-  upd('payroll_months',monthId,{status:'processed',total_cost_paisa:total,processed_at:now()});
+  upd('payroll_months',monthId,{status:'processed',total_cost_paisa:total,processed_at:nowISO()});
   alert('Generated '+slips.length+' payslips, total: Rs '+fmt(total/100));
   render();
 }
