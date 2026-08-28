@@ -325,7 +325,7 @@ td.actions .btn.sm:first-child{margin-left:0}
 <script>
 "use strict";
 /* ===== S1: constants, enums, permissions ===== */
-const APP_VER='v4.225';
+const APP_VER='v4.226';
 /* Phase 1 ledger (chart_of_accounts/journal_entries/journal_lines) live behind the scenes only —
    driver advances, trip expenses and fuel now post balanced entries via postEntry()/reverseEntry().
    Nothing on screen changed; this is the foundation for re-pointing totals in a later step. */
@@ -701,7 +701,7 @@ function upd(coll,id,patch){
   Object.assign(r,patch); r.updated_at=nowISO(); r.updated_by=cuName(); saveDB(); return r;
 }
 function softDel(coll,id){upd(coll,id,{deleted_at:nowISO()});}
-function all(coll){return db[coll].filter(r=>!r.deleted_at);}
+function all(coll){return (db[coll]||[]).filter(r=>!r.deleted_at);}
 function byId(coll,id){return db[coll].find(r=>r.id==id&&!r.deleted_at);}
 function nm(coll,id,key){const r=byId(coll,id);return r?(r[key||'name']||'—'):'—';}
 
@@ -2681,7 +2681,9 @@ function pageBookings(){
       <div style="display:flex;gap:6px"><select id="b_customer" onchange="bkConsignees();bkMakeColour();bkRateSuggest()" style="flex:1">${fkOptions('customers',rec.customer_id)}</select>
       <button type="button" class="btn ghost sm" onclick="bkNewConsigner()">+ New</button></div></div>
     <div class="frow"><label class="req">${bi('From','کہاں سے')}</label><select id="b_from" onchange="bkRateSuggest()">${listOpts('city',rec.route_from)}</select></div>
-    <div class="frow"><label class="req">${bi('Destination','منزل')}</label><select id="b_dest" onchange="bkRateSuggest();bkAgentSuggest()">${listOpts('city',rec.destination)}</select></div>
+    <div class="frow"><label class="req">${bi('Destination','منزل')}</label>
+      <div style="display:flex;gap:6px"><select id="b_dest" style="flex:1" onchange="bkRateSuggest();bkAgentSuggest()">${listOpts('city',rec.destination)}</select>
+      <button type="button" class="btn ghost sm" onclick="bkNewCity()">+ New</button></div></div>
     <div class="frow full"><label>${bi('Consignee','وصول کنندہ')}</label>
       <div style="display:flex;gap:6px"><select id="b_consignee" style="flex:1"></select>
       <button type="button" class="btn ghost sm" onclick="bkNewConsignee()">+ New</button></div>
@@ -2818,6 +2820,40 @@ function bkNewAgentSave(){
   const sel=document.getElementById('b_agent'); if(sel)sel.innerHTML=fkOptions('agents',a.id);
   bkAgentCostFill();
   toast('Clearing agent added — '+name);
+}
+function bkNewCity(){
+  openModal(`<h2>New Destination</h2>
+  <div class="fgrid"><div class="frow full"><label class="req">City name</label><input id="qc_city" placeholder="e.g., Islamabad, Lahore"></div></div>
+  <div class="hint" style="margin-top:6px">Add this as a new destination option for all bookings.</div>
+  <div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button>
+  <button class="btn" onclick="bkNewCitySave()">Add</button></div>`);
+  document.getElementById('qc_city').focus();
+}
+function bkNewCitySave(){
+  const city=V('qc_city'); if(!city){toast('City name is required',true);return;}
+  if(listVals('city').some(c=>c.toLowerCase()===city.toLowerCase())){toast('This city already exists',true);return;}
+  add('listopts',{kind:'city',value:city});
+  closeModal();
+  const sel=document.getElementById('b_dest');
+  if(sel){sel.innerHTML=listOpts('city','');sel.value=city;}
+  toast('Destination added — '+city);
+}
+function jNewCity(fieldId){
+  openModal(`<h2>New City</h2>
+  <div class="fgrid"><div class="frow full"><label class="req">City name</label><input id="qc_city" placeholder="e.g., Islamabad, Lahore"></div></div>
+  <div class="hint" style="margin-top:6px">Add this as a new city option for all routes.</div>
+  <div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button>
+  <button class="btn" onclick="jNewCitySave('${fieldId}')">Add</button></div>`);
+  document.getElementById('qc_city').focus();
+}
+function jNewCitySave(fieldId){
+  const city=V('qc_city'); if(!city){toast('City name is required',true);return;}
+  if(listVals('city').some(c=>c.toLowerCase()===city.toLowerCase())){toast('This city already exists',true);return;}
+  add('listopts',{kind:'city',value:city});
+  closeModal();
+  const sel=document.getElementById(fieldId);
+  if(sel){sel.innerHTML=listOpts('city','');sel.value=city;}
+  toast('City added — '+city);
 }
 /* Fills a clearing-cost input from the selected agent's own default charge — only when the cost
    field is still empty, same "suggestion, not override" rule as freight/agent auto-fill. */
@@ -3869,8 +3905,12 @@ function journeyForm(id){
       <input type="date" id="j_date_end" value="${esc(rec.date_end||'')}">
       <div class="hint">Leave blank to use today — set the real date when entering a trip that already finished in the past.</div>
     </div>
-    <div class="frow"><label class="req">${bi('From','کہاں سے')}</label><select id="j_from">${listOpts('city',rec.route_from)}</select></div>
-    <div class="frow"><label class="req">${bi('To','کہاں تک')}</label><select id="j_to">${listOpts('city',rec.route_to)}</select></div>
+    <div class="frow"><label class="req">${bi('From','کہاں سے')}</label>
+      <div style="display:flex;gap:6px"><select id="j_from" style="flex:1">${listOpts('city',rec.route_from)}</select>
+      <button type="button" class="btn ghost sm" onclick="jNewCity('j_from')">+ New</button></div></div>
+    <div class="frow"><label class="req">${bi('To','کہاں تک')}</label>
+      <div style="display:flex;gap:6px"><select id="j_to" style="flex:1">${listOpts('city',rec.route_to)}</select>
+      <button type="button" class="btn ghost sm" onclick="jNewCity('j_to')">+ New</button></div></div>
     <div class="frow full"><label>Stations on route (Ctrl-click to select multiple — scroll for more, sorted A–Z)
       <button type="button" class="btn ghost sm" style="margin-left:8px" onclick="jSuggestStations()">✨ Suggest stops from route</button></label>
       <select id="j_stations" multiple size="10">${cities.map(c=>`<option value="${esc(c)}" ${(rec.stations||[]).includes(c)?'selected':''}>${esc(c)}</option>`).join('')}</select>

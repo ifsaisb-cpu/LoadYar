@@ -3,16 +3,43 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>United Transport Network</title>
+<title>LoadYar CRM v4.226</title>
 <meta name="theme-color" content="#032D60">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23032D60'/%3E%3Ctext x='32' y='42' font-size='22' font-family='Arial' font-weight='bold' fill='%23ffffff' text-anchor='middle'%3EUTN%3C/text%3E%3C/svg%3E">
+<script>
+window.API_CONFIG={
+  url:window.location.hostname==='localhost'?'http://localhost:3001/api/v1':'https://utn-api.yourguyandy1.workers.dev/api/v1',
+  syncEnabled:true,
+  syncInterval:30000
+};
+const syncCache={users:{},data:{},lastSync:0};
+async function apiCall(method,path,data){
+  try{
+    const res=await fetch(window.API_CONFIG.url+path,{
+      method,headers:{'Content-Type':'application/json'},
+      credentials:'include',body:data?JSON.stringify(data):undefined
+    });
+    if(!res.ok)throw new Error('API error: '+res.status);
+    return await res.json();
+  }catch(e){console.warn('API sync failed:',e.message);return null;}
+}
+async function syncDataWithBackend(){
+  if(!window.API_CONFIG.syncEnabled||!window.user)return;
+  try{
+    const result=await apiCall('GET','/data/sync?user_id='+window.user.id);
+    if(result&&result.data)Object.assign(syncCache,result.data);
+  }catch(e){console.warn('Sync failed:',e);}
+}
+setInterval(syncDataWithBackend,window.API_CONFIG.syncInterval);
+</script>
 <style>
 :root{
-  --acc:#2563eb; --acc2:#1d4ed8; --acc-soft:#dbeafe;
+  --acc:#0EA5E9; --acc2:#0284C7; --acc-soft:#cffafe;
+  --cyan:#0EA5E9; --purple:#8B5CF6; --teal:#14B8A6; --pink:#ec4899;
   --bg:#fafafa; --card:#ffffff; --ink:#032D60; --mut:#4d6a89;
   --line:#e5e5e5; --danger:#dc2626; --warn:#7c3aed; --ok:#16a34a;
-  --side:#032D60; --side-ink:#bcdcf7;
+  --side:#032D60; --side-ink:#ffffff;
   --side-grad:linear-gradient(180deg,#01152e 0%,#032D60 45%,#0454a3 100%);
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -27,7 +54,7 @@ label{display:block;font-size:12.5px;font-weight:600;color:var(--mut);margin:0 0
 
 /* layout */
 .shell{display:flex;height:100vh;overflow:hidden}
-.side{width:225px;background:var(--side-grad);background-attachment:fixed;color:var(--side-ink);padding:12px;flex-shrink:0;display:flex;flex-direction:column;gap:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.25) transparent;min-height:0}
+.side{width:225px;background:var(--side-grad);background-attachment:fixed;color:var(--side-ink);padding:16px 12px;flex-shrink:0;display:flex;flex-direction:column;gap:2px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.25) transparent}
 .side::-webkit-scrollbar{width:8px}
 .side::-webkit-scrollbar-track{background:transparent}
 .side::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:4px}
@@ -53,7 +80,8 @@ label{display:block;font-size:12.5px;font-weight:600;color:var(--mut);margin:0 0
 .nav-ur{display:block;font-size:11px;font-weight:400;opacity:.72;margin-top:1px;direction:rtl}
 .side a:hover{background:rgba(255,255,255,.08);color:#fff}
 .side a.on{background:var(--warn);color:#fff}
-.side .sep{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:#bcdcf7;padding:10px 8px 2px;margin-bottom:1px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none;flex-shrink:0;font-weight:600}.side .sep::after{content:'▼';font-size:9px;transition:transform .2s}.side .sep.collapsed::after{transform:rotate(-90deg)}.side .nav-section{transition:max-height .3s ease,opacity .3s ease;overflow:hidden;margin-bottom:3px;flex-shrink:0}.side a{display:block}
+.nav-group{margin-bottom:0}.nav-toggle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;color:var(--side-ink);padding:12px 10px 4px;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:500;user-select:none}.nav-toggle:hover{color:#fff}.nav-caret{display:inline-block;transition:transform .2s;font-size:8px;margin-left:6px}.nav-group[data-open="false"] .nav-caret{transform:rotate(-90deg)}.nav-items{overflow:hidden;transition:max-height .2s ease,opacity .2s ease;max-height:1000px;opacity:1}.nav-group[data-open="false"] .nav-items{max-height:0;opacity:0}
+.side .sep{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:#5f7f7a;padding:12px 10px 4px}
 .main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
 .topbar{background:var(--side-grad);background-attachment:fixed;border-bottom:1px solid rgba(255,255,255,.14);padding:10px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0;z-index:5}
 .scrollarea{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
@@ -100,12 +128,7 @@ label{display:block;font-size:12.5px;font-weight:600;color:var(--mut);margin:0 0
 .welcome-banner .nm{color:var(--acc);font-weight:700}
 .agedot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px}
 table{width:100%;border-collapse:collapse;background:var(--card)}
-.tblwrap{overflow-x:auto !important;background:var(--card) !important;border:1px solid var(--line) !important;border-radius:12px;margin-bottom:16px;display:block !important;width:100% !important;min-height:100px !important}
-.tblwrap table{display:table !important;width:100% !important}
-thead{display:table-header-group !important}
-tbody{display:table-row-group !important}
-tr{display:table-row !important}
-th, td{display:table-cell !important}
+.tblwrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:16px}
 th{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
 /* Tables scroll sideways, so nothing needs to break mid-value — a trip number, a date or a
    name split across two lines is what made rows ragged and tall. Cells holding real prose opt
@@ -133,18 +156,18 @@ td.routecell{max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:
 td.actions{white-space:nowrap}
 td.actions .btn.sm{padding:4px 9px;margin-left:3px}
 td.actions .btn.sm:first-child{margin-left:0}
-.btn{background:var(--acc);color:#fff;border:0;border-radius:999px;padding:8px 16px;font-weight:600;font-size:13.5px}
-.btn:hover{background:var(--acc2)}
-.btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
-.btn.ghost:hover{background:#f1f5f4}
-.btn.danger{background:#fff;color:var(--danger);border:1px solid #fecaca}
-.btn.danger:hover{background:#fef2f2}
-.btn.sm{padding:4px 11px;font-size:12.5px;border-radius:999px}
-.badge{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:99px;white-space:nowrap}
+.btn{background:var(--acc);color:#fff;border:0;border-radius:8px;padding:8px 16px;font-weight:600;font-size:13.5px;box-shadow:0 2px 8px rgba(14,165,233,.15);transition:all .2s ease}
+.btn:hover{background:var(--acc2);box-shadow:0 4px 14px rgba(14,165,233,.3);transform:translateY(-1px)}
+.btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line);box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.btn.ghost:hover{background:#f9fafb;border-color:var(--acc);color:var(--acc);box-shadow:0 2px 8px rgba(14,165,233,.1)}
+.btn.danger{background:#fff;color:var(--danger);border:1px solid #fecaca;box-shadow:0 1px 4px rgba(220,38,38,.06)}
+.btn.danger:hover{background:#fef2f2;border-color:#f87171;box-shadow:0 2px 8px rgba(220,38,38,.15)}
+.btn.sm{padding:4px 11px;font-size:12.5px;border-radius:8px}
+.badge{display:inline-block;font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:6px;white-space:nowrap}
 .b-gray{background:#f1f5f9;color:#475569}.b-green{background:#dcfce7;color:#15803d}
 .b-amber{background:#ede9fe;color:#6d28d9}.b-red{background:#fee2e2;color:#b91c1c}
 .b-blue{background:#dbeafe;color:#1d4ed8}.b-teal{background:var(--acc-soft);color:var(--acc2)}
-.chip{font-size:11px;background:var(--warn);color:#fff;border-radius:99px;padding:2px 8px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.chip{font-size:11px;background:var(--warn);color:#fff;border-radius:6px;padding:3px 8px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
 .mut{color:var(--mut)}.small{font-size:12.5px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
@@ -160,44 +183,31 @@ td.actions .btn.sm:first-child{margin-left:0}
 
 /* modal */
 .overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:4vh 12px;overflow-y:auto}
-.modal{background:#fff;border-radius:14px;padding:20px;width:100%;max-width:70%;max-height:85vh;display:block;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
-.modal.wide{max-width:90%}
+.modal{background:#fff;border-radius:14px;padding:20px;width:100%;max-width:640px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.modal.wide{max-width:820px}
 .modal h2{font-size:17px;margin-bottom:14px}
 .modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 
-/* help/faq - modern card design */
-.help-header{background:linear-gradient(135deg,#032D60 0%,#0454a3 50%,#2563eb 100%);color:#fff;padding:24px;border-radius:0;margin:-20px -20px 20px;text-align:center}
-.help-header h2{margin:0;font-size:28px;font-weight:700;letter-spacing:-.5px}
-.help-header p{margin:8px 0 0;font-size:13px;opacity:.9;font-weight:500}
-.help-wrapper{display:flex;gap:20px;height:100%;min-height:0}
-.help-main{flex:1;min-width:0;overflow-y:auto}
-.help-sidebar{width:180px;padding-top:0;border-left:1px solid #e5e5e5}
-.help-search{margin-bottom:18px;position:relative}
-.help-search input{width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px}
-.help-search input::placeholder{color:#999}
-.faq-grid{display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:20px}
-.faq-card{background:#fff;border:1px solid #e5e5e5;border-radius:10px;padding:16px;cursor:pointer;transition:all .2s ease}
-.faq-card:hover{border-color:#2563eb;box-shadow:0 4px 12px rgba(37,99,235,.12);transform:translateY(-2px)}
-.faq-card .icon{font-size:32px;margin-bottom:12px;display:block}
-.faq-card h3{margin:0 0 6px;font-size:14px;font-weight:700;color:#032D60}
-.faq-card p{margin:0;font-size:12px;color:#666;line-height:1.4}
-.faq-card.expanded{border-color:#2563eb;background:#f0f7ff}
-.faq-qa{display:none;margin-top:14px;padding-top:12px;border-top:1px solid #e5e5e5}
-.faq-card.expanded .faq-qa{display:block}
-.faq-q{font-weight:600;color:#032D60;font-size:12.5px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:6px}
-.faq-q:hover{color:#2563eb}
-.faq-q::before{content:'▶';font-size:10px;transition:transform .2s}
-.faq-qa.open .faq-q::before{transform:rotate(90deg)}
-.faq-a{font-size:12px;color:#555;line-height:1.5;display:none;margin-top:6px}
-.faq-qa.open .faq-a{display:block}
-.help-support{padding:16px;border-top:1px solid #e5e5e5;text-align:center}
-.help-support h4{margin:0 0 12px;font-size:13px;font-weight:700;color:#032D60}
-.help-support-btn{background:#0176D3;color:#fff;border:0;padding:8px 14px;border-radius:6px;font-size:12px;cursor:pointer;width:100%;font-weight:600}
-.help-support-btn:hover{background:#0157a8}
+/* help/faq */
+.help-header{background:linear-gradient(135deg,#032D60,#0454a3);color:#fff;padding:14px;border-radius:8px 8px 0 0;margin:-20px -20px 16px}
+.help-header h2{margin:0;font-size:16px}
+.help-header p{margin:4px 0 0;font-size:12px;opacity:.9}
+.help-search{margin-bottom:14px}
+.help-search input{width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:13px}
+.help-content{max-height:500px;overflow-y:auto}
+.faq-topic{margin-bottom:12px;border:1px solid #e5e5e5;border-radius:6px;overflow:hidden}
+.faq-topic h3{background:#f9fafb;padding:12px;margin:0;cursor:pointer;font-size:13.5px;color:#032D60;font-weight:600;border-bottom:1px solid #e5e5e5;user-select:none;opacity:1;transition:opacity .2s}
+.faq-topic h3:hover{opacity:.7}
+.faq-items{padding:8px 0}
+.faq{border-bottom:1px solid #f0f0f0;padding:0}
+.faq:last-child{border:0}
+.faq strong{display:block;padding:10px 14px;cursor:pointer;font-weight:600;color:#032D60;font-size:12.5px;background:#fff;user-select:none}
+.faq strong:hover{background:#f9fafb;color:#0176D3}
+.faq div{padding:12px 14px;font-size:12.5px;color:#555;line-height:1.5;display:none;border-top:1px solid #f0f0f0;background:#fafafa}
 
 /* toast */
 #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:99;display:flex;flex-direction:column;gap:8px;align-items:center}
-.toastmsg{background:#0f172a;color:#fff;padding:10px 18px;border-radius:99px;font-size:13.5px;box-shadow:0 8px 24px rgba(0,0,0,.25);animation:tin .2s ease}
+.toastmsg{background:#0f172a;color:#fff;padding:10px 16px;border-radius:8px;font-size:13.5px;box-shadow:0 8px 24px rgba(0,0,0,.25);animation:tin .2s ease}
 .toastmsg.err{background:var(--danger)}
 @keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
@@ -315,8 +325,7 @@ td.actions .btn.sm:first-child{margin-left:0}
 <script>
 "use strict";
 /* ===== S1: constants, enums, permissions ===== */
-const APP_VER='v4.225-20260817-2517'; // Fix: Aggressive CSS with !important for table display
-const SESSION_TIMEOUT_MS=30*60*1000; // 30 minutes inactivity timeout (Phase 2.5)
+const APP_VER='v4.225';
 /* Phase 1 ledger (chart_of_accounts/journal_entries/journal_lines) live behind the scenes only —
    driver advances, trip expenses and fuel now post balanced entries via postEntry()/reverseEntry().
    Nothing on screen changed; this is the foundation for re-pointing totals in a later step. */
@@ -451,7 +460,6 @@ const CHARGE_TYPE=[['noc','NOC processing'],['port_clearance','Port clearance'],
 const PAY_METHOD=[['cash','Cash'],['bank_transfer','Bank transfer'],['cheque','Cheque'],['other','Other']];
 const VENDOR_CAT=[['tyre','Tyre'],['repairs','Repairs'],['oil_filter','Engine Oil & Filter'],['fuel_pump','Petrol Pump'],['other','Other']];
 const AGR_STATUS=[['active','Active'],['inactive','Inactive']];
-const COA_TYPES=[['asset','Asset'],['liability','Liability'],['equity','Equity'],['income','Income/Revenue'],['expense','Expense']];
 const VEH_TYPE=[['Car','Car'],['SUV','SUV'],['Pickup','Pickup'],['Van','Van'],['Truck','Truck'],['Other','Other']];
 
 const CK_ITEMS=[
@@ -465,10 +473,11 @@ const CK_ITEMS=[
 ['Cigarette lighter','سگریٹ لائٹر'],['Inner glass/mirror','اندر کا شیشہ'],['Sun visor','سن وائزر'],
 ['Seat cover','سیٹ کور'],['Nose/bonnet cover','ناپ کور']];
 
-const COLLS=['tenants','users','customers','agreements','carriers','drivers','vendors','agents','bookings',
+const COLLS=['users','customers','agreements','carriers','drivers','vendors','agents','bookings',
 'trips','checklists','expenses','vendortx','agentcharges','invoices','inpayments','payables',
 'outpayments','claims','overrides','listopts','journeys','fuel','fueltransfers','overheads','accounts','vouchersigned',
-'paypromises','chart_of_accounts','journal_entries','journal_lines','contras','employee_advances'];
+'paypromises','chart_of_accounts','journal_entries','journal_lines','contras','employee_advances',
+'stock_items','stock_locations','stock_transactions'];
 const COLL_META={
   users:['👤','Users'],customers:['🏢','Customers'],agreements:['📄','Rate Agreements'],
   carriers:['🚚','Carriers'],drivers:['🧑','Drivers'],vendors:['🏭','Vendors'],agents:['🧾','Clearing Agents'],
@@ -516,20 +525,10 @@ const CAPS={
 /* ===== S2: data layer (localStorage) + seed ===== */
 const DBKEY='mucrm_v1';
 let db=null;
-const state={user:null, tenant:null}; // Phase 2.5: Added tenant context
+const state={user:null};
 
-/* PHASE 2.5: Enhanced password hashing using SHA-256 (browser-native)
-   NOT for production (Phase 3 backend will use bcrypt server-side)
-   This provides better protection than simpleHash while staying in-browser */
-async function hashPassword(str){
-  const encoder=new TextEncoder();
-  const data=encoder.encode(str);
-  const hashBuffer=await crypto.subtle.digest('SHA-256',data);
-  const hashArray=Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-
-/* Backward compat: simpleHash still used for old test data */
+/* Not cryptographically strong — this app has no backend, so this is a soft client-side gate
+   (deters casual access, keeps plaintext out of localStorage/JSON backups) not real security. */
 function simpleHash(str){
   let h=0x811c9dc5;
   for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,0x01000193);}
@@ -548,6 +547,11 @@ function loadDB(){
   try{const raw=localStorage.getItem(DBKEY); if(raw) db=JSON.parse(raw);}catch(e){db=null;}
   if(!db||!db.seq){db=seedDB(); saveDB(); migrateDB();}
   else migrateDB();
+  if(window.API_CONFIG && window.API_CONFIG.syncEnabled && window.state && window.state.user){
+    fetch(window.API_CONFIG.url+'/sync/load?user_id='+window.state.user.id,{
+      credentials:'include'
+    }).then(r=>r.json()).then(d=>{if(d&&d.data) Object.assign(db,d.data);}).catch(e=>console.warn('Backend load failed:',e.message));
+  }
 }
 function migrateDB(){
   let dirty=false;
@@ -582,12 +586,30 @@ function migrateDB(){
       dirty=true;
     }
   });
-  // v4: default cash/bank accounts
-  if(!db.accounts.filter(r=>!r.deleted_at).length){
-    db.accounts.push(stamp({id:nextId('accounts'),name:'Cash in Hand',type:'cash',opening_paisa:0}));
-    db.accounts.push(stamp({id:nextId('accounts'),name:'Bank Account',type:'bank',opening_paisa:0}));
-    dirty=true;
-  }
+  // v4: default cash/bank accounts + GL chart
+  const haveAcctNames=db.accounts.filter(r=>!r.deleted_at).map(r=>r.name.toLowerCase());
+  const DEFAULT_ACCTS=[
+    ['1010','Cash in Hand','cash'],['1020','Bank Account','bank'],
+    // Assets
+    ['1030','Petty Cash','cash'],['1200','Accounts Receivable - Customers','bank'],['1210','Accounts Receivable - Carriers','bank'],
+    ['1300','Equipment & Vehicles','bank'],['1310','Accumulated Depreciation','bank'],
+    // Liabilities
+    ['2010','Accounts Payable - Carriers','bank'],['2020','Accounts Payable - Vendors','bank'],['2030','Accrued Expenses','bank'],['2100','Short-term Loan','bank'],
+    // Equity
+    ['3000','Capital Account','bank'],['3100','Retained Earnings','bank'],['3200','Drawing Account','bank'],
+    // Income
+    ['4010','Transport Revenue - Freight','bank'],['4020','Transport Revenue - Parcels','bank'],['4030','Commission Income','bank'],['4040','Handling Charges Income','bank'],
+    // Expenses
+    ['5010','Fuel & Diesel Expense','bank'],['5020','Driver Salary','bank'],['5030','Vehicle Maintenance','bank'],['5040','Insurance Premium','bank'],
+    ['5050','Toll Tax Expense','bank'],['5060','Rent Expense','bank'],['5070','Utilities Expense','bank'],['5080','Depreciation Expense','bank'],
+    ['5090','Office Supplies','bank'],['5100','Miscellaneous Expense','bank']
+  ];
+  DEFAULT_ACCTS.forEach(([code,name,type])=>{
+    if(!haveAcctNames.includes(name.toLowerCase())){
+      db.accounts.push(stamp({id:nextId('accounts'),code:code,name:name,type:type,opening_paisa:0}));
+      dirty=true;
+    }
+  });
   // v4: vendor category rename
   db.vendors.forEach(v=>{
     if(v.category==='repair'){v.category='repairs';dirty=true;}
@@ -646,9 +668,9 @@ function migrateDB(){
   (()=>{
     if(!db.chart_of_accounts.filter(r=>!r.deleted_at).length)return;
     let made=0;
-    allScoped('trips').forEach(t=>{
+    all('trips').forEach(t=>{
       if(t.agent_id==null||!(t.agent_cost_paisa>0))return;
-      if(allScoped('agentcharges').some(x=>x.trip_id===t.id))return;
+      if(all('agentcharges').some(x=>x.trip_id===t.id))return;
       const rec=add('agentcharges',{agent_id:t.agent_id,trip_id:t.id,charge_type:'misc',
         direction:'payable',amount_paisa:t.agent_cost_paisa,date:t.date,auto_from_bilty:true});
       postSubEntry('agentcharges',rec);
@@ -657,7 +679,17 @@ function migrateDB(){
     if(made)console.info('Created '+made+' clearing charge(s) from bilties that had an agent but no charge.');
   })();
 }
-function saveDB(){localStorage.setItem(DBKEY,JSON.stringify(db));}
+function saveDB(){
+  localStorage.setItem(DBKEY,JSON.stringify(db));
+  if(window.API_CONFIG && window.API_CONFIG.syncEnabled && window.state && window.state.user){
+    fetch(window.API_CONFIG.url+'/sync/save',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      credentials:'include',
+      body:JSON.stringify({user_id:window.state.user.id,data:db})
+    }).catch(e=>console.warn('Backend sync failed:',e.message));
+  }
+}
 function nextId(coll){db.seq[coll]=(db.seq[coll]||0)+1;return db.seq[coll];}
 function add(coll,obj){
   obj.id=nextId(coll); obj.created_at=nowISO(); obj.updated_at=obj.created_at;
@@ -669,21 +701,8 @@ function upd(coll,id,patch){
   Object.assign(r,patch); r.updated_at=nowISO(); r.updated_by=cuName(); saveDB(); return r;
 }
 function softDel(coll,id){upd(coll,id,{deleted_at:nowISO()});}
-function all(coll){return db[coll].filter(r=>!r.deleted_at);}
+function all(coll){return (db[coll]||[]).filter(r=>!r.deleted_at);}
 function byId(coll,id){return db[coll].find(r=>r.id==id&&!r.deleted_at);}
-// PHASE 2.5: Scoped data access - filter by active tenant (multi-tenant isolation)
-function allScoped(coll){
-  if(!state.tenant)return all(coll);
-  const tenantId=state.tenant.id;
-  const records=all(coll);
-  // Collections that need tenant scoping (all have tenant_id field)
-  const scopedCollections=['users','customers','agreements','carriers','drivers','vendors','agents',
-    'trips','checklists','expenses','vendortx','agentcharges','invoices','inpayments',
-    'payables','outpayments','claims','journeys','fuel','employee_advances','fueltransfers',
-    'contras','paypromises'];
-  if(!scopedCollections.includes(coll))return records;
-  return records.filter(r=>!r.tenant_id||r.tenant_id===tenantId); // Backward compatible: null tenant_id = pre-Phase2.5 data
-}
 function nm(coll,id,key){const r=byId(coll,id);return r?(r[key||'name']||'—'):'—';}
 
 /* ===== internal ledger primitives (Phase 1) ===== */
@@ -913,11 +932,11 @@ function openingBalanceForm(){
   <div class="hint" style="margin-bottom:10px">For Cash in Hand / Bank Account starting balances, use "Edit" on that account under Finance instead — it already has an Opening balance field.</div>
   <h3 class="small" style="margin:14px 0 6px">Customers who already owed you money</h3>
   <div class="fgrid">
-    ${allScoped('customers').map(c=>`<div class="frow"><label>${esc(c.name)}</label><input type="number" step="0.01" id="ob_cust_${c.id}" value="${custVal(c.id)}" placeholder="0.00"></div>`).join('')||'<div class="mut small">No customers set up yet.</div>'}
+    ${all('customers').map(c=>`<div class="frow"><label>${esc(c.name)}</label><input type="number" step="0.01" id="ob_cust_${c.id}" value="${custVal(c.id)}" placeholder="0.00"></div>`).join('')||'<div class="mut small">No customers set up yet.</div>'}
   </div>
   <h3 class="small" style="margin:14px 0 6px">Carriers you already owed money</h3>
   <div class="fgrid">
-    ${allScoped('carriers').map(c=>`<div class="frow"><label>${esc(c.name)}</label><input type="number" step="0.01" id="ob_carr_${c.id}" value="${carrVal(c.id)}" placeholder="0.00"></div>`).join('')||'<div class="mut small">No carriers set up yet.</div>'}
+    ${all('carriers').map(c=>`<div class="frow"><label>${esc(c.name)}</label><input type="number" step="0.01" id="ob_carr_${c.id}" value="${carrVal(c.id)}" placeholder="0.00"></div>`).join('')||'<div class="mut small">No carriers set up yet.</div>'}
   </div>
   <div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button>
   <button class="btn" onclick="openingBalanceSave(${existingEntry?existingEntry.id:'null'})">Save</button></div>`,true);
@@ -925,11 +944,11 @@ function openingBalanceForm(){
 function openingBalanceSave(existingEntryId){
   const lines=[];
   let totalDr=0,totalCr=0;
-  allScoped('customers').forEach(c=>{
+  all('customers').forEach(c=>{
     const v=P(V('ob_cust_'+c.id));
     if(v){lines.push({account_code:'1100',subsidiary_type:'customer',subsidiary_id:c.id,debit_paisa:v,credit_paisa:0});totalDr+=v;}
   });
-  allScoped('carriers').forEach(c=>{
+  all('carriers').forEach(c=>{
     const v=P(V('ob_carr_'+c.id));
     if(v){lines.push({account_code:'2000',subsidiary_type:'carrier',subsidiary_id:c.id,debit_paisa:0,credit_paisa:v});totalCr+=v;}
   });
@@ -956,7 +975,7 @@ function balCard(map,nameFn,flip){
 }
 function driverAdvanceOutstandingByCarrier(){
   const map=new Map();
-  allScoped('carriers').forEach(c=>{
+  all('carriers').forEach(c=>{
     const rows=carrierAdvanceRows(c.id);
     const bal=rows.length?rows[rows.length-1].balance:0;
     if(bal)map.set(c.id,bal);
@@ -965,14 +984,14 @@ function driverAdvanceOutstandingByCarrier(){
 }
 function employeeAdvancesOutstandingByDriver(){
   const map=new Map();
-  allScoped('drivers').forEach(d=>{
-    const outstanding=allScoped('employee_advances').filter(a=>a.driver_id==d.id&&!a.deleted_at&&a.status!=='settled').reduce((s,a)=>s+(a.amount_paisa||0),0);
+  all('drivers').forEach(d=>{
+    const outstanding=all('employee_advances').filter(a=>a.driver_id==d.id&&!a.deleted_at&&a.status!=='settled').reduce((s,a)=>s+(a.amount_paisa||0),0);
     if(outstanding)map.set(d.id,outstanding);
   });
   return map;
 }
 function driverOutstandingAdvances(driverId){
-  return allScoped('employee_advances').filter(a=>a.driver_id==driverId&&!a.deleted_at&&a.status!=='settled');
+  return all('employee_advances').filter(a=>a.driver_id==driverId&&!a.deleted_at&&a.status!=='settled');
 }
 function advanceForm(driverId){
   const d=byId('drivers',driverId);
@@ -1041,6 +1060,65 @@ function pageBalances(){
       return `<tr><td>${esc(fmtDate(e.date))}</td><td class="wrap">${esc(e.memo||e.event_type)}${e.reversed_of_id?' <span class="badge b-gray">reversal</span>':''}</td><td class="num">${pkr(amt)}</td></tr>`;}).join('')}
     </tbody></table></div>`:'<div class="mut small">Nothing recorded yet — this fills in automatically as you use the app.</div>'}
   </div>`;
+}
+
+function pageGLAccountsMgmt(){
+  const accts=all('accounts').filter(a=>!a.deleted_at).sort((a,b)=>Number(a.code)-Number(b.code));
+  const editId=V('glAcctEdit');
+  const acct=editId&&editId!=='new'?byId('accounts',editId):null;
+  return `<div class="page">
+    <div class="pagehead"><h1>GL Accounts</h1><button class="btn" onclick="setV('glAcctEdit','new');render()" style="margin-left:auto">+ New GL Account</button></div>
+    <div class="content">
+      ${editId?`
+        <div class="panel">
+          <h3>${acct?'Edit':'New'} GL Account</h3>
+          <div class="form">
+            <div><label>Code</label><input type="text" placeholder="e.g., 1000" value="${acct?.code||V('glAcctCode')||''}" onchange="setV('glAcctCode',this.value)"></div>
+            <div><label>Name</label><input type="text" placeholder="Account Name" value="${acct?.name||V('glAcctName')||''}" onchange="setV('glAcctName',this.value)"></div>
+            <div><label>Type</label><select onchange="setV('glAcctType',this.value)">
+              <option value="">Select Type</option>
+              <option value="Asset" ${(acct?.type||V('glAcctType'))==='Asset'?'selected':''}>Asset</option>
+              <option value="Liability" ${(acct?.type||V('glAcctType'))==='Liability'?'selected':''}>Liability</option>
+              <option value="Equity" ${(acct?.type||V('glAcctType'))==='Equity'?'selected':''}>Equity</option>
+              <option value="Revenue" ${(acct?.type||V('glAcctType'))==='Revenue'?'selected':''}>Revenue</option>
+              <option value="Expense" ${(acct?.type||V('glAcctType'))==='Expense'?'selected':''}>Expense</option>
+            </select></div>
+            <div><label>Description</label><textarea placeholder="Description" onchange="setV('glAcctDesc',this.value)">${acct?.description||V('glAcctDesc')||''}</textarea></div>
+            <div class="btns">
+              <button class="btn blue" onclick="glAcctSave()">Save</button>
+              <button class="btn" onclick="setV('glAcctEdit','');render()">Cancel</button>
+              ${acct?`<button class="btn danger" onclick="glAcctDel(${acct.id})">Delete</button>`:''}
+            </div>
+          </div>
+        </div>
+      `:''}
+      <h3>All GL Accounts (${accts.length})</h3>
+      <table class="striped">
+        <thead><tr><th>Code</th><th>Name</th><th>Type</th><th>Description</th><th></th></tr></thead>
+        <tbody>${accts.map(a=>`<tr><td><strong>${esc(a.code)}</strong></td><td>${esc(a.name)}</td><td><span class="badge">${esc(a.type)}</span></td><td>${esc(a.description||'')}</td><td><button class="btn sm" onclick="setV('glAcctEdit',${a.id});render()">Edit</button></td></tr>`).join('')}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function glAcctSave(){
+  const code=V('glAcctCode'),name=V('glAcctName'),type=V('glAcctType'),desc=V('glAcctDesc');
+  if(!code||!name||!type){toast('Fill all fields',true);return;}
+  const editId=V('glAcctEdit');
+  if(editId){
+    upd('accounts',editId,{code,name,type,description:desc});
+  }else{
+    add('accounts',{code,name,type,description:desc});
+  }
+  setV('glAcctEdit','');setV('glAcctCode','');setV('glAcctName','');setV('glAcctType','');setV('glAcctDesc','');
+  toast('GL Account saved');render();
+}
+
+function glAcctDel(id){
+  if(!confirm('Delete this GL Account?'))return;
+  softDel('accounts',id);
+  setV('glAcctEdit','');
+  toast('GL Account deleted');render();
 }
 
 function pageGLAccountReport(){
@@ -1342,24 +1420,14 @@ function seedDB(){
     o.created_at=t;o.updated_at=t;o.created_by='seed';o.updated_by='seed';o.deleted_at=null;
     d[coll].push(o);return o;
   }
-  // PHASE 2.5: Tenants (multi-tenant architecture)
-  const tenantUTN=a('tenants',{name:'United Transport Network',slug:'utn',status:'active',region:'Pakistan',contact_email:'utn@loadyar.local'});
-  const tenantTestA=a('tenants',{name:'Test Client A',slug:'test_a',status:'active',region:'Karachi',contact_email:'test@a.local'});
-  const tenantTestB=a('tenants',{name:'Test Client B',slug:'test_b',status:'active',region:'Lahore',contact_email:'test@b.local'});
-
-  // users (with tenant_id for multi-tenant scoping)
-  // Super Admin — can see all tenants (tenant_id = null)
-  a('users',{name:'LoadYar Super Admin',role:'admin',auth_mode:'password',username:'superadmin',password_hash:simpleHash('SuperAdmin@2026'),tenant_id:null});
-  a('users',{name:'Ali (Admin)',role:'admin',tenant_id:tenantUTN.id});
-  a('users',{name:'Dispatcher — Karachi Pipri',role:'dispatcher',auth_mode:'password',username:'kpipri',password_hash:simpleHash('KPipri@2026'),tenant_id:tenantUTN.id});
-  a('users',{name:'Dispatcher — Hyderabad',role:'dispatcher',auth_mode:'password',username:'hyderabad',password_hash:simpleHash('Hyderabad@2026'),tenant_id:tenantUTN.id});
-  a('users',{name:'Dispatcher — Lahore',role:'dispatcher',auth_mode:'password',username:'lahore',password_hash:simpleHash('Lahore@2026'),tenant_id:tenantUTN.id});
-  a('users',{name:'Rashid Khan (Driver)',role:'driver',driver_id:1,tenant_id:tenantUTN.id});
-  a('users',{name:'Bilal Ahmed (Driver)',role:'driver',driver_id:2,tenant_id:tenantUTN.id});
-  a('users',{name:'Faisal (Karachi Carriers)',role:'carrier',carrier_id:1,tenant_id:tenantUTN.id});
-  // Test tenant users
-  a('users',{name:'Admin (Test A)',role:'admin',tenant_id:tenantTestA.id});
-  a('users',{name:'Admin (Test B)',role:'admin',tenant_id:tenantTestB.id});
+  // users
+  a('users',{name:'Ali (Admin)',role:'admin'});
+  a('users',{name:'Dispatcher — Karachi Pipri',role:'dispatcher',auth_mode:'password',username:'kpipri',password_hash:simpleHash('KPipri@2026')});
+  a('users',{name:'Dispatcher — Hyderabad',role:'dispatcher',auth_mode:'password',username:'hyderabad',password_hash:simpleHash('Hyderabad@2026')});
+  a('users',{name:'Dispatcher — Lahore',role:'dispatcher',auth_mode:'password',username:'lahore',password_hash:simpleHash('Lahore@2026')});
+  a('users',{name:'Rashid Khan (Driver)',role:'driver',driver_id:1});
+  a('users',{name:'Bilal Ahmed (Driver)',role:'driver',driver_id:2});
+  a('users',{name:'Faisal (Karachi Carriers)',role:'carrier',carrier_id:1});
   // customers
   a('customers',{name:'Indus Motor Company (Toyota)',plant:'Port Qasim, Karachi',delivery_points:'Toyota Central Lahore, Toyota Multan Motors, Toyota Rawal Motors',billing_contact:'Accounts Dept — 021-111-869-682',ops_contact:'Logistics Cell — Mr. Imran'});
   a('customers',{name:'Pak Suzuki Motor Co.',plant:'Bin Qasim, Karachi',delivery_points:'Suzuki Islamabad Motors, Suzuki Peshawar City',billing_contact:'Finance — 021-34723551',ops_contact:'Dispatch Office — Mr. Saleem'});
@@ -1369,14 +1437,25 @@ function seedDB(){
   a('agreements',{customer_id:2,route:'Karachi → Islamabad',route_from:'Karachi',route_to:'Islamabad',vehicle_type:'Car',rate_paisa:2100000,valid_from:'2026-01-01',valid_to:'2026-12-31',fuel_clause:'',status:'active'});
   a('agreements',{customer_id:1,route:'Karachi → Multan',route_from:'Karachi',route_to:'Multan',vehicle_type:'Car',rate_paisa:1500000,valid_from:'2026-03-01',valid_to:'2026-12-31',fuel_clause:'',status:'active'});
   // carriers & drivers
-  a('carriers',{name:'Karachi Carriers',contact:'0300-1234567',pay_type:'flat_rate'});
-  a('carriers',{name:'Bismillah Transport',contact:'0321-7654321',pay_type:'cost_plus'});
+  a('carriers',{name:'Karachi Carriers',contact:'0300-1234567',ownership:'hired',pay_type:'flat_rate',monthly_paisa:5000000});
+  a('carriers',{name:'Bismillah Transport',contact:'0321-7654321',ownership:'company',pay_type:'cost_plus'});
   a('drivers',{name:'Rashid Khan',license:'KHI-DL-99812',contact:'0333-1112223',carrier_id:1});
   a('drivers',{name:'Bilal Ahmed',license:'KHI-DL-45671',contact:'0345-9998887',carrier_id:2});
   // vendors & agents
   a('vendors',{name:'Madina Tyres',category:'tyre',contact:'021-32760011'});
   a('vendors',{name:'Al-Karam Auto Repair',category:'repairs',contact:'0312-4445556'});
   a('agents',{name:'Sea Link Clearing',contact:'0301-2223334',city_port:'Karachi Port'});
+  // warehouse stock
+  a('stock_locations',{name:'Karachi Depot',city:'Karachi',capacity_liters:5000});
+  a('stock_locations',{name:'Lahore Depot',city:'Lahore',capacity_liters:3000});
+  a('stock_items',{name:'Engine Oil SAE 40',type:'oil',unit:'liters',unit_cost_paisa:13000,reorder_point:100,reorder_quantity:500});
+  a('stock_items',{name:'Air Filter',type:'filter',unit:'pieces',unit_cost_paisa:80000,reorder_point:20,reorder_quantity:50});
+  a('stock_items',{name:'Tyre Radial 295/80',type:'tyre',unit:'pieces',unit_cost_paisa:850000,reorder_point:5,reorder_quantity:20});
+  a('stock_items',{name:'Spare Parts Kit',type:'parts',unit:'kits',unit_cost_paisa:250000,reorder_point:3,reorder_quantity:10});
+  // stock purchase
+  a('stock_transactions',{stock_item_id:1,stock_location_id:1,type:'purchase',quantity:500,unit_cost_paisa:13000,date:today(),vendor_id:2,reference:'PO-2026-0085',notes:'Bulk purchase for season'});
+  a('stock_transactions',{stock_item_id:2,stock_location_id:1,type:'purchase',quantity:100,unit_cost_paisa:80000,date:today(),vendor_id:2,reference:'PO-2026-0086',notes:'Air filters stock'});
+  a('stock_transactions',{stock_item_id:3,stock_location_id:1,type:'purchase',quantity:25,unit_cost_paisa:850000,date:today(),vendor_id:1,reference:'PO-2026-0087',notes:'Tyre purchase'});
   // booking (open)
   a('bookings',{customer_id:3,booking_date:today(),route:'Lahore → Karachi',requested_pickup:'2026-07-22',status:'open',trip_id:null});
   // trip 1 — digital, in transit
@@ -1527,6 +1606,7 @@ function optHTML(list,sel){return list.map(o=>`<option value="${esc(o[0])}" ${St
 function enumLbl(list,v){const f=list.find(o=>o[0]===v);return f?f[1]:(v||'—');}
 function fkOptions(coll,sel,labelKey){return '<option value="">—</option>'+all(coll).map(r=>`<option value="${r.id}" ${String(sel)===String(r.id)?'selected':''}>${esc(r[labelKey||'name'])}</option>`).join('');}
 function V(id){const e=document.getElementById(id);return e?e.value.trim():'';}
+function setV(id,val){let e=document.getElementById(id);if(!e){e=document.createElement('input');e.id=id;e.type='hidden';document.body.appendChild(e);}e.value=val;}
 function listVals(kind){return all('listopts').filter(r=>r.kind===kind).map(r=>r.value);}
 function listOpts(kind,sel){
   let vals=listVals(kind);
@@ -1568,7 +1648,7 @@ function freightVisible(t){
   if(can('viewFreight'))return true;
   return state.user&&state.user.role==='dispatcher'&&!!(t&&t.open_market);
 }
-function scopedTrips(){return allScoped('trips').filter(tripAccessible);}
+function scopedTrips(){return all('trips').filter(tripAccessible);}
 function greetingWord(){
   const h=new Date().getHours();
   return h<12?'Good morning':(h<17?'Good afternoon':'Good evening');
@@ -1579,20 +1659,20 @@ function welcomeBanner(){
   const r=u.role;
   let msg='';
   if(r==='admin'){
-    const todayBilties=allScoped('trips').filter(t=>t.date===today()).length;
-    const openClaims=allScoped('claims').filter(c=>c.status==='open'||c.status==='under_review').length;
+    const todayBilties=all('trips').filter(t=>t.date===today()).length;
+    const openClaims=all('claims').filter(c=>c.status==='open'||c.status==='under_review').length;
     const parts=[todayBilties+' '+(todayBilties===1?'bilty':'bilties')+' booked today'];
     if(openClaims)parts.push(openClaims+' open claim'+(openClaims===1?'':'s'));
     msg=parts.join(' · ');
   }else if(r==='dispatcher'){
-    const todayBilties=allScoped('trips').filter(t=>t.date===today()).length;
-    const awaitingLoad=allScoped('trips').filter(t=>!t.journey_id&&t.status==='booked').length;
+    const todayBilties=all('trips').filter(t=>t.date===today()).length;
+    const awaitingLoad=all('trips').filter(t=>!t.journey_id&&t.status==='booked').length;
     msg=todayBilties+' '+(todayBilties===1?'bilty':'bilties')+' booked today · '+awaitingLoad+' awaiting loading';
   }else if(r==='driver'){
-    const mine=allScoped('trips').filter(t=>t.driver_id==u.driver_id&&(t.status==='booked'||t.status==='in_transit')).length;
+    const mine=all('trips').filter(t=>t.driver_id==u.driver_id&&(t.status==='booked'||t.status==='in_transit')).length;
     msg=mine+' trip'+(mine===1?'':'s')+' assigned to you';
   }else if(r==='carrier'){
-    const mine=allScoped('trips').filter(t=>t.carrier_id==u.carrier_id&&(t.status==='booked'||t.status==='in_transit')).length;
+    const mine=all('trips').filter(t=>t.carrier_id==u.carrier_id&&(t.status==='booked'||t.status==='in_transit')).length;
     msg=mine+' trip'+(mine===1?'':'s')+' currently with your fleet';
   }
   return `<div class="welcome-banner"><div class="co">${esc(CO_NAME)}</div>
@@ -1603,7 +1683,7 @@ function login(uid){
   state.user=u; sessionStorage.setItem('mucrm_uid',uid);
   location.hash=defaultRoute(); render();
 }
-function toggleSection(sectionName){const collapsed=JSON.parse(localStorage.getItem('navCollapsed')||'{}');collapsed[sectionName]=!collapsed[sectionName];localStorage.setItem('navCollapsed',JSON.stringify(collapsed));render();}
+function logout(){state.user=null;window._loginSelected=null;sessionStorage.removeItem('mucrm_uid');location.hash='';render();}
 function defaultRoute(){return state.user&&state.user.role==='admin'?'#/dashboard':'#/trips';}
 
 /* router */
@@ -1621,6 +1701,7 @@ const ROUTES={
   vouchers:{cap:'payables',fn:()=>pageVouchers(),title:'Vouchers'},
   finance:{cap:'finance',fn:()=>pageFinance(),title:'Finance'},
   balances:{cap:'finance',fn:()=>pageBalances(),title:'Balances'},
+  glaccountsmgmt:{cap:'finance',fn:()=>pageGLAccountsMgmt(),title:'GL Accounts'},
   glaccounts:{cap:'finance',fn:()=>pageGLAccountReport(),title:'GL Account Report'},
   financials:{cap:'finance',fn:()=>pageFinancialStatements(),title:'Financial Statements'},
   cashflow:{cap:'finance',fn:()=>pageCashFlow(),title:'Cash Flow Statement'},
@@ -1635,16 +1716,14 @@ const ROUTES={
   drivers:{cap:'master',fn:()=>pageEnt('drivers'),title:'Drivers'},
   vendors:{cap:'master',fn:()=>pageEnt('vendors'),title:'Vendors'},
   agents:{cap:'master',fn:()=>pageEnt('agents'),title:'Clearing Agents'},
-  glaccountsmgmt:{cap:'master',fn:()=>pageEnt('chart_of_accounts'),title:'GL Accounts'},
+  warehouse:{cap:'master',fn:()=>pageWarehouse(),title:'Warehouse Stock'},
   lists:{cap:'master',fn:()=>pageListOpts(),title:'Dropdown Lists'},
-  users:{cap:'settings',fn:()=>pageEnt('users'),title:'Users'},
-  tenants:{cap:'settings',fn:()=>pageEnt('tenants'),title:'Tenants'},
   settings:{cap:'settings',fn:()=>pageSettings(),title:'Settings & Backup'}
 };
 function navItems(){
   const r=state.user.role;
   const items=[];
-  items.push(['SEP','Operations']);
+  items.push(['DROP','Operations']);
   if(r==='admin')items.push(['#/dashboard','Dashboard']);
   if(can('bookings'))items.push(['#/bookings','Booking / Bilty','بکنگ / بلٹی']);
   if(can('journeys'))items.push(['#/journeys','Create Trips','ٹرپ بنائیں']);
@@ -1652,69 +1731,53 @@ function navItems(){
   if(can('expensesPage'))items.push(['#/expenses',r==='driver'?'My Expenses':'Trip Expenses',r==='driver'?'میرے اخراجات':'ٹرپ اخراجات']);
   if(can('expensesPage'))items.push(['#/fuel','Diesel / Fuel','ڈیزل / تیل']);
   if(can('claims'))items.push(['#/claims','Claims']);
-  if(can('invoices')||can('payables')||can('finance')||r==='carrier')items.push(['SEP','Financial']);
+  items.push(['ENDROP']);
+  if(can('invoices')||can('payables')||can('finance')||r==='carrier')items.push(['DROP','Accounts']);
   if(can('invoices'))items.push(['#/invoices','Invoices']);
   if(can('payables'))items.push(['#/payables','Payables']);
   if(can('payables'))items.push(['#/empadvances','Employee Advances']);
   if(can('payables'))items.push(['#/vouchers','Vouchers']);
   if(can('finance'))items.push(['#/finance','Finance']);
   if(can('finance'))items.push(['#/balances','Balances']);
+  if(can('finance'))items.push(['#/glaccountsmgmt','GL Accounts']);
   if(can('finance'))items.push(['#/glaccounts','GL Account Report']);
   if(can('finance'))items.push(['#/financials','Financial Statements']);
   if(can('finance'))items.push(['#/cashflow','Cash Flow Statement']);
   if(r==='carrier')items.push(['#/mypayments','My Payments']);
-  if(can('reports'))items.push(['SEP','Reports & Claims']);
+  items.push(['ENDROP']);
+  if(can('reports'))items.push(['DROP','Reports']);
   if(can('reports'))items.push(['#/reports','Reports']);
-  if(can('master'))items.push(['SEP','Master data'],['#/customers','Customers'],['#/agreements','Rate Agreements'],
+  if(can('reports'))items.push(['ENDROP']);
+  if(can('master'))items.push(['DROP','Master data']);
+  if(can('master'))items.push(['#/customers','Customers'],['#/agreements','Rate Agreements'],
     ['#/carriers','Carriers'],['#/drivers','Drivers'],['#/vendors','Vendors'],['#/agents','Clearing Agents'],
-    ['#/glaccountsmgmt','GL Accounts'],['#/lists','Dropdown Lists']);
-  if(can('settings'))items.push(['SEP',''],['#/tenants','Tenants'],['#/users','Users'],['#/settings','Settings & Backup']);
+    ['#/warehouse','Warehouse Stock'],['#/lists','Dropdown Lists']);
+  if(can('master'))items.push(['ENDROP']);
+  if(can('settings'))items.push(['DROP','Settings']);
+  if(can('settings'))items.push(['#/settings','Settings & Backup']);
+  if(can('settings'))items.push(['ENDROP']);
   return items;
 }
 function render(){
   closeModal();
   const app=document.getElementById('app');
-
-  // Phase 2.5: Check session timeout (30 min inactivity)
-  if(state.user){
-    const lastActivityTime=parseInt(sessionStorage.getItem('lastActivityTime')||'0',10);
-    const now=Date.now();
-    if(lastActivityTime && (now-lastActivityTime)>SESSION_TIMEOUT_MS){
-      state.user=null;
-      state.tenant=null;
-      sessionStorage.removeItem('mucrm_uid');
-      sessionStorage.removeItem('mucrm_tid');
-      sessionStorage.removeItem('lastActivityTime');
-      toast('Session expired due to inactivity. Please log in again.');
-    } else {
-      sessionStorage.setItem('lastActivityTime',String(now)); // Update activity timestamp
-    }
-  }
-
   if(!state.user){app.innerHTML=loginHTML();return;}
   const h=location.hash||defaultRoute();
   const parts=h.replace(/^#\//,'').split('/');
   let route=ROUTES[parts[0]]||ROUTES[defaultRoute().replace('#/','')];
   if(!route||!can(route.cap)){route=ROUTES[defaultRoute().replace('#/','')];}
   const cur='#/'+parts[0];
-  const collapsed=JSON.parse(localStorage.getItem('navCollapsed')||'{}');
-  let navHTML='';let items=navItems();
-  for(let i=0;i<items.length;i++){
-    const it=items[i];
-    if(it[0]==='SEP'){
-      if(i>0)navHTML+='</div>';
-      const isCollapsed=collapsed[it[1]];
-      navHTML+=`<div class="sep ${isCollapsed?'collapsed':''}" onclick="toggleSection('${esc(it[1])}')">${esc(it[1])}</div><div class="nav-section" data-section="${esc(it[1])}" style="max-height:${isCollapsed?0:'1000px'};opacity:${isCollapsed?0:1}">`;
-    }else{
-      navHTML+=`<a href="${it[0]}" class="${cur===it[0]?'on':''}">${esc(it[1])}${it[2]?`<span class="nav-ur">${esc(it[2])}</span>`:''}</a>`;
-    }
-  }
-  navHTML+='</div>';
+  const navItemsList=navItems();
   app.innerHTML=`
   <div class="shell">
     <nav class="side">
-      <div class="brand"><img src="${UTN_LOGO_3D}" alt="" class="brand-logo"><span class="ver">${state.tenant?esc(state.tenant.name):'LoadYar'} · MVP ${APP_VER}</span></div>
-      ${navHTML}
+      <div class="brand"><img src="${UTN_LOGO_3D}" alt="${esc(CO_NAME)}" class="brand-logo"><span class="ver">TMS CRM · MVP ${APP_VER}</span></div>
+      ${navItemsList.reduce((html,it,i,arr)=>{
+        if(it[0]==='SEP')return html+`<div class="sep">${esc(it[1])}</div>`;
+        if(it[0]==='DROP')return html+`<div class="nav-group" data-open="false"><div class="nav-toggle" onclick="this.parentElement.dataset.open=this.parentElement.dataset.open==='true'?'false':'true'">${esc(it[1])} <span class="nav-caret">▼</span></div><div class="nav-items">`;
+        if(it[0]==='ENDROP')return html+`</div></div>`;
+        return html+`<a href="${it[0]}" class="${cur===it[0]?'on':''}">${esc(it[1])}${it[2]?`<span class="nav-ur">${esc(it[2])}</span>`:''}</a>`;
+      },'')}
       <div class="side-copy"><span class="powered">Powered by ${esc(PRODUCT_NAME)}</span>© ${new Date().getFullYear()} Dreamers. All rights reserved.</div>
     </nav>
     <div class="main">
@@ -1725,7 +1788,6 @@ function render(){
         <span class="clock" id="topClock">${esc(topClockText())}</span>
         <span class="who">${esc(state.user.name)}</span>
         <span class="chip">${esc(state.user.role)}</span>
-        ${state.tenant?`<span class="chip" style="background:rgba(0,176,211,.2);color:#0176d3">📍 ${esc(state.tenant.name)}</span>`:''}
         <button class="btn ghost sm" onclick="openHelpFAQ()">Ask Yar</button>
         <button class="btn ghost sm" onclick="logout()">Logout</button>
       </div>
@@ -1734,6 +1796,16 @@ function render(){
   </div>`;
   document.getElementById('content').innerHTML=route.fn(parts[1]);
   const after=window._afterRender; window._afterRender=null; if(after)after();
+  // Close all sections then open only the one with the active link (use setTimeout to ensure DOM is ready)
+  window._updateNavSections=()=>{
+    document.querySelectorAll('.nav-group').forEach(g=>g.dataset.open='false');
+    const activeLink=document.querySelector('.side a.on');
+    if(activeLink){
+      let section=activeLink.closest('.nav-group');
+      if(section)section.dataset.open='true';
+    }
+  };
+  window._updateNavSections();
 }
 function searchTrips(raw){
   const q=String(raw||'').toLowerCase().trim(); if(!q)return [];
@@ -1863,29 +1935,7 @@ const ENTITIES={
     {k:'kind',l:'List',t:'select',opts:LIST_KINDS,req:1},
     {k:'value',l:'Option value',t:'text',req:1},
     {k:'customer_id',l:'Customer (Make/Colour only — leave blank to share with all customers)',t:'fk',coll:'customers'}],
-   cols:[['kind','List',['enum',LIST_KINDS]],['value','Value']]},
-  chart_of_accounts:{title:'GL Accounts (Chart of Accounts)',sing:'GL Account',fields:[
-    {k:'code',l:'Account code',t:'text',req:1,hint:'Unique 4-5 digit code (e.g. 1000, 5100, 2210)'},
-    {k:'name',l:'Account name',t:'text',req:1,hint:'e.g. Cash & Bank, Accounts Payable, Freight Revenue'},
-    {k:'type',l:'Account type',t:'select',opts:COA_TYPES,req:1},
-    {k:'is_control',l:'Is control account (summary level)',t:'checkbox',hint:'Check if this account is a subtotal/category for GL reporting'}],
-   cols:[['code','Code'],['name','Account Name'],['type','Type',['enum',COA_TYPES]],['is_control','Control']]},
-  users:{title:'Users',sing:'User',fields:[
-    {k:'name',l:'Full name',t:'text',req:1},
-    {k:'email',l:'Email',t:'email'},
-    {k:'role',l:'Role',t:'select',opts:USER_ROLES,req:1},
-    {k:'auth_mode',l:'Authentication',t:'select',opts:[['no_pwd','No password'],['password','Password required']],req:1},
-    {k:'password_hash',l:'Password',t:'password',hint:'Leave blank to keep existing password'},
-    {k:'status',l:'Status',t:'select',opts:[['active','Active'],['inactive','Inactive']],req:1}],
-   cols:[['name','Name'],['email','Email'],['role','Role',['enum',USER_ROLES]],['status','Status',['enum',[['active','Active'],['inactive','Inactive']]]]],
-   transform:(vals)=>{if(vals.password_hash){vals.password_hash=simpleHash(vals.password_hash);}}}
-  ,tenants:{title:'Tenants (Clients)',sing:'Tenant',fields:[
-    {k:'name',l:'Tenant name',t:'text',req:1},
-    {k:'slug',l:'Slug (URL-friendly)',t:'text',req:1,hint:'e.g., utn, abc-logistics (no spaces)'},
-    {k:'region',l:'Region / city',t:'text'},
-    {k:'contact_email',l:'Contact email',t:'email'},
-    {k:'status',l:'Status',t:'select',opts:[['active','Active'],['inactive','Inactive']],req:1}],
-   cols:[['name','Tenant Name'],['slug','Slug'],['region','Region'],['contact_email','Email'],['status','Status',['enum',[['active','Active'],['inactive','Inactive']]]]]}
+   cols:[['kind','List',['enum',LIST_KINDS]],['value','Value']]}
 };
 /* rate agreements: CSV bulk import; customers: attach rate file */
 ENTITIES.agreements.headExtra=()=>`<button class="btn ghost" onclick="csvTemplate()">CSV template</button>
@@ -1933,7 +1983,7 @@ function processAgreementRows(rows){
   for(let i=1;i<rows.length;i++){
     const c=rows[i];
     if(c.length<6){skip.push('row '+(i+1)+': needs 6 columns');continue;}
-    const cust=allScoped('customers').find(x=>x.name.toLowerCase()===c[0].toLowerCase());
+    const cust=all('customers').find(x=>x.name.toLowerCase()===c[0].toLowerCase());
     if(!cust){skip.push('row '+(i+1)+': unknown customer "'+c[0]+'"');continue;}
     const rate=P(c[3]);
     if(rate==null){skip.push('row '+(i+1)+': bad rate "'+c[3]+'"');continue;}
@@ -1945,7 +1995,7 @@ function processAgreementRows(rows){
   }
   const dupes=[];
   parsed.forEach(p=>{
-    const existing=allScoped('agreements').find(a=>a.status==='active'&&a.customer_id===p.customer_id
+    const existing=all('agreements').find(a=>a.status==='active'&&a.customer_id===p.customer_id
       &&(a.route_from||'').toLowerCase()===p.route_from.toLowerCase()
       &&(a.route_to||'').toLowerCase()===p.route_to.toLowerCase()
       &&(a.vehicle_type||'').trim().toLowerCase()===p.vehicle_type.toLowerCase());
@@ -1989,7 +2039,7 @@ function monthsAgoDate(n){
    still needs its own rate to auto-fill correctly, so nothing gets touched until it's genuinely
    past the point anyone would still be entering a bilty for it. */
 function supersededOldAgreements(cutoffDate){
-  const active=allScoped('agreements').filter(a=>a.status==='active');
+  const active=all('agreements').filter(a=>a.status==='active');
   const groups=new Map();
   active.forEach(a=>{
     const key=[a.customer_id,(a.route_from||'').toLowerCase(),(a.route_to||'').toLowerCase(),(a.vehicle_type||'').trim().toLowerCase()].join('|');
@@ -2056,9 +2106,9 @@ function agreementsCleanupRun(){
   closeModal();render();
 }
 function fixInactiveRates(){
-  const imc=allScoped('customers').find(x=>x.name.toLowerCase().includes('indus motor'));
+  const imc=all('customers').find(x=>x.name.toLowerCase().includes('indus motor'));
   if(!imc){toast('Indus Motor not found',true);return;}
-  const inactive=allScoped('agreements').filter(a=>a.customer_id===imc.id&&a.status!=='active');
+  const inactive=all('agreements').filter(a=>a.customer_id===imc.id&&a.status!=='active');
   if(!inactive.length){toast('All Indus Motor rates are already active',true);return;}
   if(!confirm('Reactivate '+inactive.length+' inactive Indus Motor rate(s)? This will make them available for auto-fill in bulk bookings.'))return;
   inactive.forEach(a=>upd('agreements',a.id,{status:'active'}));
@@ -2139,19 +2189,19 @@ function expiryBadge(dates){
   return '<span class="badge b-green">Valid</span>';
 }
 function carrierLatestOdometer(carrierId){
-  const jids=new Set(allScoped('journeys').filter(j=>j.carrier_id===carrierId).map(j=>j.id));
-  const readings=allScoped('fuel').filter(f=>jids.has(f.journey_id)&&f.odometer_km!=null)
+  const jids=new Set(all('journeys').filter(j=>j.carrier_id===carrierId).map(j=>j.id));
+  const readings=all('fuel').filter(f=>jids.has(f.journey_id)&&f.odometer_km!=null)
     .slice().sort((a,b)=>a.date<b.date?1:(a.date>b.date?-1:0));
   return readings.length?{km:readings[0].odometer_km,date:readings[0].date}:null;
 }
 function fleetExpiringCount(){
   const now=today(), in30=new Date(new Date(now).getTime()+30*86400000).toISOString().slice(0,10);
   let n=0;
-  allScoped('carriers').forEach(c=>{
+  all('carriers').forEach(c=>{
     const ds=[c.reg_expiry,c.route_permit_expiry,c.fitness_expiry,c.insurance_expiry,c.token_tax_expiry].filter(Boolean);
     if(ds.some(d=>d<=in30))n++;
   });
-  allScoped('drivers').forEach(d=>{if(d.license_expiry&&d.license_expiry<=in30)n++;});
+  all('drivers').forEach(d=>{if(d.license_expiry&&d.license_expiry<=in30)n++;});
   return n;
 }
 function maintenanceLevel(rec){
@@ -2210,10 +2260,8 @@ function pageEnt(coll){
   </tbody></table></div>`;
 }
 function entForm(coll,id,pre){
-  const cap=coll==='users'?'settings':'master';
-  if(!can(cap)){toast('Not permitted',true);return;}
+  if(!can('master')){toast('Not permitted',true);return;}
   const E=ENTITIES[coll], rec=id?byId(coll,id):Object.assign({},pre||{});
-  if(coll==='users'&&!id){rec.tenant_id=state.tenant.id;rec.status='active';rec.auth_mode='password';}
   openModal(`<h2>${id?'Edit':'New'} ${esc(E.sing)}</h2>
   <div class="fgrid">${E.fields.map(f=>fieldInput(f,rec[f.k])).join('')}</div>
   <div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button>
@@ -2223,7 +2271,6 @@ function entSave(coll,id){
   const E=ENTITIES[coll], vals=readFields(E.fields);
   if(!vals)return;
   if(E.transform)E.transform(vals);
-  if(coll==='users'&&!id){vals.tenant_id=state.tenant.id;}
   const rec=id?upd(coll,id,vals):add(coll,vals);
   if(coll==='accounts')postAccountOpeningBalance(rec);
   toast(E.sing+' saved');render();
@@ -2254,11 +2301,11 @@ function entDel(coll,id){
 function acctDel(id){
   if(!can('master')){toast('Not permitted',true);return;}
   const acc=byId('accounts',id); if(!acc)return;
-  const used=allScoped('inpayments').some(p=>p.account_id===id)
-    ||allScoped('outpayments').some(p=>p.account_id===id)
-    ||allScoped('expenses').some(e=>e.account_id===id)
-    ||allScoped('fuel').some(f=>f.account_id===id)
-    ||allScoped('contras').some(c=>c.from_account_id===id||c.to_account_id===id)
+  const used=all('inpayments').some(p=>p.account_id===id)
+    ||all('outpayments').some(p=>p.account_id===id)
+    ||all('expenses').some(e=>e.account_id===id)
+    ||all('fuel').some(f=>f.account_id===id)
+    ||all('contras').some(c=>c.from_account_id===id||c.to_account_id===id)
     ||!!(acc.opening_paisa)||!!acc.journal_entry_id;
   if(used){toast('"'+acc.name+'" has transactions or an opening balance recorded against it — it can\'t be deleted while that history exists.',true);return;}
   if(!confirm('Delete "'+acc.name+'"? It has no transactions recorded, so nothing else is affected.'))return;
@@ -2266,13 +2313,13 @@ function acctDel(id){
 }
 function carrierHistory(cid){
   const c=byId('carriers',cid); if(!c)return;
-  const jids=new Set(allScoped('journeys').filter(j=>j.carrier_id===cid).map(j=>j.id));
-  const vtx=allScoped('vendortx').filter(x=>{
+  const jids=new Set(all('journeys').filter(j=>j.carrier_id===cid).map(j=>j.id));
+  const vtx=all('vendortx').filter(x=>{
     const v=byId('vendors',x.vendor_id);
     return jids.has(x.journey_id)&&v&&['tyre','repairs','oil_filter'].includes(v.category);
   }).map(x=>({date:x.date,source:'Vendor — '+enumLbl(VENDOR_CAT,byId('vendors',x.vendor_id).category),
     desc:nm('vendors',x.vendor_id)+' — '+(x.description||''),amount:x.amount_paisa}));
-  const exps=allScoped('expenses').filter(e=>jids.has(e.journey_id)&&['tyre_air','repairs'].includes(e.type)).map(e=>({
+  const exps=all('expenses').filter(e=>jids.has(e.journey_id)&&['tyre_air','repairs'].includes(e.type)).map(e=>({
     date:e.date,source:'Trip expense — '+enumLbl(EXP_TYPE,e.type),desc:e.location||e.notes||'—',amount:e.amount_paisa}));
   const rows=vtx.concat(exps).sort((a,b)=>a.date<b.date?1:(a.date>b.date?-1:0));
   const odo=carrierLatestOdometer(cid);
@@ -2286,7 +2333,7 @@ function carrierHistory(cid){
   <div class="actions"><button class="btn ghost" onclick="closeModal()">Close</button></div>`,true);
 }
 function carrierAdvanceRows(cid){
-  const trips=allScoped('journeys').filter(j=>j.carrier_id===cid).sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
+  const trips=all('journeys').filter(j=>j.carrier_id===cid).sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
   const rows=[];
   trips.forEach(j=>{
     jAdvances(j.id).forEach(a=>{
@@ -2336,7 +2383,7 @@ function carrierAdvanceLedgerPrint(cid){
 /* bulk import a new OEM customer + their vehicle catalog from a gate pass, in one go */
 function custBulkImportForm(){
   if(!can('master')){toast('Not permitted',true);return;}
-  const custOpts=allScoped('customers').slice().sort((a,b)=>a.name.localeCompare(b.name))
+  const custOpts=all('customers').slice().sort((a,b)=>a.name.localeCompare(b.name))
     .map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
   openModal(`<h2>Bulk Import Vehicle Catalog</h2>
   <div class="small mut" style="margin-bottom:10px">For a new OEM/dealer gate pass — add the customer (if new) and their vehicle Makes/Colours in one go, instead of one-by-one.</div>
@@ -2359,7 +2406,7 @@ function custBulkImportSave(){
   let cid=V('bi_customer'), custName='';
   if(cid==='__new__'){
     const name=V('bi_newname'); if(!name){toast('New customer name is required',true);return;}
-    const existing=allScoped('customers').find(c=>c.name.toLowerCase()===name.toLowerCase());
+    const existing=all('customers').find(c=>c.name.toLowerCase()===name.toLowerCase());
     if(existing){cid=existing.id;custName=existing.name;}
     else{const c=add('customers',{name:name});cid=c.id;custName=name;}
   }else{
@@ -2390,7 +2437,7 @@ function custBulkImportSave(){
 
 /* rate agreements: grouped by client (folder), with a From/Destination lookup filter per client */
 function pageAgreements(){
-  const E=ENTITIES.agreements, rows=allScoped('agreements');
+  const E=ENTITIES.agreements, rows=all('agreements');
   const byCust=new Map();
   rows.forEach(r=>{
     const key=String(r.customer_id||'none');
@@ -2456,6 +2503,104 @@ function agrClearFilter(cid){
   window._agrFilter=window._agrFilter||{};
   window._agrFilter[cid]={from:'',to:''};
   render();
+}
+
+/* warehouse stock management */
+function getStockBalance(itemId,locId){
+  const trans=all('stock_transactions').filter(t=>t.stock_item_id===itemId&&t.stock_location_id===locId);
+  return trans.reduce((sum,t)=>{
+    if(t.type==='purchase'||t.type==='transfer_in')return sum+t.quantity;
+    if(t.type==='consumption'||t.type==='transfer_out'||t.type==='scrap')return sum-t.quantity;
+    return sum;
+  },0);
+}
+function getStockValue(itemId,locId){
+  const item=byId('stock_items',itemId);
+  const balance=getStockBalance(itemId,locId);
+  return balance*(item.unit_cost_paisa||0);
+}
+function pageWarehouse(){
+  const items=all('stock_items').slice().sort((a,b)=>a.name.localeCompare(b.name));
+  const locs=all('stock_locations').slice().sort((a,b)=>a.name.localeCompare(b.name));
+  return `<div class="pagehead"><h1>Warehouse Stock</h1><div class="sp"></div>
+    <button class="btn" onclick="stockItemForm()">+ Add Item</button></div>
+  <div class="card">
+    <h2>Stock Levels by Location</h2>
+    ${locs.map(loc=>{
+      const locBalance=items.reduce((sum,it)=>sum+getStockBalance(it.id,loc.id),0);
+      return `<div class="rowline"><span><b>${esc(loc.name)}</b> (${loc.city})</span>
+        <span class="num">${locBalance.toFixed(0)} units · Rs ${pkr(items.reduce((sum,it)=>sum+getStockValue(it.id,loc.id),0))}</span></div>`;
+    }).join('')}
+  </div>
+  ${items.map(it=>`<div class="card">
+    <h3>${esc(it.name)} (${esc(it.unit)})</h3>
+    <div class="tblwrap"><table><thead><tr><th>Location</th><th class="num">On-Hand</th><th class="num">Value</th><th class="num">Reorder Point</th><th></th></tr></thead><tbody>
+    ${locs.map(loc=>{
+      const bal=getStockBalance(it.id,loc.id);
+      const val=getStockValue(it.id,loc.id);
+      const lowStock=bal<it.reorder_point;
+      return `<tr ${lowStock?'style="background:#fff3cd"':''}>
+        <td>${esc(loc.name)}</td>
+        <td class="num">${bal.toFixed(1)}</td>
+        <td class="num">${pkr(val)}</td>
+        <td class="num">${it.reorder_point} ${lowStock?'<span class="badge b-warn">LOW</span>':''}</td>
+        <td class="num"><button class="btn ghost sm" onclick="stockTransForm(${it.id},${loc.id})">Add</button></td>
+      </tr>`;
+    }).join('')}
+    </tbody></table></div>
+    <div style="margin-top:8px"><button class="btn ghost sm" onclick="entForm('stock_items',${it.id})">Edit Item</button>
+    <button class="btn ghost sm" onclick="entDel('stock_items',${it.id})">Delete</button></div>
+  </div>`).join('')}`;
+}
+function stockItemForm(id){
+  let rec={};if(id){rec=byId('stock_items',id);if(!rec){toast('Not found',true);return;}}
+  openModal(`<h2>${id?'Edit':'Add'} Stock Item</h2>
+  <div class="fgrid">
+    <div class="frow"><label class="req">Item Name</label><input id="si_name" value="${esc(rec.name||'')}"></div>
+    <div class="frow"><label class="req">Type</label><select id="si_type">
+      <option value="oil" ${rec.type==='oil'?'selected':''}>Engine Oil</option>
+      <option value="filter" ${rec.type==='filter'?'selected':''}>Filter</option>
+      <option value="tyre" ${rec.type==='tyre'?'selected':''}>Tyre</option>
+      <option value="parts" ${rec.type==='parts'?'selected':''}>Spare Parts</option>
+    </select></div>
+    <div class="frow"><label class="req">Unit</label><input id="si_unit" placeholder="liters / pieces / kits" value="${esc(rec.unit||'')}"></div>
+    <div class="frow"><label class="req">Unit Cost (PKR)</label><input type="number" step="0.01" id="si_cost" value="${esc(moneyVal(rec.unit_cost_paisa))}"></div>
+    <div class="frow"><label>Reorder Point</label><input type="number" id="si_reorder" value="${rec.reorder_point||0}"></div>
+    <div class="frow"><label>Reorder Quantity</label><input type="number" id="si_qty" value="${rec.reorder_quantity||0}"></div>
+  </div>
+  <div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button>
+  <button class="btn" onclick="stockItemSave(${id||'null'})">Save</button></div>`);
+}
+function stockItemSave(id){
+  const name=V('si_name'),type=V('si_type'),unit=V('si_unit'),cost=P(V('si_cost')),reord=parseInt(V('si_reorder'))||0,qty=parseInt(V('si_qty'))||0;
+  if(!name||!type||!unit||cost==null){toast('Required fields missing',true);return;}
+  const obj={name,type,unit,unit_cost_paisa:cost,reorder_point:reord,reorder_quantity:qty};
+  id?upd('stock_items',id,obj):add('stock_items',obj);
+  toast(id?'Item updated':'Item added');closeModal();render();
+}
+function stockTransForm(itemId,locId){
+  openModal(`<h2>Record Stock Transaction</h2>
+  <div class="fgrid">
+    <div class="frow"><label class="req">Type</label><select id="st_type" onchange="this.value==='purchase'?document.getElementById('st_ven').style.display='':document.getElementById('st_ven').style.display='none'">
+      <option value="purchase">Purchase</option><option value="consumption">Consumption (Trip)</option>
+      <option value="transfer_out">Transfer Out</option><option value="scrap">Scrap/Damage</option>
+    </select></div>
+    <div class="frow" id="st_ven"><label>Vendor</label><select id="st_vendor">${fkOptions('vendors')}</select></div>
+    <div class="frow"><label class="req">Quantity</label><input type="number" step="0.01" id="st_qty" placeholder="Enter quantity"></div>
+    <div class="frow"><label>Reference (PO/Trip)</label><input id="st_ref" placeholder="PO-2026-001 or TRIP-123"></div>
+    <div class="frow"><label>Notes</label><input id="st_notes"></div>
+  </div>
+  <div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button>
+  <button class="btn" onclick="stockTransSave(${itemId},${locId})">Record</button></div>`);
+}
+function stockTransSave(itemId,locId){
+  const type=V('st_type'),qty=parseFloat(V('st_qty')||0),ref=V('st_ref'),notes=V('st_notes');
+  if(qty<=0){toast('Quantity required',true);return;}
+  const obj={stock_item_id:itemId,stock_location_id:locId,type,quantity:qty,date:today(),reference:ref,notes,
+    unit_cost_paisa:byId('stock_items',itemId).unit_cost_paisa};
+  if(type==='purchase')obj.vendor_id=parseInt(V('st_vendor'))||null;
+  add('stock_transactions',obj);
+  toast('Transaction recorded');closeModal();render();
 }
 
 /* dropdown lists — grouped by kind so the list name isn't repeated on every row */
@@ -2615,7 +2760,7 @@ function bkNewConsigner(){
 }
 function bkNewConsignerSave(){
   const name=V('qc_name'); if(!name){toast('Company name is required',true);return;}
-  if(allScoped('customers').some(c=>c.name.toLowerCase()===name.toLowerCase())){toast('A customer with that name already exists',true);return;}
+  if(all('customers').some(c=>c.name.toLowerCase()===name.toLowerCase())){toast('A customer with that name already exists',true);return;}
   const c=add('customers',{name:name});
   closeModal();
   const sel=document.getElementById('b_customer'); if(sel)sel.innerHTML=fkOptions('customers',c.id);
@@ -2667,7 +2812,7 @@ function bkNewAgent(){
 }
 function bkNewAgentSave(){
   const name=V('qa_name'); if(!name){toast('Agent name is required',true);return;}
-  if(allScoped('agents').some(a=>a.name.toLowerCase()===name.toLowerCase())){toast('An agent with that name already exists',true);return;}
+  if(all('agents').some(a=>a.name.toLowerCase()===name.toLowerCase())){toast('An agent with that name already exists',true);return;}
   const a=add('agents',{name:name,contact:'',city_port:'',default_charge_paisa:150000});
   closeModal();
   const sel=document.getElementById('b_agent'); if(sel)sel.innerHTML=fkOptions('agents',a.id);
@@ -2739,7 +2884,7 @@ function collapseAgreementsByTier(matches){
 function agentsForCity(city){
   if(!city)return [];
   const c=city.toLowerCase();
-  return allScoped('agents').filter(a=>Array.isArray(a.cities)&&a.cities.some(x=>x.toLowerCase()===c));
+  return all('agents').filter(a=>Array.isArray(a.cities)&&a.cities.some(x=>x.toLowerCase()===c));
 }
 /* Clearing-agent <select> options grouped by whether the agent's master-data "cities" cover the
    given destination — matches first so the common case needs no scrolling, but every agent stays
@@ -2750,7 +2895,7 @@ function agentOptions(city,sel){
   let html='<option value="">—</option>';
   if(!matches.length)return html+fkOptions('agents',sel).replace('<option value="">—</option>','');
   const matchIds=new Set(matches.map(a=>a.id));
-  const rest=allScoped('agents').filter(a=>!matchIds.has(a.id));
+  const rest=all('agents').filter(a=>!matchIds.has(a.id));
   const opt=a=>`<option value="${a.id}" ${String(sel)===String(a.id)?'selected':''}>${esc(a.name)}</option>`;
   html+=`<optgroup label="Serves ${esc(city)}">${matches.map(opt).join('')}</optgroup>`;
   if(rest.length)html+=`<optgroup label="All agents">${rest.map(opt).join('')}</optgroup>`;
@@ -2764,7 +2909,7 @@ function bkRateSuggest(){
   if(openMkt){box.innerHTML='';return;}
   const cid=parseInt(V('b_customer'),10)||null, from=V('b_from'), to=V('b_dest'), dt=V('b_date')||today();
   if(!cid||!from||!to){box.innerHTML='';return;}
-  const matches=allScoped('agreements').filter(a=>a.status==='active'&&a.customer_id==cid
+  const matches=all('agreements').filter(a=>a.status==='active'&&a.customer_id==cid
     &&(a.route_from||'').toLowerCase()===from.toLowerCase()
     &&(a.route_to||'').toLowerCase()===to.toLowerCase()
     &&a.valid_from<=dt&&a.valid_to>=dt);
@@ -2811,7 +2956,7 @@ function bookingSave(){
   let bilty=V('b_bilty'), em;
   if(bilty){
     em='manual_logged';
-    const dup=allScoped('trips').find(t=>String(t.bilty_no).toLowerCase()===bilty.toLowerCase());
+    const dup=all('trips').find(t=>String(t.bilty_no).toLowerCase()===bilty.toLowerCase());
     if(dup&&!confirm('Warning: bilty no. "'+bilty+'" already exists ('+dup.route+', '+fmtDate(dup.date)+').\n\nPaper errors happen — you may proceed. Save anyway?'))return;
   }else{
     em='digital';
@@ -2949,7 +3094,7 @@ function gpRowSuggest(rid){
     const cid=parseInt(V('gp_customer'),10)||null, from=V('gp_from'), dt=V('gp_date')||today();
     let tiers=[];
     if(cid&&from&&dest){
-      const matches=allScoped('agreements').filter(a=>a.status==='active'&&a.customer_id==cid
+      const matches=all('agreements').filter(a=>a.status==='active'&&a.customer_id==cid
         &&(a.route_from||'').toLowerCase()===from.toLowerCase()
         &&(a.route_to||'').toLowerCase()===dest.toLowerCase()
         &&a.valid_from<=dt&&a.valid_to>=dt);
@@ -3089,7 +3234,7 @@ function gpScanDocument(inp){
     if(result.creation_date&&/^\d{4}-\d{2}-\d{2}$/.test(result.creation_date))document.getElementById('gp_date').value=result.creation_date;
     if(result.issuer_name){
       const needle=result.issuer_name.toLowerCase().replace(/\s*(limited|ltd|company|co\.?)\b/g,'').trim();
-      const match=allScoped('customers').find(c=>{
+      const match=all('customers').find(c=>{
         const hay=c.name.toLowerCase().replace(/\s*\(.*?\)/g,'').replace(/\s*(limited|ltd|company|co\.?)\b/g,'').trim();
         return hay&&needle&&(hay.includes(needle)||needle.includes(hay));
       });
@@ -3200,9 +3345,23 @@ function pageTrips(){
   const r=state.user.role, allRows=scopedTrips().slice().sort((a,b)=>a.date<b.date?1:-1);
   const money=can('totals')||r==='dispatcher';
   const key='register';
-  const q=tfGet(key,'q'),stF=tfGet(key,'status');
+  const q=tfGet(key,'q'),stF=tfGet(key,'status'),dupF=tfGet(key,'dupfilter');
+  // Find duplicate vehicles (same engine+chassis in different trips)
+  const vehKey={};
+  allRows.forEach(t=>{
+    if(t.veh_engine&&t.veh_chassis){
+      const key=(String(t.veh_engine)+String(t.veh_chassis)).toLowerCase();
+      if(!vehKey[key])vehKey[key]=[];
+      vehKey[key].push(t.id);
+    }
+  });
+  const dupIds=new Set();
+  Object.values(vehKey).forEach(ids=>{
+    if(ids.length>1)ids.forEach(id=>dupIds.add(id));
+  });
   const rows=allRows.filter(t=>
     (!stF||t.status===stF)&&
+    (!dupF||(dupF==='dups'?dupIds.has(t.id):!dupIds.has(t.id)))&&
     (!q||tfTextMatch(q,t.bilty_no,nm('customers',t.customer_id),t.route,nm('carriers',t.carrier_id),nm('drivers',t.driver_id),t.veh_chassis,t.veh_engine,t.veh_reg))
   );
   const byMonth=new Map();
@@ -3215,7 +3374,7 @@ function pageTrips(){
   const groups=Array.from(byMonth.entries());
   return `${welcomeBanner()}<div class="pagehead"><h1>${r==='driver'||r==='carrier'?bi('My Trips','میرے ٹرپ'):bi('Booking Register','بکنگ رجسٹر')}</h1><div class="sp"></div>
     ${can('trips_entry')?`<button class="btn" onclick="goto('#/bookings')">${biShort('+ New Bilty','+ نئی بلٹی')}</button>`:''}</div>
-  ${allRows.length>6?tfBar(key,[{field:'status',label:'Status',options:TRIP_STATUS}],'Search bilty, customer, route, carrier…'):''}
+  ${allRows.length>6?tfBar(key,[{field:'status',label:'Status',options:TRIP_STATUS},{field:'dupfilter',label:'Filter',options:[['','All'],['dups','Duplicates only']]}],'Search bilty, customer, route, carrier…'):''}
   ${groups.length?groups.map(([gkey,items])=>{
     const expanded=window._regExpanded.has(gkey);
     let html=`<div class="card" style="margin-bottom:10px">
@@ -3235,7 +3394,7 @@ function pageTrips(){
           :(can('journeys')?'<span class="badge b-amber">Unloaded</span>':'<span class="badge b-gray">—</span>')}</td>
         <td>${payStatusCell(t,can('trips_entry'))}</td>
         <td>${stBadge(t.status)}</td>
-        <td class="num"><button class="btn ghost sm" onclick="biltyPrint(${t.id})">🖨</button></td></tr>`).join('')}
+        <td class="num"><button class="btn ghost sm" onclick="biltyPrint(${t.id})" title="Print">🖨</button><button class="btn ghost sm" onclick="tripDelete(${t.id})" title="Delete bilty" style="color:var(--danger)">🗑</button></td></tr>`).join('')}
       </tbody></table></div></div>`;
     }
     html+='</div>';
@@ -3342,7 +3501,7 @@ function rateSuggest(){
   const cid=parseInt(V('f_customer_id'),10)||null, route=V('f_route').toLowerCase(),
     vt=V('f_veh_type'), dt=V('f_date')||today();
   if(!cid||!route){box.innerHTML='';return;}
-  const matches=allScoped('agreements').filter(a=>a.status==='active'&&a.customer_id==cid
+  const matches=all('agreements').filter(a=>a.status==='active'&&a.customer_id==cid
     &&String(a.route).toLowerCase()===route
     &&(!a.vehicle_type||!vt||a.vehicle_type===vt)
     &&a.valid_from<=dt&&a.valid_to>=dt);
@@ -3389,8 +3548,17 @@ function tripSave(id){
   let bilty=V('f_bilty');
   if(em==='manual_logged'){
     if(!bilty){toast('Bilty no. is required for a manual-logged trip',true);return;}
-    const dup=allScoped('trips').find(t=>t.id!=id&&String(t.bilty_no).toLowerCase()===bilty.toLowerCase());
-    if(dup&&!confirm('Warning: bilty no. "'+bilty+'" already exists on trip of '+fmtDate(dup.date)+' ('+dup.route+').\n\nPaper errors happen — you may proceed. Save anyway?'))return;
+  }
+  // Check for duplicate vehicles (same engine+chassis)
+  const vEngine=V('f_veh_engine'), vChassis=V('f_veh_chassis');
+  if(vEngine&&vChassis){
+    const dup=all('trips').find(t=>t.id!=id&&String(t.veh_engine).toLowerCase()===vEngine.toLowerCase()&&String(t.veh_chassis).toLowerCase()===vChassis.toLowerCase());
+    if(dup&&!confirm('⚠ Same vehicle (engine '+vEngine+' / chassis '+vChassis+') already exists on bilty '+dup.bilty_no+' ('+fmtDate(dup.date)+').\n\nGate pass duplicates happen — you may proceed. Save anyway?'))return;
+  }
+  // Also check for duplicate bilty numbers for manual entries
+  if(bilty&&em==='manual_logged'){
+    const dupBilty=all('trips').find(t=>t.id!=id&&String(t.bilty_no).toLowerCase()===bilty.toLowerCase());
+    if(dupBilty&&!confirm('Warning: bilty no. "'+bilty+'" already exists on trip of '+fmtDate(dupBilty.date)+' ('+dupBilty.route+').\n\nPaper errors happen — you may proceed. Save anyway?'))return;
   }
   const freight=P(V('f_freight'));
   const obj={entry_mode:em,date:date,customer_id:cid,route:route,
@@ -3428,9 +3596,16 @@ function statusSet(id,st){
   if(!t||!can('status')||!tripAccessible(t)){toast('Not permitted',true);return;}
   upd('trips',id,{status:st});toast('Status: '+enumLbl(TRIP_STATUS,st));render();
 }
+function tripDelete(id){
+  const t=byId('trips',id);
+  if(!t||!can('trips_entry')||!tripAccessible(t)){toast('Not permitted',true);return;}
+  if(!confirm('Soft delete bilty '+t.bilty_no+'? It will be archived but remain in history.')){return;}
+  softDel('trips',id);
+  toast('Bilty '+t.bilty_no+' archived.');render();
+}
 
 /* ===== journeys (Trips: carrier runs with multiple loads) ===== */
-function jLoads(jid){return allScoped('trips').filter(t=>t.journey_id==jid);}
+function jLoads(jid){return all('trips').filter(t=>t.journey_id==jid);}
 function journeyRouteSeq(j){
   const mid=(j.stations||[]).filter(s=>s&&s!==j.route_from&&s!==j.route_to);
   /* the trailing route_from is the return leg. Collapse any repeat so a trip entered with the
@@ -3440,7 +3615,7 @@ function journeyRouteSeq(j){
 }
 function journeyRouteDisplay(j){return journeyRouteSeq(j).map(esc).join(' → ');}
 function journeyRouteText(j){return journeyRouteSeq(j).join(' → ');}
-function jExpenses(jid){return allScoped('expenses').filter(e=>e.journey_id==jid);}
+function jExpenses(jid){return all('expenses').filter(e=>e.journey_id==jid);}
 function jDriverAdvance(jid){return jExpenses(jid).filter(e=>e.type==='driver_advance').reduce((s,e)=>s+(e.amount_paisa||0),0);}
 function jExpensesExclAdvance(jid){return jExpenses(jid).filter(e=>e.type!=='driver_advance').reduce((s,e)=>s+(e.amount_paisa||0),0);}
 function jAdvances(jid){return jExpenses(jid).filter(e=>e.type==='driver_advance').slice().sort((a,b)=>a.date<b.date?1:-1);}
@@ -3525,15 +3700,15 @@ function advanceSave(id,jid){
   toast(id?'Driver advance updated':'Driver advance recorded');
   closeModal();render();
 }
-function jFuel(jid){return allScoped('fuel').filter(f=>f.journey_id==jid);}
-function jOilFilter(jid){return allScoped('vendortx').filter(x=>{const v=byId('vendors',x.vendor_id);return v&&v.category==='oil_filter'&&x.journey_id==jid;});}
+function jFuel(jid){return all('fuel').filter(f=>f.journey_id==jid);}
+function jOilFilter(jid){return all('vendortx').filter(x=>{const v=byId('vendors',x.vendor_id);return v&&v.category==='oil_filter'&&x.journey_id==jid;});}
 function jClearingCharges(jid){return jLoads(jid).reduce((s,t)=>s+(t.agent_id!=null?(t.agent_cost_paisa||0):0),0);}
 /* Only settled, company-borne claims are a real cost to us — carrier-borne comes off their
    payable instead, insurance-borne is a receivable pending reimbursement, and client-borne
    costs us nothing (see postClaimEntry). Open/under-review claims aren't final yet either. */
 function jClaimsCost(jid){
   const tripIds=new Set(jLoads(jid).map(t=>t.id));
-  return allScoped('claims').filter(c=>tripIds.has(c.trip_id)&&c.status==='settled'&&c.cost_bearer==='company')
+  return all('claims').filter(c=>tripIds.has(c.trip_id)&&c.status==='settled'&&c.cost_bearer==='company')
     .reduce((s,c)=>s+(c.amount_paisa||0),0);
 }
 /* A fuel transfer settles carrier payables (v4.199) but has nothing to do with pump purchases —
@@ -3541,16 +3716,67 @@ function jClaimsCost(jid){
    use that fuel (a cost, even with no pump receipt behind it), and the giving trip's Diesel/fuel
    line above still carries the FULL pump purchase even though part of it physically left for
    another trip, so it needs the same value back as a credit or its cost is overstated. */
-function jFuelTransferReceived(jid){return allScoped('fueltransfers').filter(f=>f.to_journey_id==jid).reduce((s,f)=>s+(f.value_paisa||0),0);}
-function jFuelTransferGiven(jid){return allScoped('fueltransfers').filter(f=>f.from_journey_id==jid).reduce((s,f)=>s+(f.value_paisa||0),0);}
+function jFuelTransferReceived(jid){return all('fueltransfers').filter(f=>f.to_journey_id==jid).reduce((s,f)=>s+(f.value_paisa||0),0);}
+function jFuelTransferGiven(jid){return all('fueltransfers').filter(f=>f.from_journey_id==jid).reduce((s,f)=>s+(f.value_paisa||0),0);}
+/* trip consumables: oil, filters, tyres from warehouse */
+function getJourneyConsumables(jid){
+  const j=byId('journeys',jid);if(!j)return {oil:0,filters:0,tyres:0};
+  return {
+    oil:j.consumables_oil_liters||0,
+    filters:j.consumables_filters||0,
+    tyres:j.consumables_tyres||0,
+    oil_cost_paisa:(j.consumables_oil_liters||0)*15000, /* Rs 150/L */
+    filters_cost_paisa:(j.consumables_filters||0)*80000, /* Rs 800 each */
+    tyres_cost_paisa:(j.consumables_tyres||0)*850000 /* Rs 8,500 each */
+  };
+}
+function getConsumablesTotalCost(jid){
+  const c=getJourneyConsumables(jid);
+  return c.oil_cost_paisa+c.filters_cost_paisa+c.tyres_cost_paisa;
+}
 function jCostTotal(jid){
   return jExpensesExclAdvance(jid)
     +jFuel(jid).reduce((s,f)=>s+(f.total_paisa||0),0)
     +jOilFilter(jid).reduce((s,x)=>s+(x.amount_paisa||0),0)
     +jClearingCharges(jid)
-    +jFuelTransferReceived(jid)-jFuelTransferGiven(jid);
+    +jFuelTransferReceived(jid)-jFuelTransferGiven(jid)
+    +getConsumablesTotalCost(jid);
 }
-function jAdvanceBalance(jid){return jDriverAdvance(jid)-jExpensesExclAdvance(jid);}
+function jAdvanceBalance(jid){const opening=byId('journeys',jid)?.opening_balance_paisa||0;return (opening+jDriverAdvance(jid))-jExpensesExclAdvance(jid);}
+function getLastTripForDriver(did){
+  if(!did)return null;
+  const trips=all('journeys').filter(j=>j.driver_id===did&&j.status==='finished').sort((a,b)=>new Date(b.date)-new Date(a.date));
+  return trips.length?trips[0]:null;
+}
+function getPreviousDriverBalance(did){
+  const lastTrip=getLastTripForDriver(did);
+  if(!lastTrip)return 0;
+  return jAdvanceBalance(lastTrip.id);
+}
+function getCarrierHiringCost(jid){
+  const j=byId('journeys',jid);
+  if(!j||!j.carrier_id)return 0;
+  const c=byId('carriers',j.carrier_id);
+  if(!c||c.ownership!=='hired')return 0;
+  if(c.pay_type==='flat_rate'&&c.monthly_paisa)return c.monthly_paisa;
+  return 0;
+}
+function getCarrierAdvances(jid){
+  return all('expenses').filter(e=>e.journey_id===jid&&e.type==='carrier_advance'&&e.source==='company');
+}
+function getCarrierAdvanceTotal(jid){
+  return getCarrierAdvances(jid).reduce((s,e)=>s+(e.amount_paisa||0),0);
+}
+function getCarrierFuelProvided(jid){
+  return jFuelTransferGiven(jid);
+}
+function getCarrierPayable(jid){
+  const earning=jEarning(jid);
+  const hiringCost=getCarrierHiringCost(jid);
+  const advances=getCarrierAdvanceTotal(jid);
+  const fuel=getCarrierFuelProvided(jid);
+  return earning-hiringCost-advances-fuel;
+}
 function jEarning(jid){return jLoads(jid).reduce((s,t)=>s+(t.freight_paisa||0),0);}
 function jReturnLoadBilty(jid){
   const j=byId('journeys',jid); if(!j)return null;
@@ -3576,10 +3802,10 @@ function returnBadge(jid){
 /* Grouped by month, same collapsible pattern as the Booking Register — an ever-growing flat table
    was the odd one out among the app's list pages, and only got harder to scan trip after trip. */
 function pageJourneys(){
-  const rows=allScoped('journeys').slice().sort((a,b)=>(a.status==='open'?0:1)-(b.status==='open'?0:1)||(a.date<b.date?1:-1));
+  const rows=all('journeys').slice().sort((a,b)=>(a.status==='open'?0:1)-(b.status==='open'?0:1)||(a.date<b.date?1:-1));
   /* Row order groups open trips first for usability, but the # should be a stable chronological
      count (oldest trip = 1) that doesn't reshuffle every time a trip's status changes. */
-  const byDate=allScoped('journeys').slice().sort((a,b)=>(a.date<b.date?-1:(a.date>b.date?1:a.id-b.id)));
+  const byDate=all('journeys').slice().sort((a,b)=>(a.date<b.date?-1:(a.date>b.date?1:a.id-b.id)));
   const tripNum=new Map(byDate.map((j,i)=>[j.id,i+1]));
   const byMonth=new Map();
   rows.forEach(j=>{
@@ -3634,8 +3860,9 @@ function journeyForm(id){
     <div class="frow"><label class="req">${bi('Date','تاریخ')}</label><input type="date" id="j_date" value="${esc(rec.date||'')}"></div>
     <div class="frow"><label>Chalan #</label><input id="j_chalan" value="${esc(rec.chalan_no||nextChalanNo())}">
       <div class="hint">Auto-numbered — overwrite this if you're using your own pre-printed/numbered chalan pad.</div></div>
-    <div class="frow"><label class="req">${bi('Carrier','کیریئر')}</label><select id="j_carrier">${fkOptions('carriers',rec.carrier_id)}</select></div>
-    <div class="frow"><label>${bi('Driver','ڈرائیور')}</label><select id="j_driver">${fkOptions('drivers',rec.driver_id)}</select></div>
+    <div class="frow"><label class="req">${bi('Carrier','کیریئر')}</label><select id="j_carrier" onchange="filterDriversByCarrier()">${fkOptions('carriers',rec.carrier_id)}</select></div>
+    <div class="frow"><label>${bi('Driver','ڈرائیور')}</label><select id="j_driver" onchange="updateOpeningBalance()">${fkOptions('drivers',rec.driver_id)}</select></div>
+    <div class="frow" id="j_opening_balance_row" style="${rec.driver_id&&!id?'':'display:none'}"><label style="color:#d97706">📌 Carried forward from previous trip</label><div style="font-size:16px;font-weight:700;color:#0f766e;padding:8px 0" id="j_opening_balance_display">${rec.driver_id&&!id?pkr(getPreviousDriverBalance(rec.driver_id)):''}</div><input type="hidden" id="j_opening_balance" value="${esc(rec.opening_balance_paisa||0)}"></div>
     <div class="frow"><label>${bi('Status','حالت')}</label><select id="j_status" onchange="jStatusToggle()">${optHTML(JOURNEY_STATUS,rec.status)}</select></div>
     <div class="frow" id="j_date_end_row" style="${rec.status==='finished'?'':'display:none'}">
       <label>${bi('Finishing date','تکمیل کی تاریخ')}</label>
@@ -3659,6 +3886,21 @@ function journeyForm(id){
   <div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button>
   <button class="btn" onclick="journeySave(${id||'null'})">Save Trip</button></div>`,true);
 }
+function updateOpeningBalance(){
+  const did=parseInt(V('j_driver'),10)||null;
+  const row=document.getElementById('j_opening_balance_row');
+  const display=document.getElementById('j_opening_balance_display');
+  const input=document.getElementById('j_opening_balance');
+  if(did){
+    const balance=getPreviousDriverBalance(did);
+    if(row)row.style.display=balance!==0?'':'none';
+    if(display)display.textContent=pkr(balance);
+    if(input)input.value=balance;
+  }else{
+    if(row)row.style.display='none';
+    if(input)input.value=0;
+  }
+}
 function jStatusToggle(){
   const row=document.getElementById('j_date_end_row');
   if(row)row.style.display=V('j_status')==='finished'?'':'none';
@@ -3679,7 +3921,7 @@ function nextCarrierTripNo(cid){
      number stays short and two trips never end up sharing one, no matter how the dates fall. The
      old "TLT-970-2026-06-001" scheme was accurate but wide; the Date column already shows when a
      trip happened, so repeating year/month inside the number itself was redundant. */
-  const seq=allScoped('journeys').filter(j=>j.carrier_id===cid).length+1;
+  const seq=all('journeys').filter(j=>j.carrier_id===cid).length+1;
   return code+'-'+String(seq).padStart(2,'0');
 }
 /* Suggested next Chalan number — sequential company-wide (CH-2026-0001), same numbering style as
@@ -3688,6 +3930,36 @@ function nextCarrierTripNo(cid){
 function nextChalanNo(){
   return 'CH-'+new Date().getFullYear()+'-'+String((db.seq.chalan||0)+1).padStart(4,'0');
 }
+function filterDriversByCarrier(){
+  const carrierId=parseInt(V('j_carrier'),10);
+  const driverSelect=document.getElementById('j_driver');
+  const currentDriverId=parseInt(V('j_driver'),10);
+
+  if(!carrierId){
+    // If no carrier selected, show all drivers
+    driverSelect.innerHTML=fkOptions('drivers',currentDriverId);
+    return;
+  }
+
+  // Get all drivers and filter by carrier
+  const filteredDrivers=all('drivers').filter(d=>d.carrier_id===carrierId);
+
+  // Build options HTML
+  let html='<option value="">— Select driver —</option>';
+  filteredDrivers.forEach(d=>{
+    const driverId=d.id;
+    const selected=driverId===currentDriverId?'selected':'';
+    html+=`<option value="${driverId}" ${selected}>${esc(d.name||'Unnamed Driver')}</option>`;
+  });
+
+  // If no drivers found for this carrier, show message
+  if(filteredDrivers.length===0){
+    html='<option value="" selected>— No drivers assigned to this carrier —</option>';
+  }
+
+  driverSelect.innerHTML=html;
+}
+
 function journeySave(id){
   if(!can('journeys')){toast('Not permitted',true);return;}
   const date=V('j_date'),cid=parseInt(V('j_carrier'),10)||null,from=V('j_from'),to=V('j_to');
@@ -3697,9 +3969,10 @@ function journeySave(id){
   if(!stations.includes(to))stations.push(to);
   const status=V('j_status')||'open';
   const date_end=status==='finished'?(V('j_date_end')||today()):null;
+  const opening_balance_paisa=parseInt(V('j_opening_balance'))||0;
   const obj={date:date,carrier_id:cid,driver_id:parseInt(V('j_driver'),10)||null,
     route_from:from,route_to:to,stations:stations,status:status,notes:V('j_notes'),
-    return_load_manual:V('j_return')||null,date_end:date_end,chalan_no:V('j_chalan')||nextChalanNo()};
+    return_load_manual:V('j_return')||null,date_end:date_end,chalan_no:V('j_chalan')||nextChalanNo(),opening_balance_paisa:opening_balance_paisa};
   let j;
   if(id){j=upd('journeys',id,obj);}
   else{
@@ -3740,7 +4013,7 @@ function pageJourneyDetail(id){
   <div class="card"><h2>${bi('Trip info','ٹرپ کی تفصیل')}</h2>
     <div class="rowline"><span class="mut">Chalan #</span><span>${esc(j.chalan_no||'—')}</span></div>
     <div class="rowline"><span class="mut">${biShort('Date','تاریخ')}</span><span>${esc(fmtDate(j.date))}${j.date_end?' → '+esc(fmtDate(j.date_end)):''}</span></div>
-    <div class="rowline"><span class="mut">${biShort('Carrier','کیریئر')}</span><span>${esc(nm('carriers',j.carrier_id))}</span></div>
+    <div class="rowline"><span class="mut">${biShort('Carrier','کیریئر')}</span><span>${esc(nm('carriers',j.carrier_id))} ${(()=>{const c=byId('carriers',j.carrier_id);if(!c)return '';const badge=c.ownership==='hired'?'<span class="badge b-amber">Hired</span>':'<span class="badge b-gray">Company</span>';const paytype=c.pay_type==='flat_rate'?' — Flat: '+pkr(c.monthly_paisa||0)+'/mo':' — Cost+';return badge+paytype;})()}</span></div>
     <div class="rowline"><span class="mut">${biShort('Driver','ڈرائیور')}</span><span>${esc(nm('drivers',j.driver_id))}</span></div>
     <div class="rowline"><span class="mut">${biShort('Route','روٹ')}</span><span>${journeyRouteDisplay(j)}</span></div>
     <div class="rowline"><span class="mut">${biShort('Stations','اسٹیشنز')}</span><span>${(j.stations||[]).map(s=>`<span class="badge b-gray">${esc(s)}</span>`).join(' ')}</span></div>
@@ -3759,16 +4032,21 @@ function pageJourneyDetail(id){
     ${jDriverAdvance(j.id)>0?`<div class="rowline"><span class="mut">${jAdvanceBalance(j.id)>=0?'Balance to recover from driver':'Balance owed to driver'}</span><span><b class="${jAdvanceBalance(j.id)>=0?'':'mut'}">${pkr(Math.abs(jAdvanceBalance(j.id)))}</b></span></div>`:''}
     <div class="rowline"><span class="mut">Diesel / fuel</span><span>${pkr(jFuel(j.id).reduce((s,f)=>s+(f.total_paisa||0),0))}</span></div>
     <div class="rowline"><span class="mut">Oil / filter</span><span>${pkr(jOilFilter(j.id).reduce((s,x)=>s+(x.amount_paisa||0),0))}</span></div>
+    ${getConsumablesTotalCost(j.id)>0?`<div class="rowline"><span class="mut">Warehouse consumables (oil, filters, tyres)</span><span>${pkr(getConsumablesTotalCost(j.id))}</span></div>`:''}
     <div class="rowline"><span class="mut">Clearing agent charge</span><span>${pkr(jClearingCharges(j.id))}</span></div>
     ${jFuelTransferReceived(j.id)>0?`<div class="rowline"><span class="mut">Fuel transfer received (cost)</span><span>${pkr(jFuelTransferReceived(j.id))}</span></div>`:''}
     ${jFuelTransferGiven(j.id)>0?`<div class="rowline"><span class="mut">Fuel transfer given (credit)</span><span>-${pkr(jFuelTransferGiven(j.id))}</span></div>`:''}
-    <div class="rowline"><span class="mut">Total cost</span><span><b>${pkr(jCostTotal(j.id))}</b></span></div>
+    ${getCarrierHiringCost(j.id)>0?`<div class="rowline"><span class="mut">Carrier hiring cost</span><span><b>${pkr(getCarrierHiringCost(j.id))}</b></span></div>`:''}
+    ${getCarrierAdvanceTotal(j.id)>0?`<div class="rowline"><span class="mut">Carrier advance given</span><span>${pkr(getCarrierAdvanceTotal(j.id))}</span></div>`:''}
+    <div class="rowline"><span class="mut">Total cost</span><span><b>${pkr(jCostTotal(j.id)+getCarrierHiringCost(j.id)+getCarrierAdvanceTotal(j.id))}</b></span></div>
     ${jClaimsCost(j.id)>0?`<div class="rowline"><span class="mut">Claims (settled, company-borne)</span><span>${pkr(jClaimsCost(j.id))}</span></div>`:''}
+    ${(()=>{const c=byId('carriers',j.carrier_id);return c&&c.ownership==='hired'?`<div class="rowline" style="border-top:1px solid var(--line);padding-top:8px;margin-top:8px"><span class="mut"><b>Carrier Payable</b></span><span><b style="color:#0f766e">${pkr(getCarrierPayable(j.id))}</b></span></div>`:'';})()}
     <div class="rowline"><span class="mut">Net</span><span><b>${earnVisible?pkr(jEarning(j.id)-jCostTotal(j.id)-jClaimsCost(j.id)):'<span class="mut small">Hidden</span>'}</b></span></div>
     <div style="margin-top:10px">
       <button class="btn sm" onclick="expenseForm(null,null,${j.id})">+ Expense</button>
       <button class="btn ghost sm" onclick="advanceForm(${j.id})">+ Driver Advance</button>
       <button class="btn ghost sm" onclick="fuelForm(null,${j.id})">+ Fuel</button>
+      <button class="btn ghost sm" onclick="consumablesForm(${j.id})">+ Consumables</button>
       ${can('payables')?`<button class="btn ghost sm" onclick="fuelTransferForm(null,${j.id})">🔀 Fuel Transfer</button>`:''}</div>
   </div></div>
   <div class="card"><h2>Driver Advances (${jAdvances(j.id).length})
@@ -3781,6 +4059,16 @@ function pageJourneyDetail(id){
       <button class="btn ghost sm" onclick="expenseDel(${a.id})">Delete</button></td></tr>`).join('')}
     </tbody></table></div>`:'<div class="mut small">No driver advances logged yet.</div>'}
   </div>
+  ${(()=>{const c=byId('carriers',j.carrier_id);if(!c||c.ownership!=='hired')return '';const cadv=getCarrierAdvances(j.id);return `<div class="card"><h2>Carrier Advances (${cadv.length})</h2>
+    ${cadv.length?`<div class="tblwrap" style="border:0;margin:0"><table><thead><tr><th>Date</th><th>Type</th><th class="num">Amount</th><th>Notes</th><th></th></tr></thead><tbody>
+    ${cadv.map(a=>`<tr><td>${esc(fmtDate(a.date))}</td><td>${esc(a.type==='carrier_advance'?'Advance':'Other')}</td>
+      <td class="num">${pkr(a.amount_paisa)}</td><td>${esc(a.notes||'—')}</td>
+      <td class="num"><button class="btn ghost sm" onclick="expenseDel(${a.id})">Delete</button></td></tr>`).join('')}
+    </tbody></table></div>`:'<div class="mut small">No carrier advances logged yet.</div>'}
+    <div style="margin-top:10px">
+      <button class="btn ghost sm" onclick="expenseForm(null,'carrier_advance',${j.id})">+ Carrier Advance</button>
+    </div>
+  </div>`;})()}
   <div class="card"><h2>${bi('Loads on this trip','اس ٹرپ کے لوڈز')} (${loads.length})</h2>
     ${loads.length?`<div class="tblwrap" style="border:0;margin:0"><table><thead><tr><th>${biShort('Bilty','بلٹی')}</th><th>${biShort('Customer','کسٹمر')}</th>
     <th>${biShort('From → To','کہاں سے کہاں تک')}</th><th>${biShort('Vehicle','گاڑی')}</th><th>${biShort('Status','حالت')}</th><th></th></tr></thead><tbody>
@@ -3801,7 +4089,7 @@ function pageJourneyDetail(id){
   </div>
   ${(()=>{
     if(!open)return '';
-    const free=allScoped('trips').filter(t=>!t.journey_id&&t.status!=='closed');
+    const free=all('trips').filter(t=>!t.journey_id&&t.status!=='closed');
     const enroute=free.filter(t=>t.load_from&&(j.stations||[]).includes(t.load_from));
     if(!enroute.length)return '';
     const byStation=new Map();
@@ -3817,7 +4105,7 @@ function pageJourneyDetail(id){
 }
 function jAddLoad(jid,isReturn,presetFrom){
   const j=byId('journeys',jid); if(!j||!can('journeys'))return;
-  const free=allScoped('trips').filter(t=>!t.journey_id&&t.status!=='closed')
+  const free=all('trips').filter(t=>!t.journey_id&&t.status!=='closed')
     .slice().sort((a,b)=>(a.date||'')<(b.date||'')?-1:((a.date||'')>(b.date||'')?1:0));
   if(!free.length){toast('No unassigned bilties — create one first on the Booking / Bilty page',true);return;}
   const defFrom=presetFrom||(isReturn?j.route_to:j.route_from), defTo=isReturn?j.route_from:j.route_to;
@@ -3881,7 +4169,7 @@ function alSuggest(tid){
   const from=V('al_f_'+tid), to=V('al_t_'+tid), fr=document.getElementById('al_fr_'+tid);
   if(!from||!to||!t.customer_id){box.innerHTML='';return;}
   const dt=t.date||today();
-  const matches=allScoped('agreements').filter(a=>a.status==='active'&&a.customer_id==t.customer_id
+  const matches=all('agreements').filter(a=>a.status==='active'&&a.customer_id==t.customer_id
     &&(a.route_from||'').toLowerCase()===from.toLowerCase()
     &&(a.route_to||'').toLowerCase()===to.toLowerCase()
     &&a.valid_from<=dt&&a.valid_to>=dt);
@@ -3965,13 +4253,72 @@ function jChangeCarrierSave(jid){
   toast('Carrier changed and logged');render();
 }
 function jFinish(jid){
-  if(!confirm('Finish this trip? Loads stay linked for records.'))return;
   upd('journeys',jid,{status:'finished',date_end:today()});
+
+  /* Phase 3.1: Auto-deduct consumables from warehouse stock */
+  const j=byId('journeys',jid);
+  if(j){
+    const cons=getJourneyConsumables(jid);
+    const karachi_depot=all('stock_locations').find(l=>l.name.includes('Karachi'));
+    if(karachi_depot&&(cons.oil>0||cons.filters>0||cons.tyres>0)){
+      /* Find stock items */
+      const oil_item=all('stock_items').find(i=>i.name.includes('Engine Oil'));
+      const filter_item=all('stock_items').find(i=>i.name.includes('Air Filter'));
+      const tyre_item=all('stock_items').find(i=>i.name.includes('Tyre'));
+
+      const glLines=[];
+      /* Deduct oil & filters — use getJourneyConsumables values for consistency */
+      if((cons.oil>0||cons.filters>0)&&oil_item&&filter_item){
+        const totalOilFilter=cons.oil_cost_paisa+cons.filters_cost_paisa;
+        if(totalOilFilter>0){
+          glLines.push({account_code:'5280',debit_paisa:totalOilFilter,credit_paisa:0});
+          /* Record stock transaction for oil */
+          if(cons.oil>0){
+            add('stock_transactions',{
+              stock_item_id:oil_item.id,stock_location_id:karachi_depot.id,type:'consumption',
+              quantity:cons.oil,reference:`Trip ${j.trip_no}`,date:today(),
+              notes:`Trip ${j.trip_no} finished - oil consumption`,unit_cost_paisa:oil_item.unit_cost_paisa
+            });
+          }
+          /* Record stock transaction for filters */
+          if(cons.filters>0){
+            add('stock_transactions',{
+              stock_item_id:filter_item.id,stock_location_id:karachi_depot.id,type:'consumption',
+              quantity:cons.filters,reference:`Trip ${j.trip_no}`,date:today(),
+              notes:`Trip ${j.trip_no} finished - filter consumption`,unit_cost_paisa:filter_item.unit_cost_paisa
+            });
+          }
+        }
+      }
+      /* Deduct tyres — use getJourneyConsumables values for consistency */
+      if(cons.tyres>0&&tyre_item){
+        if(cons.tyres_cost_paisa>0){
+          glLines.push({account_code:'5250',debit_paisa:cons.tyres_cost_paisa,credit_paisa:0});
+        }
+        add('stock_transactions',{
+          stock_item_id:tyre_item.id,stock_location_id:karachi_depot.id,type:'consumption',
+          quantity:cons.tyres,reference:`Trip ${j.trip_no}`,date:today(),
+          notes:`Trip ${j.trip_no} finished - tyre consumption`,unit_cost_paisa:tyre_item.unit_cost_paisa
+        });
+      }
+      /* Phase 3.2: GL Posting for consumables expense */
+      if(glLines.length>0){
+        const totalExp=glLines.reduce((s,l)=>s+(l.debit_paisa||0),0);
+        glLines.push({account_code:'1000',debit_paisa:0,credit_paisa:totalExp});
+        console.log('jFinish: posting GL entries', {trip: j.trip_no, lines: glLines});
+        postEntry('consumables_expense','journey',jid,glLines,`Consumables consumed on trip ${j.trip_no}`,j.date);
+      }
+      if(cons.oil>0||cons.filters>0||cons.tyres>0){
+        toast(`Consumables deducted & GL posted`);
+      }
+    }
+  }
+
   toast('Trip finished');render();
 }
 
 /* trip detail */
-function ckFor(tripId,stage){return allScoped('checklists').find(c=>c.trip_id==tripId&&c.stage===stage);}
+function ckFor(tripId,stage){return all('checklists').find(c=>c.trip_id==tripId&&c.stage===stage);}
 function ckSummary(c){
   if(!c)return '<span class="mut small">Not recorded yet</span>';
   const n={present:0,missing:0,damaged:0,unset:0};
@@ -3983,14 +4330,14 @@ function ckSummary(c){
     ${n.unset?`<span class="badge b-gray">${n.unset} unchecked</span>`:''}
     ${flags.length?`<div class="small mut" style="margin-top:6px">${flags.map(it=>esc(CK_ITEMS[it.i][0]+(it.note?' — '+it.note:''))).join('; ')}</div>`:''}`;
 }
-function expSum(tripId){return allScoped('expenses').filter(e=>e.trip_id==tripId&&e.type!=='driver_advance').reduce((s,e)=>s+(e.amount_paisa||0),0);}
+function expSum(tripId){return all('expenses').filter(e=>e.trip_id==tripId&&e.type!=='driver_advance').reduce((s,e)=>s+(e.amount_paisa||0),0);}
 function pageTripDetail(id){
   const t=byId('trips',id);
   if(!t||!tripAccessible(t))return '<div class="card"><div class="empty">Trip not found or not accessible.</div></div>';
   const r=state.user.role, office=(r==='admin'||r==='dispatcher'), isCarrier=r==='carrier';
-  const canCk=can('checklist')&&!isCarrier, exps=allScoped('expenses').filter(e=>e.trip_id==t.id&&e.type!=='driver_advance');
-  const inv=invoiceForTrip(t.id), pay=allScoped('payables').find(p=>p.trip_id==t.id);
-  const tclaims=allScoped('claims').filter(c=>c.trip_id==t.id);
+  const canCk=can('checklist')&&!isCarrier, exps=all('expenses').filter(e=>e.trip_id==t.id&&e.type!=='driver_advance');
+  const inv=invoiceForTrip(t.id), pay=all('payables').find(p=>p.trip_id==t.id);
+  const tclaims=all('claims').filter(c=>c.trip_id==t.id);
   const ovr=all('overrides').filter(o=>o.trip_id==t.id);
   const pk=ckFor(t.id,'pickup'), dl=ckFor(t.id,'delivery');
   let html=`<div class="pagehead">
@@ -4002,6 +4349,7 @@ function pageTripDetail(id){
       .map(s=>`<button class="btn ghost sm" onclick="statusSet(${t.id},'${s[0]}')">→ ${esc(s[1])}</button>`).join(''):''}
     <button class="btn ghost sm" onclick="biltyPrint(${t.id})">🖨 Print Bilty</button>
     ${office?`<button class="btn" onclick="tripForm(${t.id})">${biShort('Edit','تبدیل کریں')}</button>`:''}
+    ${office?`<button class="btn ghost sm" onclick="tripDelete(${t.id})" style="color:var(--danger)">🗑 ${biShort('Delete','حذف کریں')}</button>`:''}
   </div>
   <div class="grid2">
   <div class="card"><h2>${bi('Trip info','ٹرپ کی تفصیل')}</h2>
@@ -4141,9 +4489,9 @@ function accountOpts(sel){
 function journeyOptionsForUser(sel){
   let list;
   if(can('journeys')){
-    list=allScoped('journeys').slice().sort((a,b)=>(a.status==='open'?0:1)-(b.status==='open'?0:1)||(a.date<b.date?1:-1));
+    list=all('journeys').slice().sort((a,b)=>(a.status==='open'?0:1)-(b.status==='open'?0:1)||(a.date<b.date?1:-1));
   }else{
-    list=allScoped('journeys').filter(j=>j.driver_id==state.user.driver_id);
+    list=all('journeys').filter(j=>j.driver_id==state.user.driver_id);
   }
   if(sel){
     const sid=parseInt(sel,10);
@@ -4293,7 +4641,7 @@ function fuelToggle(jid){
 function pageFuel(){
   const office=can('journeys');
   const visibleJids=office?null:journeyOptionsForUser().map(j=>j.id);
-  const rows=allScoped('fuel').filter(f=>office||(f.journey_id&&visibleJids.includes(f.journey_id)));
+  const rows=all('fuel').filter(f=>office||(f.journey_id&&visibleJids.includes(f.journey_id)));
   const total=rows.reduce((s,f)=>s+(f.total_paisa||0),0);
   window._fuelExpanded=window._fuelExpanded||new Set();
   const fuelInner=monthItems=>{
@@ -4330,7 +4678,7 @@ function pageFuel(){
   ${can('totals')?`<div class="cards"><div class="stat"><div class="l">Total fuel spend</div><div class="v">${pkr0(total)}</div></div></div>`:''}
   ${monthCardsWrap(rows,f=>f.date,'fuel',fuelInner,'No fuel entries yet.')}
   ${(()=>{
-    const oilRows=allScoped('vendortx').filter(x=>{const v=byId('vendors',x.vendor_id);return v&&v.category==='oil_filter';})
+    const oilRows=all('vendortx').filter(x=>{const v=byId('vendors',x.vendor_id);return v&&v.category==='oil_filter';})
       .filter(x=>office||(x.journey_id&&visibleJids.includes(x.journey_id)));
     const oilTotal=oilRows.reduce((s,x)=>s+(x.amount_paisa||0),0);
     window._oilExpanded=window._oilExpanded||new Set();
@@ -4373,7 +4721,7 @@ function pageFuel(){
    ledger with no row in the "payables" collection, so without this it's invisible on the page
    admins actually check for what's owed to each carrier. */
 function fuelTransfersTableHTML(){
-  const transfers=allScoped('fueltransfers').slice().sort((a,b)=>a.date<b.date?1:-1);
+  const transfers=all('fueltransfers').slice().sort((a,b)=>a.date<b.date?1:-1);
   const byMonth=new Map();
   transfers.forEach(f=>{
     const key=(f.date||'').slice(0,7)||'—';
@@ -4447,7 +4795,7 @@ function fuelForm(id,journeyId){
       <div style="display:flex;gap:6px;align-items:flex-start">
       <select id="fu_vendor" style="flex:1">
         <option value="">— Select —</option>
-        ${allScoped('vendors').filter(v=>v.category==='fuel_pump').map(v=>`<option value="${v.id}" ${String(rec.vendor_id)===String(v.id)?'selected':''}>${esc(v.name)}</option>`).join('')}
+        ${all('vendors').filter(v=>v.category==='fuel_pump').map(v=>`<option value="${v.id}" ${String(rec.vendor_id)===String(v.id)?'selected':''}>${esc(v.name)}</option>`).join('')}
       </select>
       <button type="button" class="btn ghost sm" style="white-space:nowrap" onclick="quickAddVendor('fuel_pump','fu_vendor')">+ New</button>
       </div>
@@ -4485,12 +4833,12 @@ function quickAddVendor(category,selectId){
   if(selectId){
     const sel=document.getElementById(selectId); if(!sel)return;
     sel.innerHTML='<option value="">— Select —</option>'
-      +allScoped('vendors').filter(x=>x.category===category).map(x=>`<option value="${x.id}" ${x.id===v.id?'selected':''}>${esc(x.name)}</option>`).join('');
+      +all('vendors').filter(x=>x.category===category).map(x=>`<option value="${x.id}" ${x.id===v.id?'selected':''}>${esc(x.name)}</option>`).join('');
   }else render();
 }
 function oilFilterEntryForm(){
   if(!can('payables')){toast('Not permitted',true);return;}
-  const vendors=allScoped('vendors').filter(v=>v.category==='oil_filter');
+  const vendors=all('vendors').filter(v=>v.category==='oil_filter');
   openModal(`<h2>Add Oil / Filter Entry</h2>
   <div class="fgrid">
     <div class="frow full"><label class="req">Vendor</label>
@@ -4502,7 +4850,7 @@ function oilFilterEntryForm(){
         <button type="button" class="btn ghost sm" style="white-space:nowrap" onclick="quickAddVendor('oil_filter','of_vendor')">+ New</button>
       </div></div>
     <div class="frow full"><label>Trip</label><select id="of_journey"><option value="">—</option>
-        ${allScoped('journeys').map(j=>`<option value="${j.id}">${esc(j.trip_no)} — ${journeyRouteDisplay(j)}</option>`).join('')}
+        ${all('journeys').map(j=>`<option value="${j.id}">${esc(j.trip_no)} — ${journeyRouteDisplay(j)}</option>`).join('')}
       </select>
       <div class="hint">Optional — link to a Trip when this service is for a specific carrier run.</div></div>
     <div class="frow"><label class="req">Date</label><input type="date" id="of_date" value="${today()}"></div>
@@ -4544,7 +4892,7 @@ function oilFilterEntrySave(){
   render();
 }
 function pageEmployeeAdvances(){
-  const advs=allScoped('employee_advances');
+  const advs=all('employee_advances');
   const byDriver=new Map();
   advs.forEach(a=>{
     if(!byDriver.has(a.driver_id))byDriver.set(a.driver_id,[]);
@@ -4570,7 +4918,7 @@ function pageEmployeeAdvances(){
     }).join('')}`;
 }
 function employeeAdvanceNewForm(){
-  const drivers=allScoped('drivers').sort((a,b)=>a.name<b.name?-1:1);
+  const drivers=all('drivers').sort((a,b)=>a.name<b.name?-1:1);
   openModal(`<h2>Give Employee Advance</h2>
     <div class="fgrid">
       <div class="full"><label class="req">Driver</label><select id="adv_driver"><option value="">— Select —</option>
@@ -4592,13 +4940,13 @@ function carrierUtilForm(){
 function carrierUtilPrint(){
   const from=V('cu_from'),to=V('cu_to');
   if(!from||!to){toast('From and To dates are required',true);return;}
-  const rows=allScoped('carriers').map(c=>{
-    const jids=allScoped('journeys').filter(j=>j.carrier_id===c.id&&j.date>=from&&j.date<=to).map(j=>j.id);
+  const rows=all('carriers').map(c=>{
+    const jids=all('journeys').filter(j=>j.carrier_id===c.id&&j.date>=from&&j.date<=to).map(j=>j.id);
     const jidSet=new Set(jids);
-    const loads=allScoped('trips').filter(t=>jidSet.has(t.journey_id)).length;
+    const loads=all('trips').filter(t=>jidSet.has(t.journey_id)).length;
     const earning=jids.reduce((s,jid)=>s+jEarning(jid),0);
     const cost=jids.reduce((s,jid)=>s+jCostTotal(jid),0);
-    const odoReadings=allScoped('fuel').filter(f=>{
+    const odoReadings=all('fuel').filter(f=>{
       const j=byId('journeys',f.journey_id);
       return j&&j.carrier_id===c.id&&f.odometer_km!=null&&f.date>=from&&f.date<=to;
     }).map(f=>f.odometer_km);
@@ -4637,7 +4985,7 @@ function fuelReportPrint(){
   if(!from||!to){toast('From and To dates are required',true);return;}
   const office=can('journeys');
   const visibleJids=office?null:journeyOptionsForUser().map(j=>j.id);
-  const rows=allScoped('fuel').filter(f=>(office||(f.journey_id&&visibleJids.includes(f.journey_id)))&&f.date>=from&&f.date<=to)
+  const rows=all('fuel').filter(f=>(office||(f.journey_id&&visibleJids.includes(f.journey_id)))&&f.date>=from&&f.date<=to)
     .sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
   const total=rows.reduce((s,f)=>s+(f.total_paisa||0),0), litres=rows.reduce((s,f)=>s+(f.litres||0),0);
   const byPump=new Map();
@@ -4697,6 +5045,47 @@ function fuelDel(id){
   const rec=byId('fuel',id);
   if(rec&&rec.journal_entry_id)reverseEntry(rec.journal_entry_id);
   softDel('fuel',id);toast('Deleted');render();
+}
+function consumablesForm(jid){
+  const j=byId('journeys',jid);if(!j){toast('Trip not found',true);return;}
+  const cons=getJourneyConsumables(jid);
+  openModal(`<h2>Record Consumables (Oil, Filters, Tyres)</h2>
+  <div class="fgrid">
+    <div class="frow"><label>Engine Oil (liters) — Rs 150/L</label>
+      <input type="number" step="0.1" id="cons_oil" value="${cons.oil||0}"></div>
+    <div class="frow"><label>Air Filters (units) — Rs 800 each</label>
+      <input type="number" step="1" id="cons_filters" value="${cons.filters||0}"></div>
+    <div class="frow"><label>Tyres (units) — Rs 8,500 each</label>
+      <input type="number" step="1" id="cons_tyres" value="${cons.tyres||0}"></div>
+  </div>
+  <div style="background:#f5f5f5;padding:10px;border-radius:8px;margin:10px 0">
+    <div>Oil: ${pkr((parseFloat(document.getElementById('cons_oil')?.value||0)*15000||0))}</div>
+    <div>Filters: ${pkr((parseInt(document.getElementById('cons_filters')?.value||0)*80000||0))}</div>
+    <div>Tyres: ${pkr((parseInt(document.getElementById('cons_tyres')?.value||0)*850000||0))}</div>
+    <div style="font-weight:bold;margin-top:8px">Total: ${pkr(cons.oil_cost_paisa+cons.filters_cost_paisa+cons.tyres_cost_paisa)}</div>
+  </div>
+  <div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button>
+  <button class="btn" onclick="consumablesSave(${jid})">Save</button></div>`);
+  setTimeout(()=>{
+    ['cons_oil','cons_filters','cons_tyres'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el)el.addEventListener('input',()=>{
+        const oil=parseFloat(document.getElementById('cons_oil')?.value||0)*15000;
+        const fil=parseInt(document.getElementById('cons_filters')?.value||0)*80000;
+        const tyr=parseInt(document.getElementById('cons_tyres')?.value||0)*850000;
+        console.log('Prices updated');
+      });
+    });
+  },100);
+}
+function consumablesSave(jid){
+  const oil=parseFloat(document.getElementById('cons_oil').value||0);
+  const filters=parseInt(document.getElementById('cons_filters').value||0);
+  const tyres=parseInt(document.getElementById('cons_tyres').value||0);
+  if(oil<0||filters<0||tyres<0){toast('Consumables cannot be negative',true);return;}
+  const obj={consumables_oil_liters:oil,consumables_filters:filters,consumables_tyres:tyres};
+  upd('journeys',jid,obj);
+  toast('Consumables recorded');closeModal();render();
 }
 /* Carrier A's truck sometimes hands over diesel from its own tank to Carrier B's truck on the
    road (breakdown, running low) — nothing to do with a pump purchase, no company cash moves.
@@ -4772,7 +5161,7 @@ function pageExpenses(){
   const office=can('journeys');
   const visibleJids=office?null:journeyOptionsForUser().map(j=>j.id);
   const tripIds=scopedTrips().map(t=>t.id);
-  const scoped=allScoped('expenses').filter(e=>office||tripIds.includes(e.trip_id)||(e.journey_id&&visibleJids.includes(e.journey_id)));
+  const scoped=all('expenses').filter(e=>office||tripIds.includes(e.trip_id)||(e.journey_id&&visibleJids.includes(e.journey_id)));
   const rows=scoped.filter(e=>e.type!=='driver_advance');
   const advRows=scoped.filter(e=>e.type==='driver_advance');
   const total=rows.reduce((s,e)=>s+(e.amount_paisa||0),0);
@@ -4855,7 +5244,7 @@ function invBiltyLabel(i){
   if(trips.length===1)return trips[0].bilty_no;
   return trips.length+' bilties';
 }
-function invoiceForTrip(tid){return allScoped('invoices').find(i=>invHasTrip(i,tid));}
+function invoiceForTrip(tid){return all('invoices').find(i=>invHasTrip(i,tid));}
 function invParts(i){
   const amt=i.amount_paisa||0;
   const srb=i.srb_on?Math.round(amt*(i.srb_rate!=null?i.srb_rate:15)/100):0;
@@ -4878,7 +5267,7 @@ function postInvoiceEntry(inv){
   const entryId=repostEntry(inv.journal_entry_id,'invoice','invoices',inv.id,lines,'Invoice '+(inv.number||''));
   upd('invoices',inv.id,{journal_entry_id:entryId});
 }
-function invPaid(i){return allScoped('inpayments').filter(p=>p.invoice_id==i.id).reduce((s,p)=>s+(p.amount_paisa||0),0);}
+function invPaid(i){return all('inpayments').filter(p=>p.invoice_id==i.id).reduce((s,p)=>s+(p.amount_paisa||0),0);}
 /* A settled claim is an agreed deduction, so it reduces what the customer still owes on the
    invoice covering that bilty — whoever ends up bearing the cost. Only a client-borne claim
    credits nothing, since the client absorbs their own loss. Open / under-review / rejected
@@ -4887,7 +5276,7 @@ function invPaid(i){return allScoped('inpayments').filter(p=>p.invoice_id==i.id)
    recomputing invTotal-invPaid, so the figure can never drift between screens. */
 function invClaimCredit(i){
   const tids=invTripIds(i);
-  return allScoped('claims').filter(c=>c.status==='settled'&&(c.amount_paisa||0)>0
+  return all('claims').filter(c=>c.status==='settled'&&(c.amount_paisa||0)>0
     &&c.cost_bearer!=='client'&&tids.includes(c.trip_id))
     .reduce((s,c)=>s+c.amount_paisa,0);
 }
@@ -4903,7 +5292,7 @@ function srbDueDate(i){
   return due.getFullYear()+'-'+String(due.getMonth()+1).padStart(2,'0')+'-'+String(due.getDate()).padStart(2,'0');
 }
 function srbPortalReport(){
-  const rows=allScoped('invoices').filter(i=>invParts(i).srb>0)
+  const rows=all('invoices').filter(i=>invParts(i).srb>0)
     .map(i=>{const x=invParts(i);return {i:i,x:x,bal:srbPayableAmount(i)-outPaidFor('srb',i.id),due:srbDueDate(i)};})
     .filter(r=>r.bal>0&&r.due<today())
     .sort((a,b)=>a.due<b.due?-1:1);
@@ -4947,7 +5336,7 @@ function invBoxHTML(i){
     ${state.user&&state.user.role==='admin'?`<button class="btn danger sm" onclick="invoiceDel(${i.id})">Delete</button>`:''}</div>`;
 }
 function custAdvancesForTrips(tripIds){
-  return allScoped('expenses').filter(e=>e.type==='driver_advance'&&e.advance_source==='customer'&&tripIds.includes(e.trip_id)&&!e.applied_invoice_id);
+  return all('expenses').filter(e=>e.type==='driver_advance'&&e.advance_source==='customer'&&tripIds.includes(e.trip_id)&&!e.applied_invoice_id);
 }
 function applyAdvancesToInvoice(tripIds,invId){
   custAdvancesForTrips(tripIds).forEach(a=>upd('expenses',a.id,{applied_invoice_id:invId}));
@@ -5051,7 +5440,7 @@ function invoiceDel(id){
   const srbPaid=outPaidFor('srb',inv.id);
   if(srbPaid>0){toast('SRB tax of '+pkr(srbPaid)+' has already been paid against this invoice — reverse that payment first',true);return;}
   const bilties=invTrips(inv).map(t=>t.bilty_no);
-  const advances=allScoped('expenses').filter(e=>e.applied_invoice_id===inv.id);
+  const advances=all('expenses').filter(e=>e.applied_invoice_id===inv.id);
   const advTotal=advances.reduce((s,a)=>s+(a.amount_paisa||0),0);
   if(!confirm('Delete invoice '+inv.number+' ('+pkr(invTotal(inv))+')?\n\n'
     +(bilties.length?'Bilty(s) '+bilties.join(', ')+' become available to invoice again.\n':'')
@@ -5065,7 +5454,7 @@ function invoiceDel(id){
 }
 function invTripPickForm(){
   if(!can('invoices')){toast('Not permitted',true);return;}
-  const journeys=allScoped('journeys').filter(j=>jLoads(j.id).some(t=>t.freight_paisa!=null&&!invoiceForTrip(t.id)))
+  const journeys=all('journeys').filter(j=>jLoads(j.id).some(t=>t.freight_paisa!=null&&!invoiceForTrip(t.id)))
     .sort((a,b)=>a.date<b.date?1:-1);
   openModal(`<h2>Invoice from Trip</h2>
   <div class="small mut" style="margin-bottom:8px">Bilties belong to a Trip (carrier run) — pick the Trip first, then invoice its loads individually or all at once.</div>
@@ -5148,7 +5537,7 @@ function monthlyInvoiceForm(){
      into one invoice is a normal thing to want for anyone. The customer-level Invoicing setting
      stays as a preference: it keeps that customer out of the per-bilty flow so nobody invoices
      a shipment individually when it was meant to go on the monthly bill. */
-  const custs=allScoped('customers').slice().sort((a,b)=>
+  const custs=all('customers').slice().sort((a,b)=>
     (custIsMonthly(b.id)?1:0)-(custIsMonthly(a.id)?1:0)||a.name.localeCompare(b.name));
   if(!custs.length){toast('Add a customer first',true);return;}
   const mon=today().slice(0,7);
@@ -5165,7 +5554,7 @@ function monthlyInvoiceForm(){
 function monthlyInvoiceRefresh(){
   const box=document.getElementById('miLoadsBox'); if(!box)return;
   const cid=parseInt(V('mi_customer'),10), mon=V('mi_month');
-  const loads=allScoped('trips').filter(t=>t.customer_id===cid&&t.freight_paisa!=null&&!invoiceForTrip(t.id)&&(t.date||'').slice(0,7)===mon);
+  const loads=all('trips').filter(t=>t.customer_id===cid&&t.freight_paisa!=null&&!invoiceForTrip(t.id)&&(t.date||'').slice(0,7)===mon);
   if(!loads.length){box.innerHTML='<div class="mut small">No uninvoiced bilties with freight set for this customer in that month.</div>';return;}
   box.innerHTML=`<div class="tblwrap" style="margin-bottom:10px"><table><thead><tr><th></th><th>Bilty</th><th>Date</th><th>Route</th><th class="num">Freight</th></tr></thead><tbody>
   ${loads.map(t=>`<tr><td><input type="checkbox" name="mi_ck" value="${t.id}" checked style="width:auto" onchange="monthlyInvoiceCalc()"></td>
@@ -5211,7 +5600,7 @@ function monthlyInvoiceCreate(cid,mon){
    a customer's uninvoiced bilties (any date range, nothing pre-ticked) rather than a full month. */
 function pickInvoiceForm(){
   if(!can('invoices')){toast('Not permitted',true);return;}
-  const custs=allScoped('customers').slice().sort((a,b)=>a.name.localeCompare(b.name));
+  const custs=all('customers').slice().sort((a,b)=>a.name.localeCompare(b.name));
   if(!custs.length){toast('Add a customer first',true);return;}
   openModal(`<h2>Pick &amp; Choose — Combined Invoice</h2>
   <div class="small mut" style="margin-bottom:8px">Pick a customer, then tick just the bilties for this invoice — nothing is pre-selected. They combine into one invoice with one total and one tax breakdown.</div>
@@ -5227,7 +5616,7 @@ function pickInvoiceForm(){
 function pickInvoiceRefresh(){
   const box=document.getElementById('piLoadsBox'); if(!box)return;
   const cid=parseInt(V('pi_customer'),10),from=V('pi_from'),to=V('pi_to');
-  const loads=allScoped('trips').filter(t=>t.customer_id===cid&&t.freight_paisa!=null&&!invoiceForTrip(t.id)
+  const loads=all('trips').filter(t=>t.customer_id===cid&&t.freight_paisa!=null&&!invoiceForTrip(t.id)
     &&(!from||(t.date||'')>=from)&&(!to||(t.date||'')<=to)).sort((a,b)=>a.date<b.date?-1:1);
   if(!loads.length){box.innerHTML='<div class="mut small">No uninvoiced bilties with freight set for this customer'+(from||to?' in that range':'')+'.</div>';return;}
   box.innerHTML=`<div class="tblwrap" style="margin-bottom:10px"><table><thead><tr><th></th><th>Bilty</th><th>Date</th><th>Route</th><th class="num">Freight</th></tr></thead><tbody>
@@ -5267,7 +5656,7 @@ function singleBiltyInvoiceForm(){
 function singleBiltyRefresh(){
   const box=document.getElementById('sbiBox'); if(!box)return;
   const q=(V('sbi_q')||'').toLowerCase().trim();
-  let loads=allScoped('trips').filter(t=>t.freight_paisa!=null&&!invoiceForTrip(t.id));
+  let loads=all('trips').filter(t=>t.freight_paisa!=null&&!invoiceForTrip(t.id));
   if(q)loads=loads.filter(t=>tfTextMatch(q,t.bilty_no,nm('customers',t.customer_id),t.route));
   loads=loads.slice().sort((a,b)=>a.date<b.date?1:-1);
   const shown=loads.slice(0,50);
@@ -5299,7 +5688,7 @@ function payInForm(invId){
   if(!can('invoices')){toast('Not permitted',true);return;}
   const i=byId('invoices',invId); if(!i)return;
   const t=invTotal(i),p=invPaid(i),bal=t-p;
-  const pays=allScoped('inpayments').filter(x=>x.invoice_id==invId);
+  const pays=all('inpayments').filter(x=>x.invoice_id==invId);
   openModal(`<h2>Payments — ${esc(i.number)} ${invBadge(invStatus(i))}</h2>
   <div class="small mut" style="margin-bottom:8px">Total ${pkr(t)} · Received ${pkr(p)} · Balance <b>${pkr(bal)}</b></div>
   ${pays.length?`<div class="tblwrap" style="margin-bottom:12px"><table><thead><tr><th>Date</th><th class="num">Amount</th><th>Method</th><th>Ref</th><th>Account</th><th></th></tr></thead>
@@ -5340,7 +5729,7 @@ function payInDel(pid,invId){
   softDel('inpayments',pid);render();window._afterRender=null;payInForm(invId);
 }
 function pageInvoices(){
-  const allRows=allScoped('invoices');
+  const allRows=all('invoices');
   const tot=allRows.reduce((s,i)=>s+invTotal(i),0), rec=allRows.reduce((s,i)=>s+invPaid(i),0);
   const key='invoices';
   const q=tfGet(key,'q'),stF=tfGet(key,'status');
@@ -5403,7 +5792,7 @@ function invGroupToggle(cid){
 function custBulkPayForm(cid){
   if(!can('invoices')){toast('Not permitted',true);return;}
   const custId=cid==='none'?null:parseInt(cid,10);
-  const invs=allScoped('invoices').filter(i=>(i.customer_id||null)===custId&&invOutstanding(i)>0)
+  const invs=all('invoices').filter(i=>(i.customer_id||null)===custId&&invOutstanding(i)>0)
     .sort((a,b)=>invDate(a)<invDate(b)?-1:invDate(a)>invDate(b)?1:a.id-b.id);
   if(!invs.length){toast('No outstanding invoices for this customer',true);return;}
   const name=custId?nm('customers',custId):'— No customer set —';
@@ -5488,10 +5877,10 @@ function custStatementPrint(){
   const cid=parseInt(V('cs_customer'),10)||null, from=V('cs_from'), to=V('cs_to');
   if(!cid||!from||!to){toast('Customer, From and To dates are required',true);return;}
   const cust=byId('customers',cid); if(!cust)return;
-  const periodInv=allScoped('invoices').filter(i=>i.customer_id==cid&&invDate(i)>=from&&invDate(i)<=to)
+  const periodInv=all('invoices').filter(i=>i.customer_id==cid&&invDate(i)>=from&&invDate(i)<=to)
     .sort((a,b)=>invDate(a)<invDate(b)?-1:1);
-  const periodPayments=allScoped('inpayments').filter(p=>{const inv=byId('invoices',p.invoice_id);return inv&&inv.customer_id==cid&&p.date>=from&&p.date<=to;});
-  const allInvToDate=allScoped('invoices').filter(i=>i.customer_id==cid&&invDate(i)<=to);
+  const periodPayments=all('inpayments').filter(p=>{const inv=byId('invoices',p.invoice_id);return inv&&inv.customer_id==cid&&p.date>=from&&p.date<=to;});
+  const allInvToDate=all('invoices').filter(i=>i.customer_id==cid&&invDate(i)<=to);
   const totalInvoicedPeriod=periodInv.reduce((s,i)=>s+invTotal(i),0);
   const totalReceivedPeriod=periodPayments.reduce((s,p)=>s+(p.amount_paisa||0),0);
   const outstandingToDate=allInvToDate.reduce((s,i)=>s+invOutstanding(i),0);
@@ -5522,12 +5911,12 @@ function custStatementPrint(){
 function payTotal(p){return (p.base_paisa||0)+(p.pay_type==='cost_plus'?expSum(p.trip_id):0);}
 /* A settled claim the carrier agreed to bear comes off what we owe them. */
 function payClaimDeduction(p){
-  return allScoped('claims').filter(c=>c.status==='settled'&&c.cost_bearer==='carrier'
+  return all('claims').filter(c=>c.status==='settled'&&c.cost_bearer==='carrier'
     &&(c.amount_paisa||0)>0&&c.trip_id===p.trip_id)
     .reduce((s,c)=>s+c.amount_paisa,0);
 }
 function payOutstanding(p){return payTotal(p)-outPaidFor('payable',p.id)-payClaimDeduction(p);}
-function outPaidFor(ttype,tid){return allScoped('outpayments').filter(x=>x.ttype===ttype&&x.tid==tid).reduce((s,x)=>s+(x.amount_paisa||0),0);}
+function outPaidFor(ttype,tid){return all('outpayments').filter(x=>x.ttype===ttype&&x.tid==tid).reduce((s,x)=>s+(x.amount_paisa||0),0);}
 function payBoxHTML(p,ro){
   const t=payTotal(p),paid=outPaidFor('payable',p.id),claimed=payClaimDeduction(p),bal=payOutstanding(p);
   return `<div class="rowline"><span class="mut">Carrier</span><span>${esc(nm('carriers',p.carrier_id))}
@@ -5547,7 +5936,7 @@ function payableForm(id,tripId){
   if(id){rec=byId('payables',id);if(!rec)return;}
   else{
     const t=byId('trips',tripId||0);
-    let opts=allScoped('trips').filter(x=>x.carrier_id&&!allScoped('payables').find(p=>p.trip_id==x.id));
+    let opts=all('trips').filter(x=>x.carrier_id&&!all('payables').find(p=>p.trip_id==x.id));
     if(t)opts=[t];
     if(!opts.length){toast('Every trip with a carrier already has a payable',true);return;}
     rec={trip_id:t?t.id:opts[0].id,base_paisa:null,notes:''};
@@ -5612,7 +6001,7 @@ function payOutForm(ttype,tid){
   if(!can('payables')){toast('Not permitted',true);return;}
   const label=targetLabel(ttype,tid), total=targetTotal(ttype,tid);
   const paid=outPaidFor(ttype,tid),bal=total-paid;
-  const pays=allScoped('outpayments').filter(x=>x.ttype===ttype&&x.tid==tid);
+  const pays=all('outpayments').filter(x=>x.ttype===ttype&&x.tid==tid);
 
   // Check if this is a salary payment (for advance deduction UI)
   let advancesHTML='', driverId=null;
@@ -5667,7 +6056,7 @@ function payPromiseForm(id){
   if(!can('payables')){toast('Not permitted',true);return;}
   const rec=id?byId('paypromises',id):{promised_date:today(),notes:''};
   if(id&&!rec){toast('Not found',true);return;}
-  const openInvs=allScoped('invoices').filter(i=>invOutstanding(i)>0);
+  const openInvs=all('invoices').filter(i=>invOutstanding(i)>0);
   openModal(`<h2>${id?'Edit':''} Vendor Payment Promise</h2>
   <div class="small mut" style="margin-bottom:10px">A payment you've promised a vendor — "I'll pay once customer X pays me" — logged so it doesn't get forgotten. You'll get a reminder as the promised date approaches, whether or not the receivable has come in yet.</div>
   <div class="fgrid">
@@ -5703,7 +6092,7 @@ function payPromiseDel(id){
   softDel('paypromises',id);toast('Deleted');render();
 }
 function payPromisesTableHTML(){
-  const proms=allScoped('paypromises').filter(p=>!p.resolved_at).slice().sort((a,b)=>a.promised_date<b.promised_date?-1:1);
+  const proms=all('paypromises').filter(p=>!p.resolved_at).slice().sort((a,b)=>a.promised_date<b.promised_date?-1:1);
   return `<div class="pagehead" style="margin-top:20px"><h1 style="font-size:19px">Vendor Payment Promises</h1><div class="sp"></div>
     <button class="btn ghost sm" onclick="payPromiseForm()">🤝 New Payment Promise</button></div>
     <div class="hint" style="margin-bottom:6px">A payment promised to a vendor, conditional on money still owed to us — not a real payable yet, just a commitment being tracked.</div>
@@ -5788,7 +6177,7 @@ function postOutPaymentEntry(rec,driverId){
   if(driverId&&rec.ttype==='overhead'&&rec.advance_ids_json){
     try{
       const advIds=JSON.parse(rec.advance_ids_json);
-      advanceTotal=allScoped('employee_advances').filter(a=>advIds.includes(a.id)).reduce((s,a)=>s+(a.amount_paisa||0),0);
+      advanceTotal=all('employee_advances').filter(a=>advIds.includes(a.id)).reduce((s,a)=>s+(a.amount_paisa||0),0);
     }catch(e){}
   }
 
@@ -5850,14 +6239,14 @@ const OH_FIELDS=[
   {k:'amount_paisa',l:'Amount (PKR)',t:'money',req:1},
   {k:'date',l:'Date',t:'date',req:1},
   {k:'notes',l:'Notes',t:'text'}];
-function agentChargeForTrip(tid){return allScoped('agentcharges').find(x=>x.trip_id==tid);}
+function agentChargeForTrip(tid){return all('agentcharges').find(x=>x.trip_id==tid);}
 /* Entering a clearing agent and cost on a booking used to store them on the bilty as reference
    only — nothing reached Payables or the books. Saving a bilty now keeps a matching charge in
    step with it. A charge someone entered or edited by hand is left alone, and one that's been
    part-paid is never rewritten. */
 function syncAgentChargeForTrip(trip){
   if(!trip)return;
-  const existing=allScoped('agentcharges').find(x=>x.trip_id===trip.id);
+  const existing=all('agentcharges').find(x=>x.trip_id===trip.id);
   if(existing&&!existing.auto_from_bilty)return;
   if(existing&&outPaidFor('agentcharge',existing.id)>0)return;
   const agentId=trip.agent_id, cost=trip.agent_cost_paisa;
@@ -5949,11 +6338,11 @@ function subDel(coll,id){
   softDel(coll,id);toast('Deleted');render();
 }
 function fuelReconcileFills(vendorId,month){
-  return allScoped('fuel').filter(f=>f.vendor_id==vendorId&&(f.date||'').slice(0,7)===month);
+  return all('fuel').filter(f=>f.vendor_id==vendorId&&(f.date||'').slice(0,7)===month);
 }
 function fuelReconcileForm(){
   if(!can('payables')){toast('Not permitted',true);return;}
-  const pumps=allScoped('vendors').filter(v=>v.category==='fuel_pump');
+  const pumps=all('vendors').filter(v=>v.category==='fuel_pump');
   if(!pumps.length){toast('Add a petrol pump under Vendors first (category: Petrol Pump)',true);return;}
   const mon=today().slice(0,7);
   openModal(`<h2>Reconcile Monthly Pump Invoice</h2>
@@ -5976,7 +6365,7 @@ function fuelReconcileCalc(){
   const vid=parseInt(V('rc_vendor'),10),mon=V('rc_month');
   const fills=fuelReconcileFills(vid,mon);
   const litres=fills.reduce((s,f)=>s+(f.litres||0),0), amount=fills.reduce((s,f)=>s+(f.total_paisa||0),0);
-  const already=allScoped('vendortx').find(x=>x.vendor_id==vid&&x.period===mon);
+  const already=all('vendortx').find(x=>x.vendor_id==vid&&x.period===mon);
   el.innerHTML=`${fills.length} fill-up(s) recorded for ${esc(mon)} — ${litres} L, app total <b>${pkr(amount)}</b>.`
     +(already?`<div class="warnbox" style="margin-top:6px">Already reconciled for this pump/month (${pkr(already.amount_paisa)}). Creating another will add a duplicate.</div>`:'');
   const amtEl=document.getElementById('rc_amount'); if(amtEl)amtEl.value=moneyVal(amount);
@@ -5985,7 +6374,7 @@ function fuelReconcileSave(){
   const vid=parseInt(V('rc_vendor'),10),mon=V('rc_month'),amount=P(V('rc_amount')),date=V('rc_date');
   if(!vid||!mon){toast('Pump and month are required',true);return;}
   if(amount==null||amount<=0){toast('Enter the actual invoice amount',true);return;}
-  const already=allScoped('vendortx').find(x=>x.vendor_id==vid&&x.period===mon);
+  const already=all('vendortx').find(x=>x.vendor_id==vid&&x.period===mon);
   if(already&&!confirm('This pump already has a reconciled invoice for '+mon+' ('+pkr(already.amount_paisa)+'). Create another anyway?'))return;
   const fills=fuelReconcileFills(vid,mon);
   const litres=fills.reduce((s,f)=>s+(f.litres||0),0);
@@ -6086,7 +6475,7 @@ function pagePayables(){
   const tabs=[['carrier','Carrier payables'],['vendor','Vendor payables'],['fuel','Fuel (Petrol Pumps)'],['clearing','Clearing charges'],['overhead','Overheads'],['srb','SRB Tax Payable']];
   let body='';
   if(tab==='carrier'){
-    const allRows=allScoped('payables');
+    const allRows=all('payables');
     const fk='pay_carrier',q=tfGet(fk,'q');
     const rows=allRows.filter(p=>!q||tfTextMatch(q,nm('trips',p.trip_id,'bilty_no'),nm('carriers',p.carrier_id)));
     const thead='<th>Bilty</th><th>Carrier</th><th>Pay type</th><th class="num">Base</th><th class="num">Expenses</th><th class="num">Total</th><th class="num">Paid</th><th class="num">Balance</th><th></th>';
@@ -6105,7 +6494,7 @@ function pagePayables(){
     ${monthGroupedTable(rows,p=>(byId('trips',p.trip_id)||{}).date,thead,rowFn,allRows.length?'No matches for this filter.':'No carrier payables yet.','carrier')}
     ${fuelTransfersTableHTML()}`;
   }else if(tab==='vendor'){
-    const allRows=allScoped('vendortx').filter(x=>{const v=byId('vendors',x.vendor_id);return !v||v.category!=='fuel_pump';});
+    const allRows=all('vendortx').filter(x=>{const v=byId('vendors',x.vendor_id);return !v||v.category!=='fuel_pump';});
     const fk='pay_vendor',q=tfGet(fk,'q');
     const rows=allRows.filter(x=>!q||tfTextMatch(q,nm('vendors',x.vendor_id),x.description,nm('trips',x.trip_id,'bilty_no')));
     const thead='<th>Vendor</th><th>Trip</th><th>Description</th><th>Date</th><th class="num">Amount</th><th class="num">Paid</th><th class="num">Balance</th><th></th>';
@@ -6124,8 +6513,8 @@ function pagePayables(){
     ${monthGroupedTable(rows,x=>x.date,thead,rowFn,allRows.length?'No matches for this filter.':'No vendor transactions yet.','vendor')}
     ${payPromisesTableHTML()}`;
   }else if(tab==='fuel'){
-    const pumps=allScoped('vendors').filter(v=>v.category==='fuel_pump');
-    const allRows=allScoped('vendortx').filter(x=>{const v=byId('vendors',x.vendor_id);return v&&v.category==='fuel_pump';})
+    const pumps=all('vendors').filter(v=>v.category==='fuel_pump');
+    const allRows=all('vendortx').filter(x=>{const v=byId('vendors',x.vendor_id);return v&&v.category==='fuel_pump';})
       .sort((a,b)=>a.date<b.date?1:-1);
     const fk='pay_fuel',q=tfGet(fk,'q');
     const rows=allRows.filter(x=>!q||tfTextMatch(q,nm('vendors',x.vendor_id),x.period,x.description));
@@ -6144,7 +6533,7 @@ function pagePayables(){
     ${allRows.length>6?tfBar(fk,[],'Search pump, period, description…'):''}
     ${monthGroupedTable(rows,x=>x.date,thead,rowFn,allRows.length?'No matches for this filter.':'No monthly pump invoices reconciled yet.','fuel')}`;
   }else if(tab==='clearing'){
-    const allRows=allScoped('agentcharges');
+    const allRows=all('agentcharges');
     const fk='pay_clearing',q=tfGet(fk,'q'),dirF=tfGet(fk,'direction'),agF=tfGet(fk,'agent');
     const rows=allRows.filter(x=>(!dirF||(x.direction||'payable')===dirF)&&(!agF||String(x.agent_id)===agF)
       &&(!q||tfTextMatch(q,nm('agents',x.agent_id),nm('trips',x.trip_id,'bilty_no'),x.ref_no)));
@@ -6192,7 +6581,7 @@ function pagePayables(){
     ${allRows.length>6?tfBar(fk,[{field:'category',label:'Category',options:OH_CATS.map(c=>[c[0],c[1]])}],'Search payee, notes…'):''}
     ${monthGroupedTable(rows,x=>x.date,thead,rowFn,allRows.length?'No matches for this filter.':'No overheads yet — record salaries, office rents, bills etc. here.','overhead')}`;
   }else{
-    const allRows=allScoped('invoices').filter(i=>invParts(i).srb>0).sort((a,b)=>srbDueDate(a)<srbDueDate(b)?-1:1);
+    const allRows=all('invoices').filter(i=>invParts(i).srb>0).sort((a,b)=>srbDueDate(a)<srbDueDate(b)?-1:1);
     const fk='pay_srb',q=tfGet(fk,'q');
     const rows=allRows.filter(i=>!q||tfTextMatch(q,i.number,nm('customers',i.customer_id)));
     const thead='<th>Invoice</th><th>Customer</th><th>Invoice date</th><th>Due date</th><th class="num">SRB payable</th><th class="num">Paid</th><th class="num">Balance</th><th>Reminder</th><th></th>';
@@ -6209,13 +6598,13 @@ function pagePayables(){
     ${allRows.length>6?tfBar(fk,[],'Search invoice #, customer…'):''}
     ${monthGroupedTable(rows,i=>invDate(i),thead,rowFn,allRows.length?'No matches for this filter.':'No SRB-charging invoices yet.','srb')}`;
   }
-  const outTot=allScoped('payables').reduce((s,p)=>s+payOutstanding(p),0)
-    +allScoped('vendortx').reduce((s,x)=>s+x.amount_paisa-outPaidFor('vendortx',x.id),0)
-    +allScoped('agentcharges').filter(x=>(x.direction||'payable')!=='receivable')
+  const outTot=all('payables').reduce((s,p)=>s+payOutstanding(p),0)
+    +all('vendortx').reduce((s,x)=>s+x.amount_paisa-outPaidFor('vendortx',x.id),0)
+    +all('agentcharges').filter(x=>(x.direction||'payable')!=='receivable')
       .reduce((s,x)=>s+x.amount_paisa-outPaidFor('agentcharge',x.id),0)
     +all('overheads').reduce((s,x)=>s+x.amount_paisa-outPaidFor('overhead',x.id),0)
-    +allScoped('invoices').filter(i=>invParts(i).srb>0).reduce((s,i)=>s+srbPayableAmount(i)-outPaidFor('srb',i.id),0);
-  const recvTot=allScoped('agentcharges').filter(x=>(x.direction||'payable')==='receivable')
+    +all('invoices').filter(i=>invParts(i).srb>0).reduce((s,i)=>s+srbPayableAmount(i)-outPaidFor('srb',i.id),0);
+  const recvTot=all('agentcharges').filter(x=>(x.direction||'payable')==='receivable')
     .reduce((s,x)=>s+x.amount_paisa-outPaidFor('agentcharge',x.id),0);
   return `<div class="pagehead"><h1>Payables</h1><div class="sp"></div>
     ${tabs.map(x=>`<button class="btn ${tab===x[0]?'':'ghost'} sm" onclick="window._payTab='${x[0]}';render()">${x[1]}</button>`).join('')}
@@ -6226,7 +6615,7 @@ function pagePayables(){
 }
 function pageCarrierPayments(){
   const cid=state.user.carrier_id;
-  const rows=allScoped('payables').filter(p=>p.carrier_id==cid)
+  const rows=all('payables').filter(p=>p.carrier_id==cid)
     .map(p=>({p,date:(byId('trips',p.trip_id)||{}).date||''})).sort((a,b)=>a.date<b.date?1:-1);
   const byMonth=new Map();
   rows.forEach(({p,date})=>{
@@ -6247,7 +6636,7 @@ function pageCarrierPayments(){
       html+=`<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">
       ${items.map(p=>`<div style="margin-bottom:14px"><h2 style="font-size:14px">Trip ${esc(nm('trips',p.trip_id,'bilty_no'))} — ${esc(nm('trips',p.trip_id,'route'))}</h2>
         ${payBoxHTML(p,true)}
-        ${allScoped('outpayments').filter(x=>x.ttype==='payable'&&x.tid==p.id).map(x=>
+        ${all('outpayments').filter(x=>x.ttype==='payable'&&x.tid==p.id).map(x=>
           `<div class="rowline small"><span class="mut">Received ${esc(fmtDate(x.date))} (${esc(enumLbl(PAY_METHOD,x.method))}${x.ref?', '+esc(x.ref):''})</span><span>${pkr(x.amount_paisa)}</span></div>`).join('')}
       </div>`).join('')}
       </div>`;
@@ -6299,7 +6688,7 @@ function claimForm(id,tripId){
   <div class="fgrid">
     <div class="frow"><label class="req">Trip</label>
       <select id="c_trip" onchange="claimDiffUI()" ${id?'disabled':''}>
-        ${allScoped('trips').map(x=>`<option value="${x.id}" ${x.id==rec.trip_id?'selected':''}>${esc(x.bilty_no+' — '+x.route+' ('+(x.veh_make||'vehicle')+')')}</option>`).join('')}
+        ${all('trips').map(x=>`<option value="${x.id}" ${x.id==rec.trip_id?'selected':''}>${esc(x.bilty_no+' — '+x.route+' ('+(x.veh_make||'vehicle')+')')}</option>`).join('')}
       </select></div>
     <div class="frow"><label class="req">Claim type</label><select id="c_type">${optHTML(CLAIM_TYPE,rec.type)}</select></div>
     <div class="frow"><label class="req">Date</label><input type="date" id="c_date" value="${esc(rec.date||'')}"></div>
@@ -6355,11 +6744,11 @@ function postClaimEntry(rec){
   upd('claims',rec.id,{journal_entry_id:entryId});
 }
 function pageClaims(){
-  const allRows=allScoped('claims').slice().sort((a,b)=>b.id-a.id);
+  const allRows=all('claims').slice().sort((a,b)=>b.id-a.id);
   const key='claims',q=tfGet(key,'q'),stF=tfGet(key,'status');
   const rows=allRows.filter(c=>(!stF||c.status===stF)&&(!q||tfTextMatch(q,nm('trips',c.trip_id,'bilty_no'),c.description,enumLbl(CLAIM_TYPE,c.type))));
   return `<div class="pagehead"><h1>Claims</h1><div class="sp"></div>
-    ${allScoped('trips').length?`<button class="btn" onclick="claimForm()">+ New Claim</button>`:''}</div>
+    ${all('trips').length?`<button class="btn" onclick="claimForm()">+ New Claim</button>`:''}</div>
   ${allRows.length>6?tfBar(key,[{field:'status',label:'Status',options:CLAIM_STATUS}],'Search bilty, description, type…'):''}
   <div class="tblwrap"><table><thead><tr><th>#</th><th>Bilty</th><th>Type</th><th>Description</th>
   <th class="num">Amount</th><th>Cost bearer</th><th>Linked items</th><th>Status</th><th></th></tr></thead><tbody>
@@ -6395,7 +6784,7 @@ function dashRange(period){
 function dashSetPeriod(p){window._dashPeriod=p;render();}
 function showRecvPopup(){
   const custIds=new Map();
-  allScoped('invoices').filter(i=>invOutstanding(i)>0).forEach(i=>{
+  all('invoices').filter(i=>invOutstanding(i)>0).forEach(i=>{
     if(i.customer_id){
       const cust=byId('customers',i.customer_id);
       if(!custIds.has(i.customer_id))custIds.set(i.customer_id,{name:cust?.name||'Unknown',balance:0});
@@ -6418,7 +6807,7 @@ function showRecvPopup(){
 function showPayPopup(){
   const payees=new Map();
   // Carriers
-  allScoped('payables').filter(p=>payOutstanding(p)>0).forEach(p=>{
+  all('payables').filter(p=>payOutstanding(p)>0).forEach(p=>{
     if(p.carrier_id){
       const carr=byId('carriers',p.carrier_id);
       if(!payees.has('c'+p.carrier_id))payees.set('c'+p.carrier_id,{name:carr?.name||'Unknown',type:'Carrier',balance:0});
@@ -6426,7 +6815,7 @@ function showPayPopup(){
     }
   });
   // Vendors
-  allScoped('vendortx').forEach(x=>{
+  all('vendortx').forEach(x=>{
     if(x.vendor_id){
       const v=byId('vendors',x.vendor_id);
       if(!v||v.category!=='fuel_pump'){
@@ -6439,7 +6828,7 @@ function showPayPopup(){
     }
   });
   // Clearing agents
-  allScoped('agentcharges').forEach(x=>{
+  all('agentcharges').forEach(x=>{
     if(x.agent_id&&(x.direction||'payable')==='payable'){
       const bal=x.amount_paisa-outPaidFor('agentcharge',x.id);
       if(bal>0){
@@ -6482,28 +6871,28 @@ function pageDashboard(){
   const period=window._dashPeriod||'month';
   const rng=dashRange(period),prevRng=finPrevPeriod(rng.from,rng.to);
   const inRange=(d,r)=>d>=r.from&&d<=r.to;
-  const invs=allScoped('invoices');
+  const invs=all('invoices');
   const recv=invs.reduce((s,i)=>s+invOutstanding(i),0);
-  const payOut=allScoped('payables').reduce((s,p)=>s+payOutstanding(p),0)
-    +allScoped('vendortx').reduce((s,x)=>s+x.amount_paisa-outPaidFor('vendortx',x.id),0)
-    +allScoped('agentcharges').filter(x=>(x.direction||'payable')!=='receivable')
+  const payOut=all('payables').reduce((s,p)=>s+payOutstanding(p),0)
+    +all('vendortx').reduce((s,x)=>s+x.amount_paisa-outPaidFor('vendortx',x.id),0)
+    +all('agentcharges').filter(x=>(x.direction||'payable')!=='receivable')
       .reduce((s,x)=>s+x.amount_paisa-outPaidFor('agentcharge',x.id),0)
     +all('overheads').reduce((s,x)=>s+x.amount_paisa-outPaidFor('overhead',x.id),0)
-    +allScoped('invoices').filter(i=>invParts(i).srb>0).reduce((s,i)=>s+srbPayableAmount(i)-outPaidFor('srb',i.id),0);
-  const biltiesCur=allScoped('trips').filter(t=>inRange(t.date||'',rng)).length;
-  const biltiesPrev=allScoped('trips').filter(t=>inRange(t.date||'',prevRng)).length;
-  const journeysCur=allScoped('journeys').filter(j=>inRange(j.date||'',rng)).length;
-  const journeysPrev=allScoped('journeys').filter(j=>inRange(j.date||'',prevRng)).length;
-  const openClaims=allScoped('claims').filter(c=>c.status==='open'||c.status==='under_review').length;
-  const receivedCur=allScoped('inpayments').filter(p=>inRange(p.date||'',rng)).reduce((s,p)=>s+(p.amount_paisa||0),0);
-  const receivedPrev=allScoped('inpayments').filter(p=>inRange(p.date||'',prevRng)).reduce((s,p)=>s+(p.amount_paisa||0),0);
+    +all('invoices').filter(i=>invParts(i).srb>0).reduce((s,i)=>s+srbPayableAmount(i)-outPaidFor('srb',i.id),0);
+  const biltiesCur=all('trips').filter(t=>inRange(t.date||'',rng)).length;
+  const biltiesPrev=all('trips').filter(t=>inRange(t.date||'',prevRng)).length;
+  const journeysCur=all('journeys').filter(j=>inRange(j.date||'',rng)).length;
+  const journeysPrev=all('journeys').filter(j=>inRange(j.date||'',prevRng)).length;
+  const openClaims=all('claims').filter(c=>c.status==='open'||c.status==='under_review').length;
+  const receivedCur=all('inpayments').filter(p=>inRange(p.date||'',rng)).reduce((s,p)=>s+(p.amount_paisa||0),0);
+  const receivedPrev=all('inpayments').filter(p=>inRange(p.date||'',prevRng)).reduce((s,p)=>s+(p.amount_paisa||0),0);
   const recvAging=agingBuckets(invs,invDate,i=>invOutstanding(i));
   const payItems=[].concat(
-    allScoped('payables').map(p=>({date:payDate(p),due:payOutstanding(p)})),
-    allScoped('vendortx').map(x=>({date:x.date,due:x.amount_paisa-outPaidFor('vendortx',x.id)})),
-    allScoped('agentcharges').filter(x=>(x.direction||'payable')!=='receivable').map(x=>({date:x.date,due:x.amount_paisa-outPaidFor('agentcharge',x.id)})),
+    all('payables').map(p=>({date:payDate(p),due:payOutstanding(p)})),
+    all('vendortx').map(x=>({date:x.date,due:x.amount_paisa-outPaidFor('vendortx',x.id)})),
+    all('agentcharges').filter(x=>(x.direction||'payable')!=='receivable').map(x=>({date:x.date,due:x.amount_paisa-outPaidFor('agentcharge',x.id)})),
     all('overheads').map(x=>({date:x.date,due:x.amount_paisa-outPaidFor('overhead',x.id)})),
-    allScoped('invoices').filter(i=>invParts(i).srb>0).map(i=>({date:srbDueDate(i),due:srbPayableAmount(i)-outPaidFor('srb',i.id)}))
+    all('invoices').filter(i=>invParts(i).srb>0).map(i=>({date:srbDueDate(i),due:srbPayableAmount(i)-outPaidFor('srb',i.id)}))
   );
   const payAging=agingBuckets(payItems,x=>x.date,x=>x.due);
   // bilties per month, last 6 months
@@ -6511,14 +6900,14 @@ function pageDashboard(){
   for(let k=5;k>=0;k--){const m=new Date(d.getFullYear(),d.getMonth()-k,1);
     months.push({key:m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0'),
       lbl:m.toLocaleString('en',{month:'short'})});}
-  months.forEach(m=>m.n=allScoped('trips').filter(t=>(t.date||'').slice(0,7)===m.key).length);
+  months.forEach(m=>m.n=all('trips').filter(t=>(t.date||'').slice(0,7)===m.key).length);
   const maxN=Math.max(1,...months.map(m=>m.n));
   /* Expense breakdown — carrier-first (combining Trip Expenses + Diesel/Fuel + Engine Oil/Filter):
      a carrier running several trips in the period used to show as several separate rows, burying
      the total under a pile of individual trip lines. Grouped by carrier now, one row with the
      combined total, click to see the per-trip breakdown behind it. */
   const byCarrierMap=new Map();
-  allScoped('journeys').forEach(j=>{
+  all('journeys').forEach(j=>{
     const key=String(j.carrier_id||'none');
     if(!byCarrierMap.has(key))byCarrierMap.set(key,{carrierId:j.carrier_id,journeys:[],total:0});
     const g=byCarrierMap.get(key);
@@ -6535,12 +6924,12 @@ function pageDashboard(){
   const maxE=Math.max(1,...byCarrier.map(g=>g.total));
   window._dashExpExpanded=window._dashExpExpanded||new Set();
   // per-customer receivables / per-carrier payables
-  const byCust=allScoped('customers').map(c=>{
+  const byCust=all('customers').map(c=>{
     const iv=invs.filter(i=>i.customer_id==c.id);
     return [c.name,iv.reduce((s,i)=>s+invTotal(i),0),iv.reduce((s,i)=>s+invOutstanding(i),0)];
   }).filter(x=>x[1]>0);
-  const byCarr=allScoped('carriers').map(c=>{
-    const ps=allScoped('payables').filter(p=>p.carrier_id==c.id);
+  const byCarr=all('carriers').map(c=>{
+    const ps=all('payables').filter(p=>p.carrier_id==c.id);
     return [c.name,ps.reduce((s,p)=>s+payTotal(p),0),ps.reduce((s,p)=>s+payOutstanding(p),0)];
   }).filter(x=>x[1]>0);
   // Count items for each KPI
@@ -6548,12 +6937,12 @@ function pageDashboard(){
   const recvCount=custIds.size;
   // Payable breakdown by type
   const carrierIds=new Set(),vendorIds2=new Set(),agentIds=new Set();
-  allScoped('payables').filter(p=>payOutstanding(p)>0).forEach(p=>{if(p.carrier_id)carrierIds.add(p.carrier_id)});
-  allScoped('vendortx').forEach(x=>{const v=byId('vendors',x.vendor_id);if(x.vendor_id&&(!v||v.category!=='fuel_pump')&&(x.amount_paisa-outPaidFor('vendortx',x.id))>0)vendorIds2.add(x.vendor_id)});
-  allScoped('agentcharges').forEach(x=>{if(x.agent_id&&(x.direction||'payable')==='payable'&&(x.amount_paisa-outPaidFor('agentcharge',x.id))>0)agentIds.add(x.agent_id)});
+  all('payables').filter(p=>payOutstanding(p)>0).forEach(p=>{if(p.carrier_id)carrierIds.add(p.carrier_id)});
+  all('vendortx').forEach(x=>{const v=byId('vendors',x.vendor_id);if(x.vendor_id&&(!v||v.category!=='fuel_pump')&&(x.amount_paisa-outPaidFor('vendortx',x.id))>0)vendorIds2.add(x.vendor_id)});
+  all('agentcharges').forEach(x=>{if(x.agent_id&&(x.direction||'payable')==='payable'&&(x.amount_paisa-outPaidFor('agentcharge',x.id))>0)agentIds.add(x.agent_id)});
   const payCount=carrierIds.size+vendorIds2.size+agentIds.size;
   const payBreakdown=`C:${carrierIds.size} V:${vendorIds2.size} A:${agentIds.size}`;
-  const recvdCount=allScoped('inpayments').filter(p=>inRange(p.date||'',rng)).length;
+  const recvdCount=all('inpayments').filter(p=>inRange(p.date||'',rng)).length;
   const kpis=[
     [pkr0(recv),'Receivable','','#/finance',recvCount+' customers',''],
     [pkr0(payOut),'Payable','','#/payables',payCount+' vendors',payBreakdown],
@@ -6564,14 +6953,14 @@ function pageDashboard(){
   const srbOverdue=invs.filter(i=>invParts(i).srb>0).map(i=>({bal:srbPayableAmount(i)-outPaidFor('srb',i.id),due:srbDueDate(i)}))
     .filter(x=>x.bal>0&&x.due<today());
   const srbOverdueTotal=srbOverdue.reduce((s,x)=>s+x.bal,0);
-  const maintDue=allScoped('carriers').filter(c=>maintenanceLevel(c)>=1).length;
+  const maintDue=all('carriers').filter(c=>maintenanceLevel(c)>=1).length;
   const in5=new Date(new Date(today()).getTime()+5*86400000).toISOString().slice(0,10);
   /* Cheques stop being reminded once the clearing date passes — by then the bank has either
      honoured it or it's out of our hands, so nagging forever would just be noise. A broken
      payment promise, on the other hand, keeps showing until someone actually resolves it. */
-  const chequesDue=allScoped('outpayments').filter(p=>p.method==='cheque'&&p.cheque_date&&p.cheque_date>=today()&&p.cheque_date<=in5);
+  const chequesDue=all('outpayments').filter(p=>p.method==='cheque'&&p.cheque_date&&p.cheque_date>=today()&&p.cheque_date<=in5);
   const chequesDueTotal=chequesDue.reduce((s,p)=>s+(p.amount_paisa||0),0);
-  const promisesDue=allScoped('paypromises').filter(p=>!p.resolved_at&&p.promised_date<=in5);
+  const promisesDue=all('paypromises').filter(p=>!p.resolved_at&&p.promised_date<=in5);
   const promisesDueTotal=promisesDue.reduce((s,p)=>s+(p.amount_paisa||0),0);
   const attention=[];
   if(srbOverdue.length)attention.push({label:srbOverdue.length+' SRB payment(s) overdue — '+pkr0(srbOverdueTotal),action:'srbPortalReport()',color:'var(--danger)'});
@@ -6661,12 +7050,12 @@ ENTITIES.accounts={title:'Accounts',sing:'Account',fields:[
   {k:'acct_subtype',l:'Account type',t:'select',opts:BANK_ACCT_SUBTYPE}],
  cols:[['name','Account'],['type','Type',['enum',ACC_TYPE]],['bank_name','Bank'],['opening_paisa','Opening',['money']]]};
 function accFlows(accId){
-  const inn=allScoped('inpayments').filter(p=>(p.account_id||null)==accId).reduce((s,p)=>s+(p.amount_paisa||0),0)
-    +allScoped('contras').filter(c=>(c.to_account_id||null)==accId).reduce((s,c)=>s+(c.amount_paisa||0),0);
-  const out=allScoped('outpayments').filter(p=>(p.account_id||null)==accId).reduce((s,p)=>s+(p.amount_paisa||0),0)
-    +allScoped('expenses').filter(e=>(e.account_id||null)==accId).reduce((s,e)=>s+(e.amount_paisa||0),0)
-    +allScoped('fuel').filter(f=>(f.account_id||null)==accId).reduce((s,f)=>s+(f.total_paisa||0),0)
-    +allScoped('contras').filter(c=>(c.from_account_id||null)==accId).reduce((s,c)=>s+(c.amount_paisa||0),0);
+  const inn=all('inpayments').filter(p=>(p.account_id||null)==accId).reduce((s,p)=>s+(p.amount_paisa||0),0)
+    +all('contras').filter(c=>(c.to_account_id||null)==accId).reduce((s,c)=>s+(c.amount_paisa||0),0);
+  const out=all('outpayments').filter(p=>(p.account_id||null)==accId).reduce((s,p)=>s+(p.amount_paisa||0),0)
+    +all('expenses').filter(e=>(e.account_id||null)==accId).reduce((s,e)=>s+(e.amount_paisa||0),0)
+    +all('fuel').filter(f=>(f.account_id||null)==accId).reduce((s,f)=>s+(f.total_paisa||0),0)
+    +all('contras').filter(c=>(c.from_account_id||null)==accId).reduce((s,c)=>s+(c.amount_paisa||0),0);
   return {inn:inn,out:out};
 }
 function contraForm(id){
@@ -6708,15 +7097,15 @@ function contraDel(id){
 function isCompanyCashExpense(e){return e.type!=='driver_advance'||(e.advance_source||'company')==='company';}
 function finTotals(from,to){
   const inRange=(d)=>d>=from&&d<=to;
-  const income=allScoped('inpayments').filter(p=>inRange(p.date)).reduce((s,p)=>s+(p.amount_paisa||0),0);
+  const income=all('inpayments').filter(p=>inRange(p.date)).reduce((s,p)=>s+(p.amount_paisa||0),0);
   const ohFixed=OH_CATS.filter(c=>c[2]==='fixed').map(c=>c[0]);
   let fixedSpend=0,runningSpend=0;
-  allScoped('outpayments').filter(p=>inRange(p.date)).forEach(p=>{
+  all('outpayments').filter(p=>inRange(p.date)).forEach(p=>{
     const oh=p.ttype==='overhead'?byId('overheads',p.tid):null;
     if(oh&&ohFixed.includes(oh.category))fixedSpend+=p.amount_paisa||0; else runningSpend+=p.amount_paisa||0;
   });
-  allScoped('expenses').filter(e=>inRange(e.date)&&isCompanyCashExpense(e)).forEach(e=>runningSpend+=e.amount_paisa||0);
-  allScoped('fuel').filter(f=>inRange(f.date)).forEach(f=>runningSpend+=f.total_paisa||0);
+  all('expenses').filter(e=>inRange(e.date)&&isCompanyCashExpense(e)).forEach(e=>runningSpend+=e.amount_paisa||0);
+  all('fuel').filter(f=>inRange(f.date)).forEach(f=>runningSpend+=f.total_paisa||0);
   return {income:income,fixedSpend:fixedSpend,runningSpend:runningSpend,spend:fixedSpend+runningSpend};
 }
 function finPrevPeriod(from,to){
@@ -6740,29 +7129,29 @@ function finCategoryBreakdown(from,to){
   const inRange=(d)=>d>=from&&d<=to;
   const byCat=new Map();
   const addCat=(label,amt)=>{if(!amt)return;byCat.set(label,(byCat.get(label)||0)+amt);};
-  allScoped('outpayments').filter(p=>inRange(p.date)&&p.ttype==='overhead').forEach(p=>{
+  all('outpayments').filter(p=>inRange(p.date)&&p.ttype==='overhead').forEach(p=>{
     const oh=byId('overheads',p.tid);
     const cat=oh?OH_CATS.find(c=>c[0]===oh.category):null;
     addCat(cat?cat[1]:'Other overhead',p.amount_paisa||0);
   });
-  EXP_TYPE.forEach(c=>addCat(c[1],allScoped('expenses').filter(e=>inRange(e.date)&&e.type===c[0]&&isCompanyCashExpense(e)).reduce((s,e)=>s+(e.amount_paisa||0),0)));
-  addCat('Diesel / Fuel',allScoped('fuel').filter(f=>inRange(f.date)).reduce((s,f)=>s+(f.total_paisa||0),0));
+  EXP_TYPE.forEach(c=>addCat(c[1],all('expenses').filter(e=>inRange(e.date)&&e.type===c[0]&&isCompanyCashExpense(e)).reduce((s,e)=>s+(e.amount_paisa||0),0)));
+  addCat('Diesel / Fuel',all('fuel').filter(f=>inRange(f.date)).reduce((s,f)=>s+(f.total_paisa||0),0));
   return Array.from(byCat.entries()).map(([label,amt])=>({label:label,amt:amt})).sort((a,b)=>b.amt-a.amt);
 }
 function accHistoryRows(accId){
   const acc=byId('accounts',accId); if(!acc)return null;
   const rows=[];
-  allScoped('inpayments').filter(p=>(p.account_id||null)===accId).forEach(p=>{
+  all('inpayments').filter(p=>(p.account_id||null)===accId).forEach(p=>{
     const inv=byId('invoices',p.invoice_id);
     rows.push({date:p.date,desc:'Received — '+(inv?inv.number:'invoice'),amount:p.amount_paisa,inn:true});
   });
-  allScoped('outpayments').filter(p=>(p.account_id||null)===accId).forEach(p=>{
+  all('outpayments').filter(p=>(p.account_id||null)===accId).forEach(p=>{
     rows.push({date:p.date,desc:'Paid — '+targetLabel(p.ttype,p.tid),amount:p.amount_paisa,inn:false});
   });
-  allScoped('expenses').filter(e=>(e.account_id||null)===accId).forEach(e=>{
+  all('expenses').filter(e=>(e.account_id||null)===accId).forEach(e=>{
     rows.push({date:e.date,desc:'Trip expense — '+enumLbl(EXP_TYPE,e.type),amount:e.amount_paisa,inn:false});
   });
-  allScoped('fuel').filter(f=>(f.account_id||null)===accId).forEach(f=>{
+  all('fuel').filter(f=>(f.account_id||null)===accId).forEach(f=>{
     rows.push({date:f.date,desc:'Fuel — '+(f.pump||'—'),amount:f.total_paisa,inn:false});
   });
   rows.sort((a,b)=>a.date<b.date?1:(a.date>b.date?-1:0));
@@ -6815,10 +7204,10 @@ function pageFinance(){
   const from=window._finRange.from, to=window._finRange.to;
   const cur=finTotals(from,to);
   const prevRange=finPrevPeriod(from,to), prevTot=finTotals(prevRange.from,prevRange.to);
-  const unIn=allScoped('inpayments').filter(p=>!p.account_id).length
-    +allScoped('outpayments').filter(p=>!p.account_id).length
-    +allScoped('expenses').filter(e=>!e.account_id).length
-    +allScoped('fuel').filter(f=>!f.account_id).length;
+  const unIn=all('inpayments').filter(p=>!p.account_id).length
+    +all('outpayments').filter(p=>!p.account_id).length
+    +all('expenses').filter(e=>!e.account_id).length
+    +all('fuel').filter(f=>!f.account_id).length;
   const cats=finCategoryBreakdown(from,to);
   const maxCat=Math.max(1,...cats.map(c=>c.amt));
   const monthsF=[]; const dNow=new Date();
@@ -6902,8 +7291,8 @@ function pageFinance(){
       <div class="bfill" style="height:${Math.round(Math.abs(m.net)/maxAbsNet*88)+2}px;background:${m.net<0?'var(--danger)':'var(--ok)'}"></div><div class="blbl">${m.lbl}</div></div>`).join('')}</div>
   </div>
   <div class="card"><h2>Recent transfers</h2>
-    ${allScoped('contras').length?`<div class="tblwrap" style="margin:0"><table><thead><tr><th>Date</th><th>From</th><th>To</th><th class="num">Amount</th><th></th></tr></thead><tbody>
-    ${allScoped('contras').slice().sort((a,b)=>b.id-a.id).slice(0,10).map(c=>`<tr><td>${esc(fmtDate(c.date))}</td><td>${esc(nm('accounts',c.from_account_id))}</td><td>${esc(nm('accounts',c.to_account_id))}</td>
+    ${all('contras').length?`<div class="tblwrap" style="margin:0"><table><thead><tr><th>Date</th><th>From</th><th>To</th><th class="num">Amount</th><th></th></tr></thead><tbody>
+    ${all('contras').slice().sort((a,b)=>b.id-a.id).slice(0,10).map(c=>`<tr><td>${esc(fmtDate(c.date))}</td><td>${esc(nm('accounts',c.from_account_id))}</td><td>${esc(nm('accounts',c.to_account_id))}</td>
       <td class="num">${pkr(c.amount_paisa)}</td><td class="num"><button class="btn ghost sm" onclick="contraForm(${c.id})">Edit</button>
       <button class="btn danger sm" onclick="contraDel(${c.id})">Delete</button></td></tr>`).join('')}
     </tbody></table></div>`:'<div class="mut small">No transfers between accounts recorded yet.</div>'}
@@ -6912,7 +7301,7 @@ function pageFinance(){
 
 /* ===== reports hub ===== */
 function pageReports(){
-  const journeys=allScoped('journeys').slice().sort((a,b)=>a.date<b.date?1:-1);
+  const journeys=all('journeys').slice().sort((a,b)=>a.date<b.date?1:-1);
   return `<div class="pagehead"><h1>Reports</h1></div>
   <div class="small mut" style="margin-bottom:14px">Printable reports in one place. Each opens the same form you'd otherwise find on its own page.</div>
   <div class="grid2">
@@ -7270,7 +7659,7 @@ function voucherSignToggle(no){
 }
 function pageVouchers(){
   const rows=[];
-  allScoped('outpayments').forEach(p=>{
+  all('outpayments').forEach(p=>{
     let jid='none';
     if(p.ttype==='payable'){const pb=byId('payables',p.tid);if(pb)jid=jidOfBilty(pb.trip_id);}
     else if(p.ttype==='vendortx'){const x=byId('vendortx',p.tid);if(x)jid=x.journey_id?String(x.journey_id):'none';}
@@ -7278,23 +7667,23 @@ function pageVouchers(){
     rows.push({jid,kind:'out',lbl:'Payment',cls:'b-red',no:'PV-'+p.id,date:p.date,
       desc:targetLabel(p.ttype,p.tid),amount:p.amount_paisa,id:p.id,account:nm('accounts',p.account_id)});
   });
-  allScoped('inpayments').forEach(p=>{const i=byId('invoices',p.invoice_id);
+  all('inpayments').forEach(p=>{const i=byId('invoices',p.invoice_id);
     rows.push({jid:i?jidOfBilty(i.trip_id):'none',kind:'in',lbl:'Receipt',cls:'b-green',no:'RV-'+p.id,date:p.date,
     desc:'Received from '+(i?nm('customers',i.customer_id)+' — '+i.number:'—'),amount:p.amount_paisa,id:p.id,account:nm('accounts',p.account_id)});});
-  groupByTrip(allScoped('expenses').filter(e=>e.type!=='driver_advance'),'amount_paisa').forEach(g=>{
+  groupByTrip(all('expenses').filter(e=>e.type!=='driver_advance'),'amount_paisa').forEach(g=>{
     const accts=[...new Set(g.items.map(e=>nm('accounts',e.account_id)))];
     rows.push({jid:String(g.jid),kind:'exp_trip',lbl:'Expense',cls:'b-amber',
       no:'EV-'+(g.journey?g.journey.trip_no:'LEGACY'),date:g.date,
       desc:g.items.length+' item(s)',
       amount:g.total,id:g.jid,account:accts.length===1?accts[0]:'Multiple'});
   });
-  groupByTrip(allScoped('expenses').filter(e=>e.type==='driver_advance'),'amount_paisa').forEach(g=>{
+  groupByTrip(all('expenses').filter(e=>e.type==='driver_advance'),'amount_paisa').forEach(g=>{
     rows.push({jid:String(g.jid),kind:'adv_trip',lbl:'Advance',cls:'b-teal',
       no:'AV-'+(g.journey?g.journey.trip_no:'LEGACY'),date:g.date,
       desc:g.items.length+' item(s)',
       amount:g.total,id:g.jid,account:'Driver advance'});
   });
-  allScoped('fuel').forEach(f=>rows.push({jid:f.journey_id?String(f.journey_id):'none',kind:'fuel',lbl:'Fuel',cls:'b-blue',no:'FV-'+f.id,date:f.date,
+  all('fuel').forEach(f=>rows.push({jid:f.journey_id?String(f.journey_id):'none',kind:'fuel',lbl:'Fuel',cls:'b-blue',no:'FV-'+f.id,date:f.date,
     desc:'Fuel — '+(f.pump||'')+(f.litres?' ('+f.litres+' L)':''),amount:f.total_paisa,id:f.id,account:nm('accounts',f.account_id)}));
   const vkey='vouchers',vq=tfGet(vkey,'q'),vtypeF=tfGet(vkey,'type');
   const filtRows=rows.filter(r=>(!vtypeF||r.lbl===vtypeF)&&(!vq||tfTextMatch(vq,r.no,r.desc,r.account)));
@@ -7393,7 +7782,7 @@ function voucherPrint(kind,id){
   }else if(kind==='exp_trip'){
     const jid=parseInt(id,10)||null;
     const j=jid?byId('journeys',jid):null;
-    const items=allScoped('expenses').filter(e=>(e.journey_id||null)===jid&&e.type!=='driver_advance').sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
+    const items=all('expenses').filter(e=>(e.journey_id||null)===jid&&e.type!=='driver_advance').sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
     if(!items.length)return;
     title='Expense Voucher — Trip Total';
     no='EV-'+(j?j.trip_no:'LEGACY');date=items[items.length-1].date;
@@ -7404,7 +7793,7 @@ function voucherPrint(kind,id){
   }else if(kind==='adv_trip'){
     const jid=parseInt(id,10)||null;
     const j=jid?byId('journeys',jid):null;
-    const items=allScoped('expenses').filter(e=>(e.journey_id||null)===jid&&e.type==='driver_advance').sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
+    const items=all('expenses').filter(e=>(e.journey_id||null)===jid&&e.type==='driver_advance').sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
     if(!items.length)return;
     title='Driver Advance Voucher — Trip Total';
     no='AV-'+(j?j.trip_no:'LEGACY');date=items[items.length-1].date;
@@ -7420,7 +7809,7 @@ function voucherPrint(kind,id){
   }else if(kind==='fuel_trip'){
     const jid=parseInt(id,10)||null;
     const j=jid?byId('journeys',jid):null;
-    const items=allScoped('fuel').filter(f=>(f.journey_id||null)===jid).sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
+    const items=all('fuel').filter(f=>(f.journey_id||null)===jid).sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
     if(!items.length)return;
     title='Fuel Voucher — Trip Total';
     no='FV-'+(j?j.trip_no:'LEGACY');date=items[items.length-1].date;
@@ -7568,10 +7957,10 @@ function tripManifestPrint(jid){
   const oil=jOilFilter(jid).slice().sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
   const agentLoads=loads.filter(t=>t.agent_id!=null&&t.agent_cost_paisa>0);
   const tripIdSet=new Set(loads.map(t=>t.id));
-  const settledClaims=allScoped('claims').filter(c=>tripIdSet.has(c.trip_id)&&c.status==='settled'&&c.cost_bearer==='company')
+  const settledClaims=all('claims').filter(c=>tripIdSet.has(c.trip_id)&&c.status==='settled'&&c.cost_bearer==='company')
     .slice().sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
-  const ftReceived=allScoped('fueltransfers').filter(f=>f.to_journey_id==jid).slice().sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
-  const ftGiven=allScoped('fueltransfers').filter(f=>f.from_journey_id==jid).slice().sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
+  const ftReceived=all('fueltransfers').filter(f=>f.to_journey_id==jid).slice().sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
+  const ftGiven=all('fueltransfers').filter(f=>f.from_journey_id==jid).slice().sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
   const earning=jEarning(jid), expTotal=exps.reduce((s,e)=>s+(e.amount_paisa||0),0),
     advTotal=advs.reduce((s,a)=>s+(a.amount_paisa||0),0), advBalance=advTotal-expTotal,
     fuelTotal=fuel.reduce((s,f)=>s+(f.total_paisa||0),0),
@@ -7810,10 +8199,8 @@ function geminiKeyClear(){
   toast('Key removed'); render();
 }
 function pageSettings(){
-  const counts=COLLS.filter(c=>!LEDGER_COLLS.includes(c)).map(c=>[c,allScoped(c).length]).filter(x=>x[1]>0);
+  const counts=COLLS.filter(c=>!LEDGER_COLLS.includes(c)).map(c=>[c,all(c).length]).filter(x=>x[1]>0);
   const hasKey=!!geminiKey();
-  const isAdmin=can('settings');
-  const backupScope=isAdmin?'(all tenants — admin access)':'(current tenant only)';
   return `<div class="pagehead"><h1>Settings &amp; Backup</h1></div>
   <div class="card accent"><h2>Document scanning (Gemini API)</h2>
     <p class="small mut" style="margin-bottom:10px">Used by "Scan document" buttons (e.g. Bulk Gate Pass Entry) to read vehicle data
@@ -7831,8 +8218,8 @@ function pageSettings(){
   </div>
   <div class="card"><h2>Data</h2>
     <p class="small mut" style="margin-bottom:10px">All data lives in this browser (localStorage). Export regularly as a backup,
-    and use import to move data to another device. ${isAdmin?'As an admin, your backup includes all tenants\' data.':'Your backup is scoped to your current tenant only — other clients\' data is not included.'} This MVP has no server — any login (see Users &amp; Logins below) is a client-side check only, not real server-backed authentication.</p>
-    <button class="btn" onclick="exportData()">⬇ Export backup (JSON) ${backupScope}</button>
+    and use import to move data to another device. This MVP has no server — any login (see Users &amp; Logins below) is a client-side check only, not real server-backed authentication.</p>
+    <button class="btn" onclick="exportData()">⬇ Export backup (JSON)</button>
     <label class="btn ghost" style="display:inline-block">⬆ Import backup
       <input type="file" accept=".json,application/json" style="display:none" onchange="importData(this)"></label>
     <div class="dangerzone">
@@ -7860,7 +8247,7 @@ function pageSettings(){
     <p class="small mut" style="margin-bottom:10px">"Quick click" accounts have no password — fine for a shared office device. "Username + Password"
     accounts require a real login — use this for staff working from different locations, and for any account (like Admin) that shouldn't be one click away for anyone at the device.
     This is a client-side check only (no server behind it), so treat it as a deterrent against casual access, not bank-grade security.</p>
-    ${allScoped('users').map((u,i)=>`<div class="rowline"><span><span class="avatar ${i%2?'gold':'navy'}">${esc(u.name[0])}</span>
+    ${all('users').map((u,i)=>`<div class="rowline"><span><span class="avatar ${i%2?'gold':'navy'}">${esc(u.name[0])}</span>
     <span style="margin-left:8px">${esc(u.name)} <span class="badge b-gray">${esc(enumLbl(USER_ROLES,u.role))}</span>${u.auth_mode==='password'?` <span class="badge b-blue">🔒 ${esc(u.username)}</span>`:''}</span></span>
     <span><button class="btn ghost sm" onclick="userForm(${u.id})">Edit</button> <button class="btn ghost sm" onclick="userDel(${u.id})">Delete</button></span></div>`).join('')}
     <div style="margin-top:10px"><button class="btn" onclick="userForm(null)">+ Add User</button></div>
@@ -7874,10 +8261,7 @@ function userForm(id){
   if(!can('settings')){toast('Not permitted',true);return;}
   const rec=id?byId('users',id):{role:'dispatcher',auth_mode:'click'};
   if(id&&!rec){toast('Not found',true);return;}
-  const isEdit=!!id;
-  const tenantName=state.tenant?state.tenant.name:'Unknown Tenant';
-  openModal(`<h2>${isEdit?'Edit User':'+ Add User'}</h2>
-  <div class="small mut" style="margin-bottom:12px">👤 Tenant: <b>${esc(tenantName)}</b> (users created here belong to this tenant only)</div>
+  openModal(`<h2>${id?'Edit User':'+ Add User'}</h2>
   <div class="fgrid">
     <div class="frow full"><label class="req">Name</label><input id="u_name" value="${esc(rec.name||'')}"></div>
     <div class="frow"><label class="req">Role</label><select id="u_role" onchange="userRoleToggle()">${optHTML(USER_ROLES,rec.role)}</select></div>
@@ -7909,14 +8293,13 @@ function userSave(id){
   if(!can('settings')){toast('Not permitted',true);return;}
   const name=V('u_name'),role=V('u_role'),authMode=V('u_auth_mode');
   if(!name){toast('Name is required',true);return;}
-  if(!state.tenant&&!id){toast('No tenant context — cannot create users without a selected tenant',true);return;}
   const obj={name:name,role:role,auth_mode:authMode,
     driver_id:role==='driver'?(parseInt(V('u_driver_id'),10)||null):null,
     carrier_id:role==='carrier'?(parseInt(V('u_carrier_id'),10)||null):null};
   if(authMode==='password'){
     const uname=V('u_username');
     if(!uname){toast('Username is required for password login',true);return;}
-    const dup=allScoped('users').find(u=>u.username===uname&&u.id!==id);
+    const dup=all('users').find(u=>u.username===uname&&u.id!==id);
     if(dup){toast('That username is already in use',true);return;}
     obj.username=uname;
     const pass=V('u_password');
@@ -7925,8 +8308,6 @@ function userSave(id){
   }else{
     obj.username=null;obj.password_hash=null;
   }
-  // Set tenant_id for new users (ensuring they belong to current tenant)
-  if(!id){obj.tenant_id=state.tenant.id;}
   if(id)upd('users',id,obj);else add('users',obj);
   toast('User saved');closeModal();render();
 }
@@ -7938,86 +8319,34 @@ function userDel(id){
   toast('User deleted');render();
 }
 function exportData(){
-  const isAdmin=can('settings');
-  const tenantId=state.tenant?.id;
-  let exportDb;
-  if(isAdmin){
-    exportDb=db;
-  }else{
-    if(!tenantId){toast('No tenant selected',true);return;}
-    exportDb={seq:db.seq||{}};
-    const scopedCollections=['users','customers','agreements','carriers','drivers','vendors','agents',
-      'trips','checklists','expenses','vendortx','agentcharges','invoices','inpayments',
-      'payables','outpayments','claims','journeys','fuel','employee_advances','fueltransfers',
-      'contras','paypromises'];
-    scopedCollections.forEach(coll=>{
-      const filtered=all(coll).filter(r=>!r.tenant_id||r.tenant_id===tenantId);
-      if(filtered.length>0)exportDb[coll]=filtered;
-    });
-  }
-  const blob=new Blob([JSON.stringify(exportDb,null,1)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify(db,null,1)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  const suffix=isAdmin?'all-tenants':'tenant-'+tenantId;
-  a.download='mucrm-backup-'+suffix+'-'+today()+'.json';
+  a.download='mucrm-backup-'+today()+'.json';
   a.click();
   URL.revokeObjectURL(a.href);
-  toast('Backup downloaded'+(isAdmin?' (all tenants)':' (current tenant only)'));
+  toast('Backup downloaded');
 }
 function importData(inp){
   const f=inp.files[0]; if(!f)return;
-  const isAdmin=can('settings');
-  const tenantId=state.tenant?.id;
   const r=new FileReader();
   r.onload=()=>{
     try{
       const d=JSON.parse(r.result);
       if(!d.seq||!d.trips||!d.users)throw new Error('bad');
-      if(isAdmin){
-        db=d;
-      }else{
-        if(!tenantId){toast('No tenant selected',true);return;}
-        db.seq=d.seq||db.seq;
-        const scopedCollections=['users','customers','agreements','carriers','drivers','vendors','agents',
-          'trips','checklists','expenses','vendortx','agentcharges','invoices','inpayments',
-          'payables','outpayments','claims','journeys','fuel','employee_advances','fueltransfers',
-          'contras','paypromises'];
-        scopedCollections.forEach(coll=>{
-          if(d[coll]){
-            const existing=all(coll).filter(r=>!r.tenant_id||r.tenant_id!==tenantId);
-            const imported=d[coll].filter(r=>!r.tenant_id||r.tenant_id===tenantId);
-            db[coll]=[...existing,...imported];
-          }
-        });
-      }
-      saveDB(); toast('Data imported'+(isAdmin?' (all tenants)':' (current tenant only)')); render();
+      db=d; saveDB(); toast('Data imported'); render();
     }catch(e){toast('Invalid backup file',true);}
   };
   r.readAsText(f);
 }
 function resetData(){
-  const isAdmin=can('settings');
-  const msg=isAdmin?'Reset ALL data to the demo seed? Current data in this browser will be lost.':
-    'Reset '+state.tenant.name+'\'s data to the demo seed? Current data will be lost.';
-  if(!confirm(msg))return;
-  if(isAdmin){
-    db=seedDB();
-  }else{
-    const tenantId=state.tenant.id;
-    const WIPE=['users','customers','agreements','carriers','drivers','vendors','agents',
-      'trips','checklists','expenses','vendortx','agentcharges','invoices','inpayments',
-      'payables','outpayments','claims','journeys','fuel','employee_advances','fueltransfers','contras','paypromises'];
-    WIPE.forEach(c=>{
-      db[c]=db[c].filter(r=>r.tenant_id&&r.tenant_id!==tenantId);
-      if(!db.seq)db.seq={};
-    });
-  }
-  saveDB(); state.user=byId('users',state.user?state.user.id:1)||null;
-  toast('Demo data restored'+(isAdmin?' for all tenants':' for '+state.tenant.name)); render();
+  if(!confirm('Reset ALL data to the demo seed? Current data in this browser will be lost.'))return;
+  db=seedDB(); saveDB(); state.user=byId('users',state.user?state.user.id:1)||null;
+  toast('Demo data restored'); render();
 }
 function genTestBookings(){
   if(!can('settings')){toast('Not permitted',true);return;}
-  const custs=allScoped('customers');
+  const custs=all('customers');
   if(!custs.length){toast('Add at least one customer first (Master data → Customers)',true);return;}
   const cities=listVals('city');
   if(cities.length<2){toast('Add at least 2 cities first (Master data → Dropdown Lists)',true);return;}
@@ -8052,41 +8381,21 @@ function genTestBookings(){
   render();
 }
 function wipeTransactions(){
-  const isAdmin=can('settings');
-  const scope=isAdmin?'all tenants':state.tenant.name;
-  if(!confirm('This clears all bookings, bilties/trips, journeys, expenses, fuel, invoices, payables, claims, checklists and related records ('+scope+') — keeping your customers, carriers, drivers, vendors, clearing agents and rate agreements intact.\n\nA full backup will download automatically first, just in case.\n\nContinue?'))return;
+  if(!confirm('This clears all bookings, bilties/trips, journeys, expenses, fuel, invoices, payables, claims, checklists and related records in this browser — keeping your customers, carriers, drivers, vendors, clearing agents and rate agreements intact.\n\nA full backup will download automatically first, just in case.\n\nContinue?'))return;
   exportData();
-  const tenantId=state.tenant?.id;
-  const WIPE=['trips','checklists','expenses','vendortx','agentcharges','invoices','inpayments','payables','outpayments','claims','journeys','fuel','fueltransfers','contras','paypromises'];
-  if(isAdmin){
-    WIPE.forEach(c=>{ db[c]=[]; db.seq[c]=0; });
-    db.overrides=[];
-    db.overheads=[];
-    db.vouchersigned=[];
-    db.journal_entries=[];
-    db.journal_lines=[];
-  }else{
-    WIPE.forEach(c=>{ db[c]=db[c].filter(r=>r.tenant_id&&r.tenant_id!==tenantId); });
-  }
+  const WIPE=['bookings','trips','checklists','expenses','vendortx','agentcharges','invoices','inpayments','payables','outpayments','claims','overrides','journeys','fuel','fueltransfers','overheads','vouchersigned','journal_entries','journal_lines','contras','paypromises'];
+  WIPE.forEach(c=>{ db[c]=[]; db.seq[c]=0; });
   saveDB();
-  toast('Backup downloaded — bookings/trips cleared ('+scope+'), master data kept');
+  toast('Backup downloaded — bookings/trips cleared, master data kept');
   render();
 }
 function wipeToBlank(){
-  const isAdmin=can('settings');
-  const scope=isAdmin?'all tenants':state.tenant.name;
-  if(!confirm('This permanently erases ALL business data ('+scope+') — customers, rate agreements, carriers, drivers, vendors, bookings, bilties, trips, expenses, fuel, invoices, payables, claims, everything — keeping only the login users, dropdown lists and default accounts.\n\nA full backup will download automatically first, just in case.\n\nContinue?'))return;
+  if(!confirm('This permanently erases ALL business data in this browser — customers, rate agreements, carriers, drivers, vendors, bookings, bilties, trips, expenses, fuel, invoices, payables, claims, everything — keeping only the login users, dropdown lists and default accounts.\n\nA full backup will download automatically first, just in case.\n\nContinue?'))return;
   exportData();
-  const tenantId=state.tenant?.id;
-  const KEEP=['users','listopts','accounts','chart_of_accounts','tenants'];
-  if(isAdmin){
-    COLLS.forEach(c=>{ if(!KEEP.includes(c)){ db[c]=[]; if(db.seq)db.seq[c]=0; } });
-  }else{
-    const WIPE=['customers','agreements','carriers','drivers','vendors','agents','trips','checklists','expenses','vendortx','agentcharges','invoices','inpayments','payables','outpayments','claims','journeys','fuel','employee_advances','fueltransfers','contras','paypromises'];
-    WIPE.forEach(c=>{ db[c]=db[c].filter(r=>r.tenant_id&&r.tenant_id!==tenantId); });
-  }
+  const KEEP=['users','listopts','accounts','chart_of_accounts'];
+  COLLS.forEach(c=>{ if(!KEEP.includes(c)){ db[c]=[]; db.seq[c]=0; } });
   saveDB();
-  toast('Backup downloaded — all business data ('+scope+') cleared, starting from a clean slate');
+  toast('Backup downloaded — all business data cleared, starting from a clean slate');
   render();
 }
 
@@ -8101,47 +8410,29 @@ function loginHero(){
     <div class="mark">↗</div>
     <div class="loadyar-mark"><span class="ly-load">Load</span><span class="ly-yar">Yar</span></div>
     <div class="loadyar-tag">${esc(PRODUCT_TAGLINE)}</div>
-    <!-- Removed UTN branding from login hero - this is neutral LoadYar login page for all tenants -->
+    <div class="workspace-wrap">
+      <img src="${UTN_LOGO_3D}" alt="${esc(CO_NAME)} logo" class="utn-logo">
+      <div class="client-block">
+        <div class="client-lbl">Client workspace</div>
+        <h1>${esc(CO_NAME)}</h1>
+        <div class="tag">Car carrier &amp; logistics operations</div>
+      </div>
+    </div>
     <div class="stats">
-      <div class="metric"><b>${allScoped('trips').length}</b>Bilties logged</div>
-      <div class="metric"><b>${allScoped('carriers').length}</b>Carriers</div>
-      <div class="metric"><b>${allScoped('customers').length}</b>Customers</div>
+      <div class="metric"><b>${all('trips').length}</b>Bilties logged</div>
+      <div class="metric"><b>${all('carriers').length}</b>Carriers</div>
+      <div class="metric"><b>${all('customers').length}</b>Customers</div>
     </div>
     <div class="clockline">${esc(topClockText())} · Powered by ${esc(PRODUCT_NAME)}</div>
   </div>`;
 }
 function loginHTML(){
-  // PHASE 2.5: Tenant selection screen
-  if(window._showTenantSelection){
-    const u=byId('users',window._loginUserId);
-    // Super admin (tenant_id=null) sees all tenants; regular admin sees only their tenant
-    let tenants=all('tenants').filter(t=>t.status==='active');
-    if(u&&u.tenant_id!==null){tenants=tenants.filter(t=>t.id===u.tenant_id);}
-    if(!u||tenants.length===0){return '<div class="loginwrap">Error loading tenants</div>';}
-    return `<div class="loginwrap">${loginHero()}<div class="login-card-side"><div class="loginbox">
-    <div class="sub">Select your workspace</div>
-    <div class="userbtn" style="cursor:default;margin-bottom:14px">
-      <span class="av navy">${esc(u.name[0])}</span>
-      <span><div class="nm">${esc(u.name)}</div><div class="small mut">${esc(u.role)}</div></span>
-    </div>
-    <div class="fgrid" style="margin-top:14px;margin-bottom:0">
-      <div class="frow full"><label style="color:rgba(255,255,255,.75)">Workspace</label>
-        <select id="login_tenant_select" onkeydown="if(event.key==='Enter')loginSelectTenant()">
-          <option value="">— Select workspace —</option>
-          ${tenants.map(t=>`<option value="${t.id}">${esc(t.name)}${t.region?' — '+esc(t.region):''}</option>`).join('')}
-        </select></div>
-    </div>
-    <button class="btn" style="width:100%;margin-top:10px" onclick="loginSelectTenant()">Continue</button>
-    <button class="btn ghost" style="width:100%;margin-top:8px" onclick="window._showTenantSelection=false;window._loginUserId=null;render()">← Choose a different user</button>
-    <div class="small mut" style="margin-top:12px">Data stays in this browser. Works offline once installed as an app.</div>
-    <div class="small mut" style="margin-top:8px">© ${new Date().getFullYear()} Dreamers. All rights reserved.</div>
-    </div></div></div>`;
-  }
-
-  const users=allScoped('users');
+  const users=all('users');
   const selUser=window._loginSelected!=null?byId('users',window._loginSelected):null;
   if(selUser){
     return `<div class="loginwrap">${loginHero()}<div class="login-card-side"><div class="loginbox">
+    <img src="${UTN_LOGO_3D}" alt="" class="card-logo">
+    <h1>${esc(CO_NAME)}</h1>
     <div class="sub">Transport operations — <span class="vtag">MVP ${APP_VER}</span></div>
     <div class="userbtn" style="cursor:default">
       <span class="av navy">${esc(selUser.name[0])}</span>
@@ -8158,8 +8449,9 @@ function loginHTML(){
     </div></div></div>`;
   }
   return `<div class="loginwrap">${loginHero()}<div class="login-card-side"><div class="loginbox">
-  <h1>LoadYar</h1>
-  <div class="sub">Transport management — <span class="vtag">MVP ${APP_VER}</span>. Choose a user to sign in.</div>
+  <img src="${UTN_LOGO_3D}" alt="" class="card-logo">
+  <h1>${esc(CO_NAME)}</h1>
+  <div class="sub">Transport operations — <span class="vtag">MVP ${APP_VER}</span>. Choose a user to sign in.</div>
   <div class="frow full"><label style="color:rgba(255,255,255,.75)">User</label>
     <select id="login_user_select" onkeydown="if(event.key==='Enter')loginSelectContinue()">
       <option value="">— Select your name —</option>
@@ -8178,57 +8470,14 @@ function loginSelectContinue(){
 function loginPick(uid){
   const u=byId('users',uid); if(!u)return;
   if(u.auth_mode==='password'){window._loginSelected=uid;render();return;}
-  // PHASE 2.5: Show tenant selection after password validation
-  loginShowTenantSelection(uid);
+  login(uid);
 }
 function loginPickPassword(uid){
   const u=byId('users',uid); if(!u)return;
   const pass=(document.getElementById('login_password')||{}).value||'';
   if(simpleHash(pass)!==u.password_hash){toast('Wrong password',true);return;}
   window._loginSelected=null;
-  // PHASE 2.5: Show tenant selection after password validation
-  loginShowTenantSelection(uid);
-}
-// PHASE 2.5: Tenant selection screen
-function loginShowTenantSelection(uid){
-  const u=byId('users',uid); if(!u)return;
-  window._loginUserId=uid;
-  window._showTenantSelection=true;
-  render();
-}
-function loginSelectTenant(){
-  const tid=parseInt(V('login_tenant_select'),10)||null;
-  if(!tid){toast('Select a tenant first',true);return;}
-  const u=byId('users',window._loginUserId);
-  const t=byId('tenants',tid);
-  if(!u||!t){toast('Invalid selection',true);return;}
-  window._loginUserId=null;
-  window._showTenantSelection=false;
-  login(u.id,tid);
-}
-// Updated login function to accept tenant_id (PHASE 2.5)
-function login(uid,tenantId){
-  const u=byId('users',uid);
-  if(!u){toast('User not found',true);return;}
-  const tenant=tenantId?byId('tenants',tenantId):null;
-  state.user=u;
-  state.tenant=tenant||{id:1,name:'Default'}; // Fallback for single-tenant
-  sessionStorage.setItem('mucrm_uid',uid);
-  sessionStorage.setItem('mucrm_tid',tenantId||1);
-  render();
-}
-// PHASE 2.5: Logout function
-function logout(){
-  state.user=null;
-  state.tenant=null;
-  sessionStorage.removeItem('mucrm_uid');
-  sessionStorage.removeItem('mucrm_tid');
-  window._loginSelected=null;
-  window._loginUserId=null;
-  window._showTenantSelection=false;
-  location.hash='';
-  toast('Signed out');
-  render();
+  login(uid);
 }
 /* Live clock in the topbar — set up once at boot, not inside render(), since render() runs on
    every save/toggle throughout the app and would otherwise stack a new interval each time. */
@@ -8246,19 +8495,8 @@ function topClockTick(){
 /* ===== S8: boot ===== */
 loadDB();
 (function(){
-  // PHASE 2.5: Restore both user and tenant from session
   const uid=parseInt(sessionStorage.getItem('mucrm_uid'),10);
-  const tid=parseInt(sessionStorage.getItem('mucrm_tid'),10);
-  if(uid){
-    const u=byId('users',uid);
-    if(u){
-      state.user=u;
-      if(tid){
-        const t=byId('tenants',tid);
-        if(t){state.tenant=t;}
-      }
-    }
-  }
+  if(uid){const u=byId('users',uid); if(u)state.user=u;}
 })();
 window.addEventListener('hashchange',render);
 render();
@@ -8267,81 +8505,100 @@ if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){
   navigator.serviceWorker.register('sw.js').catch(function(){});
 }
 
-// Help/FAQ - Modern Card Design
+// Help/FAQ
 function openHelpFAQ(){
-  const faqData=[
-    {icon:'📋',title:'Booking / Bilty',desc:'Create and manage bilties',qa:[
-      {q:'How do I create a new booking?',a:'1. Click Booking/Bilty in Operations<br>2. Fill in Steps 1-4: Details, Vehicle, Charges, Agent<br>3. Click Save<br>Digital bilty auto-generated if left blank'},
-      {q:'Can I use a manual bilty number?',a:'Yes! Enter in Step 1. If it exists, you\'ll get a warning but can proceed anyway (paper bilties duplicate sometimes)'},
-      {q:'What does "Private / Open Market" mean?',a:'<strong>Open Market:</strong> No rate agreement, you set freight manually<br><strong>Private:</strong> Uses customer rate agreement'}
-    ]},
-    {icon:'🚗',title:'Trips & Journeys',desc:'Execute trips & manage journeys',qa:[
-      {q:'What\'s the difference between Trip and Journey?',a:'<strong>Trip:</strong> Single bilty (shipment)<br><strong>Journey:</strong> Multiple trips in one driver\'s run'},
-      {q:'How do I create a journey?',a:'1. Go to Create Trips<br>2. Select Driver and Carrier<br>3. Click "+ Add Bilty"<br>4. Select bilties and click Save Journey'},
-      {q:'When do I complete the checklist?',a:'BEFORE trip starts. Click bilty > Checklist tab > mark all 28 items. If fail, note in Remarks'}
-    ]},
-    {icon:'💰',title:'Expenses & Fuel',desc:'Track trip costs & fuel',qa:[
-      {q:'How do I record expenses?',a:'1. Go to Booking Register, click completed trip<br>2. Click "+ Expense"<br>3. Select type (Fuel, Toll, Repair, etc)<br>4. Enter amount & click Save<br>Posts to GL automatically'},
-      {q:'Can I edit an expense after saving?',a:'Yes. Click Edit, change amount/notes, click Save. Old GL entry reversed, new one posted (audit trail kept)'}
-    ]},
-    {icon:'📄',title:'Invoicing',desc:'Generate & manage invoices',qa:[
-      {q:'How do I create an invoice?',a:'1. Invoices & Payments<br>2. "+ New Invoice"<br>3. Select Bilty, set amount<br>4. Check SRB/WHT if needed<br>5. Click Save'},
-      {q:'What is SRB and WHT?',a:'<strong>SRB:</strong> 15% sales tax added to invoice<br><strong>WHT:</strong> 7% withholding tax deducted from invoice'}
-    ]},
-    {icon:'💳',title:'Payments',desc:'Track incoming & outgoing payments',qa:[
-      {q:'How do I record a payment?',a:'1. Invoices & Payments<br>2. Click invoice > Payments<br>3. "+ New Payment"<br>4. Enter Date, Amount, Method<br>5. Click Save (status auto-updates)'},
-      {q:'Can I make partial payments?',a:'Yes! Pay any amount. Balance stays outstanding. Status: Unpaid → Partial → Paid'}
-    ]},
-    {icon:'🤝',title:'Employee Advances',desc:'Manage driver advances & deductions',qa:[
-      {q:'How do I give an advance?',a:'1. Employee Advances (Finance section)<br>2. "+ Give Advance"<br>3. Select employee, amount, type<br>4. Click Give Advance<br>Account 1500 updated automatically'},
-      {q:'How do I deduct from salary?',a:'1. Go to Payables (salary record)<br>2. Click Payments<br>3. Check "Outstanding Advances"<br>4. Net salary auto-calculated<br>5. Click Record Payment (GL posts recovery)'}
-    ]},
-    {icon:'📊',title:'Reports & GL',desc:'View GL accounts & reports',qa:[
-      {q:'How do I check GL balance?',a:'Finance > Balances. Check: Total Assets = Liabilities + Equity. If not, check Suspense account (9999)'},
-      {q:'How do I view GL entries?',a:'Finance > GL Account Report > select account code. See all debits/credits with dates'}
-    ]},
-    {icon:'🔧',title:'Troubleshooting',desc:'Common issues & solutions',qa:[
-      {q:'Invoice amount doesn\'t match - why?',a:'Likely SRB/WHT applied. Example: Rs 100K + 15% SRB = Rs 115K. Check breakdown in invoice detail'},
-      {q:'GL accounts don\'t balance - fix?',a:'Check Suspense account (9999). If balance there, a journal entry was unbalanced. Contact support'},
-      {q:'Can\'t add expense - "Trip not complete"',a:'Expenses only work on completed trips. Booking Register > open trip > status "Completed" > Save > then add expenses'}
-    ]}
-  ];
-  let html=`<div class="help-header"><h2>HELP & FREQUENTLY ASKED QUESTIONS</h2><p>Click any category to explore questions</p></div>
-    <div class="help-wrapper">
-      <div class="help-main">
-        <div class="help-search"><input type="text" id="helpSearchInput" placeholder="Search FAQ..." onkeyup="filterNewFAQ()"></div>
-        <div class="help-content faq-grid" id="helpContent">`;
-  faqData.forEach((cat,idx)=>{
-    html+=`<div class="faq-card" onclick="toggleCard(this)" data-idx="${idx}">
-      <span class="icon">${cat.icon}</span>
-      <h3>${cat.title}</h3>
-      <p>${cat.desc}</p>
-      <div class="faq-qa">`;
-    cat.qa.forEach((item)=>{
-      html+=`<div class="faq-q" onclick="event.stopPropagation();toggleQA(this)">${item.q}</div>
-        <div class="faq-a">${item.a}</div>`;
-    });
-    html+=`</div></div>`;
-  });
-  html+=`</div></div><div class="help-sidebar"><div class="help-support"><h4>Need Support?</h4>
-    <button class="help-support-btn" onclick="alert('Support team: WhatsApp +92-300-XXXX-XXX')">Chat Support</button></div></div></div>`;
+  const html=`
+
+    <div class="help-header"><h2>❓ LoadYar Help & FAQ</h2><p>Click any question to expand the answer</p></div>
+    <div class="help-search"><input type="text" id="helpSearchInput" placeholder="Search FAQ..." onkeyup="filterHelpFAQ()"></div>
+    <div class="help-content" id="helpContent">
+      <div class="faq-topic">
+        <h3 onclick="toggleTopic(this)">📋 Booking / Bilty</h3>
+        <div class="faq-items" style="display:none">
+          <div class="faq"><strong onclick="toggleFAQ(this)">How do I create a new booking?</strong><div style="display:none">1. Click Booking/Bilty in Operations<br>2. Fill in Steps 1-4: Details, Vehicle, Charges, Agent<br>3. Click Save<br>Digital bilty auto-generated if left blank</div></div>
+          <div class="faq"><strong onclick="toggleFAQ(this)">Can I use a manual bilty number?</strong><div style="display:none">Yes! Enter in Step 1. If it exists, you'll get a warning but can proceed anyway (paper bilties duplicate sometimes)</div></div>
+          <div class="faq"><strong onclick="toggleFAQ(this)">What does "Private / Open Market" mean?</strong><div style="display:none"><strong>Open Market:</strong> No rate agreement, you set freight manually<br><strong>Private:</strong> Uses customer rate agreement</div></div>
+        </div>
+      </div>
+      <div class="faq-topic">
+        <h3 onclick="toggleTopic(this)">🚗 Trips & Journeys</h3>
+        <div class="faq-items" style="display:none">
+          <div class="faq"><strong onclick="toggleFAQ(this)">What's the difference between Trip and Journey?</strong><div style="display:none"><strong>Trip:</strong> Single bilty (shipment)<br><strong>Journey:</strong> Multiple trips in one driver's run</div></div>
+          <div class="faq"><strong onclick="toggleFAQ(this)">How do I create a journey?</strong><div style="display:none">1. Go to Create Trips<br>2. Select Driver and Carrier<br>3. Click "+ Add Bilty"<br>4. Select bilties and click Save Journey</div></div>
+          <div class="faq"><strong onclick="toggleFAQ(this)">When do I complete the checklist?</strong><div style="display:none">BEFORE trip starts. Click bilty > Checklist tab > mark all 28 items. If fail, note in Remarks</div></div>
+        </div>
+      </div>
+      <div class="faq-topic">
+        <h3 onclick="toggleTopic(this)">💰 Expenses & Fuel</h3>
+        <div class="faq-items" style="display:none">
+          <div class="faq"><strong onclick="toggleFAQ(this)">How do I record expenses?</strong><div style="display:none">1. Go to Booking Register, click completed trip<br>2. Click "+ Expense"<br>3. Select type (Fuel, Toll, Repair, etc)<br>4. Enter amount & click Save<br>Posts to GL automatically</div></div>
+          <div class="faq"><strong onclick="toggleFAQ(this)">Can I edit an expense after saving?</strong><div style="display:none">Yes. Click Edit, change amount/notes, click Save. Old GL entry reversed, new one posted (audit trail kept)</div></div>
+        </div>
+      </div>
+      <div class="faq-topic">
+        <h3 onclick="toggleTopic(this)">📄 Invoicing</h3>
+        <div class="faq-items" style="display:none">
+          <div class="faq"><strong onclick="toggleFAQ(this)">How do I create an invoice?</strong><div style="display:none">1. Invoices & Payments<br>2. "+ New Invoice"<br>3. Select Bilty, set amount<br>4. Check SRB/WHT if needed<br>5. Click Save</div></div>
+          <div class="faq"><strong onclick="toggleFAQ(this)">What is SRB and WHT?</strong><div style="display:none"><strong>SRB:</strong> 15% sales tax added to invoice<br><strong>WHT:</strong> 7% withholding tax deducted from invoice</div></div>
+        </div>
+      </div>
+      <div class="faq-topic">
+        <h3 onclick="toggleTopic(this)">💳 Payments</h3>
+        <div class="faq-items" style="display:none">
+          <div class="faq"><strong onclick="toggleFAQ(this)">How do I record a payment?</strong><div style="display:none">1. Invoices & Payments<br>2. Click invoice > Payments<br>3. "+ New Payment"<br>4. Enter Date, Amount, Method<br>5. Click Save (status auto-updates)</div></div>
+          <div class="faq"><strong onclick="toggleFAQ(this)">Can I make partial payments?</strong><div style="display:none">Yes! Pay any amount. Balance stays outstanding. Status: Unpaid → Partial → Paid</div></div>
+        </div>
+      </div>
+      <div class="faq-topic">
+        <h3 onclick="toggleTopic(this)">🤝 Employee Advances</h3>
+        <div class="faq-items" style="display:none">
+          <div class="faq"><strong onclick="toggleFAQ(this)">How do I give an advance?</strong><div style="display:none">1. Employee Advances (Finance section)<br>2. "+ Give Advance"<br>3. Select employee, amount, type<br>4. Click Give Advance<br>Account 1500 updated automatically</div></div>
+          <div class="faq"><strong onclick="toggleFAQ(this)">How do I deduct from salary?</strong><div style="display:none">1. Go to Payables (salary record)<br>2. Click Payments<br>3. Check "Outstanding Advances"<br>4. Net salary auto-calculated<br>5. Click Record Payment (GL posts recovery)</div></div>
+        </div>
+      </div>
+      <div class="faq-topic">
+        <h3 onclick="toggleTopic(this)">📊 Reports & GL</h3>
+        <div class="faq-items" style="display:none">
+          <div class="faq"><strong onclick="toggleFAQ(this)">How do I check GL balance?</strong><div style="display:none">Finance > Balances. Check: Total Assets = Liabilities + Equity. If not, check Suspense account (9999)</div></div>
+          <div class="faq"><strong onclick="toggleFAQ(this)">How do I view GL entries?</strong><div style="display:none">Finance > GL Account Report > select account code. See all debits/credits with dates</div></div>
+        </div>
+      </div>
+      <div class="faq-topic">
+        <h3 onclick="toggleTopic(this)">🔧 Troubleshooting</h3>
+        <div class="faq-items" style="display:none">
+          <div class="faq"><strong onclick="toggleFAQ(this)">Invoice amount doesn't match - why?</strong><div style="display:none">Likely SRB/WHT applied. Example: Rs 100K + 15% SRB = Rs 115K. Check breakdown in invoice detail</div></div>
+          <div class="faq"><strong onclick="toggleFAQ(this)">GL accounts don't balance - fix?</strong><div style="display:none">Check Suspense account (9999). If balance there, a journal entry was unbalanced. Contact support</div></div>
+          <div class="faq"><strong onclick="toggleFAQ(this)">Can't add expense - "Trip not complete"</strong><div style="display:none">Expenses only work on completed trips. Booking Register > open trip > status "Completed" > Save > then add expenses</div></div>
+        </div>
+      </div>
+    </div>
+  `;
   openModal(html,true);
 }
 
-function toggleCard(el){
-  el.classList.toggle('expanded');
+function toggleTopic(el){
+  const items=el.nextElementSibling;
+  if(items)items.style.display=items.style.display==='none'?'block':'none';
+  el.style.opacity=el.style.opacity==='0.6'?'1':'0.6';
 }
 
-function toggleQA(el){
-  const parent=el.parentElement;
-  parent.classList.toggle('open');
+function toggleFAQ(el){
+  const ans=el.nextElementSibling;
+  if(ans)ans.style.display=ans.style.display==='none'?'block':'none';
+  el.style.color=el.style.color==='#0176D3'?'#032D60':'#0176D3';
 }
 
-function filterNewFAQ(){
+function filterHelpFAQ(){
   const q=V('helpSearchInput').toLowerCase();
-  document.querySelectorAll('.faq-card').forEach(card=>{
-    const text=card.textContent.toLowerCase();
-    card.style.display=text.includes(q)?'block':'none';
+  document.querySelectorAll('.faq-topic').forEach(t=>{
+    const items=t.querySelectorAll('.faq');
+    let show=false;
+    items.forEach(f=>{
+      const match=f.textContent.toLowerCase().includes(q);
+      f.style.display=match?'block':'none';
+      if(match)show=true;
+    });
+    t.style.display=show||!q?'block':'none';
   });
 }
 </script>

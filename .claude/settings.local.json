@@ -12,7 +12,8 @@
       "Bash(git init *)",
       "PowerShell(Test-Path \"C:\\\\Program Files\\\\nodejs\\\\node.exe\"; Test-Path \"$env:APPDATA\\\\npm\\\\node.exe\"; Test-Path \"$env:LOCALAPPDATA\\\\Programs\\\\nodejs\\\\node.exe\"; Get-ChildItem \"C:\\\\Program Files\\\\nodejs\" -ErrorAction SilentlyContinue; [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"Machine\"\\) -split ';' | Select-String -SimpleMatch \"node\"; [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"User\"\\) -split ';' | Select-String -SimpleMatch \"node\")",
       "PowerShell(& \"C:\\\\Program Files\\\\nodejs\\\\node.exe\" --version)",
-      "PowerShell(& \"C:\\\\Program Files\\\\nodejs\\\\npm.cmd\" --version)"
+      "PowerShell(& \"C:\\\\Program Files\\\\nodejs\\\\npm.cmd\" --version)",
+      "mcp__claude-in-chrome__javascript_tool"
     ]
   }
 }
