@@ -6925,11 +6925,11 @@ function pageDashboard(){
   const invs=all('invoices');
   const recv=invs.reduce((s,i)=>s+invOutstanding(i),0);
   const payOut=all('payables').reduce((s,p)=>s+payOutstanding(p),0)
-    +all('vendortx').reduce((s,x)=>s+x.amount_paisa-outPaidFor('vendortx',x.id),0)
+    +all('vendortx').reduce((s,x)=>s+(x.amount_paisa-outPaidFor('vendortx',x.id)),0)
     +all('agentcharges').filter(x=>(x.direction||'payable')!=='receivable')
-      .reduce((s,x)=>s+x.amount_paisa-outPaidFor('agentcharge',x.id),0)
-    +all('overheads').reduce((s,x)=>s+x.amount_paisa-outPaidFor('overhead',x.id),0)
-    +all('invoices').filter(i=>invParts(i).srb>0).reduce((s,i)=>s+srbPayableAmount(i)-outPaidFor('srb',i.id),0);
+      .reduce((s,x)=>s+(x.amount_paisa-outPaidFor('agentcharge',x.id)),0)
+    +all('overheads').reduce((s,x)=>s+(x.amount_paisa-outPaidFor('overhead',x.id)),0)
+    +all('invoices').filter(i=>invParts(i).srb>0).reduce((s,i)=>s+(srbPayableAmount(i)-outPaidFor('srb',i.id)),0);
   const biltiesCur=all('trips').filter(t=>inRange(t.date||'',rng)).length;
   const biltiesPrev=all('trips').filter(t=>inRange(t.date||'',prevRng)).length;
   const journeysCur=all('journeys').filter(j=>inRange(j.date||'',rng)).length;

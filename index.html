@@ -325,7 +325,7 @@ td.actions .btn.sm:first-child{margin-left:0}
 <script>
 "use strict";
 /* ===== S1: constants, enums, permissions ===== */
-const APP_VER='v4.225';
+const APP_VER='v4.226';
 /* Phase 1 ledger (chart_of_accounts/journal_entries/journal_lines) live behind the scenes only —
    driver advances, trip expenses and fuel now post balanced entries via postEntry()/reverseEntry().
    Nothing on screen changed; this is the foundation for re-pointing totals in a later step. */
@@ -993,7 +993,7 @@ function employeeAdvancesOutstandingByDriver(){
 function driverOutstandingAdvances(driverId){
   return all('employee_advances').filter(a=>a.driver_id==driverId&&!a.deleted_at&&a.status!=='settled');
 }
-function advanceForm(driverId){
+function employeeAdvanceForm(driverId){
   const d=byId('drivers',driverId);
   if(!d)return '';
   return `<div class="fgrid">
@@ -2681,7 +2681,9 @@ function pageBookings(){
       <div style="display:flex;gap:6px"><select id="b_customer" onchange="bkConsignees();bkMakeColour();bkRateSuggest()" style="flex:1">${fkOptions('customers',rec.customer_id)}</select>
       <button type="button" class="btn ghost sm" onclick="bkNewConsigner()">+ New</button></div></div>
     <div class="frow"><label class="req">${bi('From','کہاں سے')}</label><select id="b_from" onchange="bkRateSuggest()">${listOpts('city',rec.route_from)}</select></div>
-    <div class="frow"><label class="req">${bi('Destination','منزل')}</label><select id="b_dest" onchange="bkRateSuggest();bkAgentSuggest()">${listOpts('city',rec.destination)}</select></div>
+    <div class="frow"><label class="req">${bi('Destination','منزل')}</label>
+      <div style="display:flex;gap:6px"><select id="b_dest" style="flex:1" onchange="bkRateSuggest();bkAgentSuggest()">${listOpts('city',rec.destination)}</select>
+      <button type="button" class="btn ghost sm" onclick="bkNewCity()">+ New</button></div></div>
     <div class="frow full"><label>${bi('Consignee','وصول کنندہ')}</label>
       <div style="display:flex;gap:6px"><select id="b_consignee" style="flex:1"></select>
       <button type="button" class="btn ghost sm" onclick="bkNewConsignee()">+ New</button></div>
@@ -2818,6 +2820,40 @@ function bkNewAgentSave(){
   const sel=document.getElementById('b_agent'); if(sel)sel.innerHTML=fkOptions('agents',a.id);
   bkAgentCostFill();
   toast('Clearing agent added — '+name);
+}
+function bkNewCity(){
+  openModal(`<h2>New Destination</h2>
+  <div class="fgrid"><div class="frow full"><label class="req">City name</label><input id="qc_city" placeholder="e.g., Islamabad, Lahore"></div></div>
+  <div class="hint" style="margin-top:6px">Add this as a new destination option for all bookings.</div>
+  <div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button>
+  <button class="btn" onclick="bkNewCitySave()">Add</button></div>`);
+  document.getElementById('qc_city').focus();
+}
+function bkNewCitySave(){
+  const city=V('qc_city'); if(!city){toast('City name is required',true);return;}
+  if(listVals('city').some(c=>c.toLowerCase()===city.toLowerCase())){toast('This city already exists',true);return;}
+  add('listopts',{kind:'city',value:city});
+  closeModal();
+  const sel=document.getElementById('b_dest');
+  if(sel){sel.innerHTML=listOpts('city','');sel.value=city;}
+  toast('Destination added — '+city);
+}
+function jNewCity(fieldId){
+  openModal(`<h2>New City</h2>
+  <div class="fgrid"><div class="frow full"><label class="req">City name</label><input id="qc_city" placeholder="e.g., Islamabad, Lahore"></div></div>
+  <div class="hint" style="margin-top:6px">Add this as a new city option for all routes.</div>
+  <div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button>
+  <button class="btn" onclick="jNewCitySave('${fieldId}')">Add</button></div>`);
+  document.getElementById('qc_city').focus();
+}
+function jNewCitySave(fieldId){
+  const city=V('qc_city'); if(!city){toast('City name is required',true);return;}
+  if(listVals('city').some(c=>c.toLowerCase()===city.toLowerCase())){toast('This city already exists',true);return;}
+  add('listopts',{kind:'city',value:city});
+  closeModal();
+  const sel=document.getElementById(fieldId);
+  if(sel){sel.innerHTML=listOpts('city','');sel.value=city;}
+  toast('City added — '+city);
 }
 /* Fills a clearing-cost input from the selected agent's own default charge — only when the cost
    field is still empty, same "suggestion, not override" rule as freight/agent auto-fill. */
@@ -3644,6 +3680,9 @@ function advanceForm(jid,id){
     <div class="frow"><label>Bilty (optional)</label>
       <select id="adv_trip" onchange="advTripChange()"><option value="">— Whole trip —</option>
       ${loads.map(t=>`<option value="${t.id}" ${String(rec.trip_id)===String(t.id)?'selected':''}>${esc(t.bilty_no)} — ${esc(nm('customers',t.customer_id))}</option>`).join('')}</select></div>
+    <div class="frow"><label class="req">Paid to (Driver)</label>
+      <select id="adv_driver">${fkOptions('drivers',rec.paid_to_driver_id||jj.driver_id)}</select>
+      <div class="hint">Driver receiving this advance.</div></div>
     <div class="frow"><label class="req">Date</label><input type="date" id="adv_date" value="${esc(rec.date||jj.date||today())}"></div>
     <div class="frow"><label class="req">Given by</label>
       <select id="adv_source" onchange="advSourceChange()">
@@ -3672,9 +3711,16 @@ function advSourceChange(){
   document.getElementById('adv_payee_wrap').style.display=v==='payee'?'':'none';
 }
 function advTripChange(){
-  const tid=parseInt(V('adv_trip'),10)||null; if(!tid)return;
-  const t=byId('trips',tid), sel=document.getElementById('adv_customer');
-  if(t&&sel)sel.value=t.customer_id;
+  const tid=parseInt(V('adv_trip'),10)||null;
+  const custSel=document.getElementById('adv_customer');
+  const drvSel=document.getElementById('adv_driver');
+  if(tid){
+    const t=byId('trips',tid);
+    if(t){
+      if(custSel)custSel.value=t.customer_id;
+      if(drvSel&&t.driver_id)drvSel.value=t.driver_id;
+    }
+  }
 }
 function advanceSave(id,jid){
   const amount=P(V('adv_amount'));
@@ -3685,6 +3731,7 @@ function advanceSave(id,jid){
   const j=byId('journeys',jid);
   const base={journey_id:jid,trip_id:tripId,date:date,type:'driver_advance',amount_paisa:amount,
     notes:V('adv_notes'),advance_source:source,
+    paid_to_driver_id:parseInt(V('adv_driver'),10)||null,
     account_id:source==='company'?(parseInt(V('adv_account'),10)||null):null,
     advance_customer_id:source==='customer'?(parseInt(V('adv_customer'),10)||null):null,
     advance_payee:source==='payee'?V('adv_payee'):null};
@@ -3869,8 +3916,12 @@ function journeyForm(id){
       <input type="date" id="j_date_end" value="${esc(rec.date_end||'')}">
       <div class="hint">Leave blank to use today — set the real date when entering a trip that already finished in the past.</div>
     </div>
-    <div class="frow"><label class="req">${bi('From','کہاں سے')}</label><select id="j_from">${listOpts('city',rec.route_from)}</select></div>
-    <div class="frow"><label class="req">${bi('To','کہاں تک')}</label><select id="j_to">${listOpts('city',rec.route_to)}</select></div>
+    <div class="frow"><label class="req">${bi('From','کہاں سے')}</label>
+      <div style="display:flex;gap:6px"><select id="j_from" style="flex:1">${listOpts('city',rec.route_from)}</select>
+      <button type="button" class="btn ghost sm" onclick="jNewCity('j_from')">+ New</button></div></div>
+    <div class="frow"><label class="req">${bi('To','کہاں تک')}</label>
+      <div style="display:flex;gap:6px"><select id="j_to" style="flex:1">${listOpts('city',rec.route_to)}</select>
+      <button type="button" class="btn ghost sm" onclick="jNewCity('j_to')">+ New</button></div></div>
     <div class="frow full"><label>Stations on route (Ctrl-click to select multiple — scroll for more, sorted A–Z)
       <button type="button" class="btn ghost sm" style="margin-left:8px" onclick="jSuggestStations()">✨ Suggest stops from route</button></label>
       <select id="j_stations" multiple size="10">${cities.map(c=>`<option value="${esc(c)}" ${(rec.stations||[]).includes(c)?'selected':''}>${esc(c)}</option>`).join('')}</select>
@@ -4923,7 +4974,7 @@ function employeeAdvanceNewForm(){
     <div class="fgrid">
       <div class="full"><label class="req">Driver</label><select id="adv_driver"><option value="">— Select —</option>
         ${drivers.map(d=>`<option value="${d.id}">${esc(d.name)}</option>`).join('')}</select></div>
-      ${advanceForm(V('adv_driver')||'')}</div>
+      ${employeeAdvanceForm(V('adv_driver')||'')}</div>
     `, false);
   document.getElementById('adv_driver').addEventListener('change',()=>{render();});
 }
@@ -6874,11 +6925,11 @@ function pageDashboard(){
   const invs=all('invoices');
   const recv=invs.reduce((s,i)=>s+invOutstanding(i),0);
   const payOut=all('payables').reduce((s,p)=>s+payOutstanding(p),0)
-    +all('vendortx').reduce((s,x)=>s+x.amount_paisa-outPaidFor('vendortx',x.id),0)
+    +all('vendortx').reduce((s,x)=>s+(x.amount_paisa-outPaidFor('vendortx',x.id)),0)
     +all('agentcharges').filter(x=>(x.direction||'payable')!=='receivable')
-      .reduce((s,x)=>s+x.amount_paisa-outPaidFor('agentcharge',x.id),0)
-    +all('overheads').reduce((s,x)=>s+x.amount_paisa-outPaidFor('overhead',x.id),0)
-    +all('invoices').filter(i=>invParts(i).srb>0).reduce((s,i)=>s+srbPayableAmount(i)-outPaidFor('srb',i.id),0);
+      .reduce((s,x)=>s+(x.amount_paisa-outPaidFor('agentcharge',x.id)),0)
+    +all('overheads').reduce((s,x)=>s+(x.amount_paisa-outPaidFor('overhead',x.id)),0)
+    +all('invoices').filter(i=>invParts(i).srb>0).reduce((s,i)=>s+(srbPayableAmount(i)-outPaidFor('srb',i.id)),0);
   const biltiesCur=all('trips').filter(t=>inRange(t.date||'',rng)).length;
   const biltiesPrev=all('trips').filter(t=>inRange(t.date||'',prevRng)).length;
   const journeysCur=all('journeys').filter(j=>inRange(j.date||'',rng)).length;
@@ -6936,11 +6987,13 @@ function pageDashboard(){
   const custIds=new Set();invs.filter(i=>invOutstanding(i)>0).forEach(i=>{if(i.customer_id)custIds.add(i.customer_id)});
   const recvCount=custIds.size;
   // Payable breakdown by type
-  const carrierIds=new Set(),vendorIds2=new Set(),agentIds=new Set();
+  const carrierIds=new Set(),vendorIds2=new Set(),agentIds=new Set(),overheadIds=new Set(),srbIds=new Set();
   all('payables').filter(p=>payOutstanding(p)>0).forEach(p=>{if(p.carrier_id)carrierIds.add(p.carrier_id)});
   all('vendortx').forEach(x=>{const v=byId('vendors',x.vendor_id);if(x.vendor_id&&(!v||v.category!=='fuel_pump')&&(x.amount_paisa-outPaidFor('vendortx',x.id))>0)vendorIds2.add(x.vendor_id)});
   all('agentcharges').forEach(x=>{if(x.agent_id&&(x.direction||'payable')==='payable'&&(x.amount_paisa-outPaidFor('agentcharge',x.id))>0)agentIds.add(x.agent_id)});
-  const payCount=carrierIds.size+vendorIds2.size+agentIds.size;
+  all('overheads').forEach(x=>{if(x.amount_paisa-outPaidFor('overhead',x.id)>0)overheadIds.add(x.id)});
+  all('invoices').filter(i=>invParts(i).srb>0).forEach(i=>{if(srbPayableAmount(i)-outPaidFor('srb',i.id)>0)srbIds.add(i.id)});
+  const payCount=carrierIds.size+vendorIds2.size+agentIds.size+overheadIds.size+srbIds.size;
   const payBreakdown=`C:${carrierIds.size} V:${vendorIds2.size} A:${agentIds.size}`;
   const recvdCount=all('inpayments').filter(p=>inRange(p.date||'',rng)).length;
   const kpis=[
