@@ -3680,6 +3680,9 @@ function advanceForm(jid,id){
     <div class="frow"><label>Bilty (optional)</label>
       <select id="adv_trip" onchange="advTripChange()"><option value="">— Whole trip —</option>
       ${loads.map(t=>`<option value="${t.id}" ${String(rec.trip_id)===String(t.id)?'selected':''}>${esc(t.bilty_no)} — ${esc(nm('customers',t.customer_id))}</option>`).join('')}</select></div>
+    <div class="frow"><label class="req">Paid to (Driver)</label>
+      <select id="adv_driver">${fkOptions('drivers',rec.paid_to_driver_id||jj.driver_id)}</select>
+      <div class="hint">Driver receiving this advance.</div></div>
     <div class="frow"><label class="req">Date</label><input type="date" id="adv_date" value="${esc(rec.date||jj.date||today())}"></div>
     <div class="frow"><label class="req">Given by</label>
       <select id="adv_source" onchange="advSourceChange()">
@@ -3708,9 +3711,16 @@ function advSourceChange(){
   document.getElementById('adv_payee_wrap').style.display=v==='payee'?'':'none';
 }
 function advTripChange(){
-  const tid=parseInt(V('adv_trip'),10)||null; if(!tid)return;
-  const t=byId('trips',tid), sel=document.getElementById('adv_customer');
-  if(t&&sel)sel.value=t.customer_id;
+  const tid=parseInt(V('adv_trip'),10)||null;
+  const custSel=document.getElementById('adv_customer');
+  const drvSel=document.getElementById('adv_driver');
+  if(tid){
+    const t=byId('trips',tid);
+    if(t){
+      if(custSel)custSel.value=t.customer_id;
+      if(drvSel&&t.driver_id)drvSel.value=t.driver_id;
+    }
+  }
 }
 function advanceSave(id,jid){
   const amount=P(V('adv_amount'));
@@ -3721,6 +3731,7 @@ function advanceSave(id,jid){
   const j=byId('journeys',jid);
   const base={journey_id:jid,trip_id:tripId,date:date,type:'driver_advance',amount_paisa:amount,
     notes:V('adv_notes'),advance_source:source,
+    paid_to_driver_id:parseInt(V('adv_driver'),10)||null,
     account_id:source==='company'?(parseInt(V('adv_account'),10)||null):null,
     advance_customer_id:source==='customer'?(parseInt(V('adv_customer'),10)||null):null,
     advance_payee:source==='payee'?V('adv_payee'):null};
