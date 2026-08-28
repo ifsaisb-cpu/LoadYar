@@ -1918,9 +1918,12 @@ const ENTITIES={
     {k:'license_from',l:'Licence issued from',t:'text'},
     {k:'contact',l:'Contact',t:'text'},
     {k:'carrier_id',l:'Carrier',t:'fk',coll:'carriers'},
-    {k:'salary_basic_paisa',l:'Basic Monthly Salary (PKR)',t:'money'}],
+    {k:'salary_basic_paisa',l:'Basic Monthly Salary (PKR)',t:'money'},
+    {k:'staff_role',l:'Staff Role',t:'select',opts:['driver','mechanic','accountant','loader','supervisor'],req:1},
+    {k:'hire_date',l:'Hire Date',t:'date',req:1},
+    {k:'retire_date',l:'Retire Date (if applicable)',t:'date'}],
    cols:[['name','Driver'],['nic','NIC'],['license','Licence'],['license_expiry','Expiry',['date']],
-     ['license_from','Issued from'],['contact','Contact'],['carrier_id','Carrier',['fk','carriers']],
+     ['staff_role','Role'],['hire_date','Hired'],['retire_date','Retired'],
      ['_compliance','Status',['expiry',['license_expiry']]]]},
   vendors:{title:'Vendors',sing:'Vendor',fields:[
     {k:'name',l:'Vendor name',t:'text',req:1},
@@ -7301,10 +7304,11 @@ function editPayrollMonth(id){
   html+='<p>Select staff to process:</p>';
   html+='<div style="max-height:300px;overflow:auto;border:1px solid #ddd;padding:10px;border-radius:8px">';
   staff.forEach(d=>{
-    if(d.deleted_at)return;
+    if(d.deleted_at||d.retire_date)return;
     const slip=all('payslips').find(p=>p.payroll_month_id===id&&p.staff_id===d.id);
+    const status=d.retire_date?' (retired)':'';
     html+='<label style="display:block;margin:8px 0"><input type="checkbox" id="staff_'+d.id+'" '+
-      (slip?'checked':'')+' onchange="togglePayslipSelection(\''+id+'\',\''+d.id+'\')"> '+esc(d.name)+'</label>';
+      (slip?'checked':'')+' onchange="togglePayslipSelection(\''+id+'\',\''+d.id+'\')"> '+esc(d.name)+status+'</label>';
   });
   html+='</div>';
   html+='<div style="margin-top:20px"><button class="btn ghost" onclick="closeModal()">Close</button></div>';
