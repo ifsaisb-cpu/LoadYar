@@ -1919,7 +1919,7 @@ const ENTITIES={
     {k:'contact',l:'Contact',t:'text'},
     {k:'carrier_id',l:'Carrier',t:'fk',coll:'carriers'},
     {k:'salary_basic_paisa',l:'Basic Monthly Salary (PKR)',t:'money'},
-    {k:'staff_role',l:'Staff Role',t:'select',opts:['driver','mechanic','accountant','loader','supervisor'],req:1},
+    {k:'staff_role',l:'Staff Role',t:'select',opts:[['driver','Driver'],['mechanic','Mechanic'],['accountant','Accountant'],['loader','Loader'],['supervisor','Supervisor']],req:1},
     {k:'hire_date',l:'Hire Date',t:'date',req:1},
     {k:'retire_date',l:'Retire Date (if applicable)',t:'date'}],
    cols:[['name','Driver'],['nic','NIC'],['license','Licence'],['license_expiry','Expiry',['date']],
