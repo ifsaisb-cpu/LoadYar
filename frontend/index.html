@@ -6926,6 +6926,7 @@ function pageDashboard(){
   const recv=invs.reduce((s,i)=>s+invOutstanding(i),0);
   const payOut=all('payables').reduce((s,p)=>s+payOutstanding(p),0)
     +all('vendortx').reduce((s,x)=>s+(x.amount_paisa-outPaidFor('vendortx',x.id)),0)
+    +all('fuel').reduce((s,f)=>s+(f.total_paisa||0),0)
     +all('agentcharges').filter(x=>(x.direction||'payable')!=='receivable')
       .reduce((s,x)=>s+(x.amount_paisa-outPaidFor('agentcharge',x.id)),0)
     +all('overheads').reduce((s,x)=>s+(x.amount_paisa-outPaidFor('overhead',x.id)),0)
