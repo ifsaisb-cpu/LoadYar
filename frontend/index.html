@@ -6987,11 +6987,13 @@ function pageDashboard(){
   const custIds=new Set();invs.filter(i=>invOutstanding(i)>0).forEach(i=>{if(i.customer_id)custIds.add(i.customer_id)});
   const recvCount=custIds.size;
   // Payable breakdown by type
-  const carrierIds=new Set(),vendorIds2=new Set(),agentIds=new Set();
+  const carrierIds=new Set(),vendorIds2=new Set(),agentIds=new Set(),overheadIds=new Set(),srbIds=new Set();
   all('payables').filter(p=>payOutstanding(p)>0).forEach(p=>{if(p.carrier_id)carrierIds.add(p.carrier_id)});
   all('vendortx').forEach(x=>{const v=byId('vendors',x.vendor_id);if(x.vendor_id&&(!v||v.category!=='fuel_pump')&&(x.amount_paisa-outPaidFor('vendortx',x.id))>0)vendorIds2.add(x.vendor_id)});
   all('agentcharges').forEach(x=>{if(x.agent_id&&(x.direction||'payable')==='payable'&&(x.amount_paisa-outPaidFor('agentcharge',x.id))>0)agentIds.add(x.agent_id)});
-  const payCount=carrierIds.size+vendorIds2.size+agentIds.size;
+  all('overheads').forEach(x=>{if(x.amount_paisa-outPaidFor('overhead',x.id)>0)overheadIds.add(x.id)});
+  all('invoices').filter(i=>invParts(i).srb>0).forEach(i=>{if(srbPayableAmount(i)-outPaidFor('srb',i.id)>0)srbIds.add(i.id)});
+  const payCount=carrierIds.size+vendorIds2.size+agentIds.size+overheadIds.size+srbIds.size;
   const payBreakdown=`C:${carrierIds.size} V:${vendorIds2.size} A:${agentIds.size}`;
   const recvdCount=all('inpayments').filter(p=>inRange(p.date||'',rng)).length;
   const kpis=[
