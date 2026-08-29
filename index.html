@@ -1836,7 +1836,7 @@ function render(){
   const after=window._afterRender; window._afterRender=null; if(after)after();
   // Close all sections then open only the one with the active link (use setTimeout to ensure DOM is ready)
   window._updateNavSections=()=>{
-    document.querySelectorAll('.nav-group').forEach(g=>g.dataset.open='true');
+    document.querySelectorAll('.nav-group').forEach(g=>g.dataset.open='false');
     const activeLink=document.querySelector('.side a.on');
     if(activeLink){
       let section=activeLink.closest('.nav-group');
