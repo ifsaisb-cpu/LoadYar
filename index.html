@@ -368,7 +368,7 @@ const CLAIM_STATUS=[['open','Open'],['under_review','Under review'],['settled','
 const COST_BEARER=[['carrier','Carrier'],['insurance','Insurance'],['company','Company'],['client','Client']];
 const TRIP_STATUS=[['booked',biPlain('Booked','بک ہوگیا')],['in_transit',biPlain('In transit','راستے میں')],
   ['delivered',biPlain('Delivered','پہنچا دیا گیا')],['closed',biPlain('Closed','مکمل')]];
-const EXP_TYPE=[['driver_advance','Driver advance'],['toll_tax','Toll tax'],['food','Food expense'],
+const EXP_TYPE=[['driver_advance','Employee advance'],['toll_tax','Toll tax'],['food','Food expense'],
 ['challan','Challan'],['police','Police'],['tyre_air','Tyre air'],['loading','Loading'],
 ['unloading','Unloading'],['repairs','Repairs'],['other','Others']];
 const INV_TYPE=[['company','Company'],['private','Private / open market']];
@@ -377,7 +377,7 @@ const INV_TYPE=[['company','Company'],['private','Private / open market']];
    instead of re-scanning expenses/fuel with ad-hoc filters — see chart_of_accounts/journal_entries/journal_lines. */
 const COA_SEED=[
   ['1000','Cash & Bank','asset',true],['1100','Accounts Receivable','asset',true],
-  ['1200','Driver Advance Recoverable','asset',true],['1500','Employee Advance Receivable','asset',true],
+  ['1200','Employee Advance Recoverable','asset',true],['1500','Employee Advance Receivable','asset',true],
   ['2000','Accounts Payable — Carriers','liability',true],
   ['2100','Accounts Payable — Vendors','liability',true],['2200','SRB Payable','liability',false],
   ['2900','Due to Payee','liability',false],
@@ -392,7 +392,7 @@ const COA_SEED=[
   ['5261','Unloading Expense','expense',false],['5270','Repairs Expense','expense',false],
   ['5280','Engine Oil & Filter Expense','expense',false],
   ['5500','Clearing Agent Charges','expense',false],['5600','Claims Expense','expense',false],
-  ['5710','Staff Salaries','expense',false],['5720','Driver Salaries','expense',false],
+  ['5710','Staff Salaries','expense',false],['5720','Employee Salaries','expense',false],
   ['5730','Office Rent','expense',false],['5740','Utilities & Bills','expense',false],
   ['5900','Other Trip Expense','expense',false],['5950','Office & Admin Overhead','expense',false],
   ['9999','Suspense — needs checking','asset',false]
@@ -449,7 +449,7 @@ const PK_BANKS=[
   'The Bank of Khyber','The Bank of Punjab','United Bank Limited (UBL)','Al Baraka Bank (Pakistan) Limited'
 ].sort().map(b=>[b,b]).concat([['other','Other (not listed)']]);
 const BANK_ACCT_SUBTYPE=[['current','Current'],['savings','Savings'],['pls','PLS Savings'],['other','Other']];
-const OH_CATS=[['staff_salary','Staff Salaries','fixed'],['driver_salary','Driver Salaries','fixed'],
+const OH_CATS=[['staff_salary','Staff Salaries','fixed'],['driver_salary','Employee Salaries','fixed'],
 ['rent_khi','Karachi Office Rent','fixed'],['rent_lhe','Lahore Office Rent','fixed'],
 ['bills','Bills (utilities)','running'],['other','Other','running']];
 const CHARGE_DIR=[['payable','Payable (we owe agent)'],['receivable','Receivable (agent owes us)']];
@@ -473,14 +473,14 @@ const CK_ITEMS=[
 ['Cigarette lighter','سگریٹ لائٹر'],['Inner glass/mirror','اندر کا شیشہ'],['Sun visor','سن وائزر'],
 ['Seat cover','سیٹ کور'],['Nose/bonnet cover','ناپ کور']];
 
-const COLLS=['users','customers','agreements','carriers','drivers','vendors','agents','bookings',
+const COLLS=['users','customers','agreements','carriers','employees','vendors','agents','bookings',
 'trips','checklists','expenses','vendortx','agentcharges','invoices','inpayments','payables',
 'outpayments','claims','overrides','listopts','journeys','fuel','fueltransfers','overheads','accounts','vouchersigned',
 'paypromises','chart_of_accounts','journal_entries','journal_lines','contras','employee_advances',
 'stock_items','stock_locations','stock_transactions','salary_structures','payroll_months','payslips'];
 const COLL_META={
   users:['👤','Users'],customers:['🏢','Customers'],agreements:['📄','Rate Agreements'],
-  carriers:['🚚','Carriers'],drivers:['🧑','Drivers'],vendors:['🏭','Vendors'],agents:['🧾','Clearing Agents'],
+  carriers:['🚚','Carriers'],employees:['👤','Employees'],vendors:['🏭','Vendors'],agents:['🧾','Clearing Agents'],
   bookings:['📦','Bookings'],trips:['🚘','Bilties'],checklists:['✅','Checklists'],expenses:['💸','Trip Expenses'],
   vendortx:['🧰','Vendor Transactions'],agentcharges:['💼','Agent Charges'],invoices:['🧮','Invoices'],
   inpayments:['💵','Payments Received'],payables:['📤','Payables'],outpayments:['💰','Payments Made'],
@@ -601,7 +601,7 @@ function migrateDB(){
     // Income
     ['4010','Transport Revenue - Freight','bank'],['4020','Transport Revenue - Parcels','bank'],['4030','Commission Income','bank'],['4040','Handling Charges Income','bank'],
     // Expenses
-    ['5010','Fuel & Diesel Expense','bank'],['5020','Driver Salary','bank'],['5030','Vehicle Maintenance','bank'],['5040','Insurance Premium','bank'],
+    ['5010','Fuel & Diesel Expense','bank'],['5020','Employee Salary','bank'],['5030','Vehicle Maintenance','bank'],['5040','Insurance Premium','bank'],
     ['5050','Toll Tax Expense','bank'],['5060','Rent Expense','bank'],['5070','Utilities Expense','bank'],['5080','Depreciation Expense','bank'],
     ['5090','Office Supplies','bank'],['5100','Miscellaneous Expense','bank']
   ];
@@ -985,7 +985,7 @@ function driverAdvanceOutstandingByCarrier(){
 }
 function employeeAdvancesOutstandingByDriver(){
   const map=new Map();
-  all('drivers').forEach(d=>{
+  all('employees').forEach(d=>{
     const outstanding=all('employee_advances').filter(a=>a.driver_id==d.id&&!a.deleted_at&&a.status!=='settled').reduce((s,a)=>s+(a.amount_paisa||0),0);
     if(outstanding)map.set(d.id,outstanding);
   });
@@ -995,7 +995,7 @@ function driverOutstandingAdvances(driverId){
   return all('employee_advances').filter(a=>a.driver_id==driverId&&!a.deleted_at&&a.status!=='settled');
 }
 function employeeAdvanceForm(driverId){
-  const d=byId('drivers',driverId);
+  const d=byId('employees',driverId);
   if(!d)return '';
   return `<div class="fgrid">
     <div class="full"><label class="req">Amount (PKR)</label><input type="number" id="adv_amount" value="50000" min="1" step="1000"></div>
@@ -1012,7 +1012,7 @@ function employeeAdvanceSave(driverId){
   const notes=V('adv_notes');
   const rec={driver_id:driverId,amount_paisa:amount,type:type,reason:reason,notes:notes,status:'outstanding',given_date:today(),created_by:cuName()};
   const id=add('employee_advances',rec).id;
-  const driver=byId('drivers',driverId);
+  const driver=byId('employees',driverId);
   const entryId=postEntry('employee_advance','driver',driverId,[
     {account_code:'1500',subsidiary_type:'driver',subsidiary_id:driverId,debit_paisa:amount,credit_paisa:0},
     {account_code:'1000',subsidiary_type:'cash_account',subsidiary_id:1,debit_paisa:0,credit_paisa:amount}
@@ -1042,7 +1042,7 @@ function pageBalances(){
   <div class="grid2">
     <div class="card"><h2>Cash &amp; Bank</h2>${balCard(cash,id=>nm('accounts',id),false)}</div>
     <div class="card"><h2>Owed to you by customers</h2>${balCard(ar,id=>nm('customers',id),false)}</div>
-    <div class="card"><h2>Driver advances outstanding</h2>
+    <div class="card"><h2>Employee advances outstanding</h2>
       <div class="small mut" style="margin-bottom:8px">Advance given minus actual spending, per carrier — the same figure shown on each trip as "Balance to recover from driver", added up across all their trips.</div>
       ${balCard(adv,id=>nm('carriers',id),false)}</div>
     <div class="card"><h2>Owed to carriers</h2>${balCard(apCarrier,id=>nm('carriers',id),true)}</div>
@@ -1440,8 +1440,8 @@ function seedDB(){
   // carriers & drivers
   a('carriers',{name:'Karachi Carriers',contact:'0300-1234567',ownership:'hired',pay_type:'flat_rate',monthly_paisa:5000000});
   a('carriers',{name:'Bismillah Transport',contact:'0321-7654321',ownership:'company',pay_type:'cost_plus'});
-  a('drivers',{name:'Rashid Khan',license:'KHI-DL-99812',contact:'0333-1112223',carrier_id:1});
-  a('drivers',{name:'Bilal Ahmed',license:'KHI-DL-45671',contact:'0345-9998887',carrier_id:2});
+  a('employees',{name:'Rashid Khan',license:'KHI-DL-99812',contact:'0333-1112223',carrier_id:1});
+  a('employees',{name:'Bilal Ahmed',license:'KHI-DL-45671',contact:'0345-9998887',carrier_id:2});
   // vendors & agents
   a('vendors',{name:'Madina Tyres',category:'tyre',contact:'021-32760011'});
   a('vendors',{name:'Al-Karam Auto Repair',category:'repairs',contact:'0312-4445556'});
@@ -1717,7 +1717,7 @@ const ROUTES={
   customers:{cap:'master',fn:()=>pageEnt('customers'),title:'Customers'},
   agreements:{cap:'master',fn:()=>pageAgreements(),title:'Rate Agreements'},
   carriers:{cap:'master',fn:()=>pageEnt('carriers'),title:'Carriers'},
-  drivers:{cap:'master',fn:()=>pageEnt('drivers'),title:'Drivers'},
+  employees:{cap:'master',fn:()=>pageEnt('employees'),title:'Employees'},
   vendors:{cap:'master',fn:()=>pageEnt('vendors'),title:'Vendors'},
   agents:{cap:'master',fn:()=>pageEnt('agents'),title:'Clearing Agents'},
   warehouse:{cap:'master',fn:()=>pageWarehouse(),title:'Warehouse Stock'},
@@ -1784,7 +1784,7 @@ function navItems(){
   // ===== MASTER DATA =====
   if(can('master'))items.push(['DROP','Master data']);
   if(can('master'))items.push(['#/customers','Customers'],['#/agreements','Rate Agreements'],
-    ['#/carriers','Carriers'],['#/drivers','Drivers'],['#/vendors','Vendors'],['#/agents','Clearing Agents'],
+    ['#/carriers','Carriers'],['#/employees','Employees'],['#/vendors','Vendors'],['#/agents','Clearing Agents'],
     ['#/warehouse','Warehouse Stock'],['#/lists','Dropdown Lists']);
   if(can('master'))items.push(['ENDROP']);
 
@@ -1855,7 +1855,7 @@ function searchTrips(raw){
     ||String(t.route||'').toLowerCase().includes(q)
     ||String(t.consignee||'').toLowerCase().includes(q)
     ||nm('carriers',t.carrier_id).toLowerCase().includes(q)
-    ||nm('drivers',t.driver_id).toLowerCase().includes(q)
+    ||nm('employees',t.driver_id).toLowerCase().includes(q)
     ||nm('customers',t.customer_id).toLowerCase().includes(q)
     ||(t.journey_id&&nm('journeys',t.journey_id,'trip_no').toLowerCase().includes(q))
   );
@@ -1880,7 +1880,7 @@ function pageSearch(){
     <td><a href="#/trip/${t.id}"><b>${esc(t.bilty_no)}</b></a></td>
     <td>${esc(nm('customers',t.customer_id))}</td>
     <td class="routecell" title="${esc(t.route||'')}">${esc(t.route)}</td>
-    <td class="stack2" title="${esc(nm('carriers',t.carrier_id))} — ${esc(nm('drivers',t.driver_id))}"><b>${esc(nm('carriers',t.carrier_id))}</b><span class="s2-sub">${esc(nm('drivers',t.driver_id))}</span></td>
+    <td class="stack2" title="${esc(nm('carriers',t.carrier_id))} — ${esc(nm('employees',t.driver_id))}"><b>${esc(nm('carriers',t.carrier_id))}</b><span class="s2-sub">${esc(nm('employees',t.driver_id))}</span></td>
     <td>${esc(t.veh_chassis||'—')}</td>
     <td>${esc(t.veh_engine||'—')}</td>
     <td>${t.journey_id?`<a href="#/journey/${t.journey_id}">${esc(nm('journeys',t.journey_id,'trip_no'))}</a>`:'—'}</td>
@@ -1944,8 +1944,9 @@ const ENTITIES={
      ['_compliance','Compliance',['expiry',['reg_expiry','route_permit_expiry','fitness_expiry','insurance_expiry','token_tax_expiry']]],
      ['_maint','Maintenance',['maint']]],
    rowExtra:(r)=>`<button class="btn ghost sm" onclick="carrierHistory(${r.id})">History</button> <button class="btn ghost sm" onclick="carrierAdvanceLedger(${r.id})">Advance Ledger</button> `},
-  drivers:{title:'Drivers',sing:'Driver',fields:[
-    {k:'name',l:'Driver name',t:'text',req:1},
+  employees:{title:'Employees',sing:'Employee',fields:[
+    {k:'name',l:'Employee name',t:'text',req:1},
+    {k:'department',l:'HR Department',t:'select',opts:[['operations','Operations'],['accounts','Accounts'],['hr','HR'],['it','IT'],['maintenance','Maintenance'],['logistics','Logistics'],['admin','Admin']],req:1},
     {k:'nic',l:'NIC no.',t:'text'},
     {k:'license',l:'Licence no.',t:'text'},
     {k:'license_expiry',l:'Licence expiry',t:'date'},
@@ -1953,10 +1954,10 @@ const ENTITIES={
     {k:'contact',l:'Contact',t:'text'},
     {k:'carrier_id',l:'Carrier',t:'fk',coll:'carriers'},
     {k:'salary_basic_paisa',l:'Basic Monthly Salary (PKR)',t:'money'},
-    {k:'staff_role',l:'Staff Role',t:'select',opts:[['driver','Driver'],['mechanic','Mechanic'],['accountant','Accountant'],['loader','Loader'],['supervisor','Supervisor']],req:1},
+    {k:'staff_role',l:'Staff Role',t:'select',opts:[['driver','Driver'],['mechanic','Mechanic'],['accountant','Accountant'],['loader','Loader'],['supervisor','Supervisor'],['manager','Manager'],['admin','Admin']],req:1},
     {k:'hire_date',l:'Hire Date',t:'date',req:1},
     {k:'retire_date',l:'Retire Date (if applicable)',t:'date'}],
-   cols:[['name','Driver'],['nic','NIC'],['license','Licence'],['license_expiry','Expiry',['date']],
+   cols:[['name','Employee'],['department','Department',['enum',[['operations','Operations'],['accounts','Accounts'],['hr','HR'],['it','IT'],['maintenance','Maintenance'],['logistics','Logistics'],['admin','Admin']]]],['nic','NIC'],['license','Licence'],['license_expiry','Expiry',['date']],
      ['staff_role','Role'],['hire_date','Hired'],['retire_date','Retired'],
      ['_compliance','Status',['expiry',['license_expiry']]]]},
   vendors:{title:'Vendors',sing:'Vendor',fields:[
@@ -2243,7 +2244,7 @@ function fleetExpiringCount(){
     const ds=[c.reg_expiry,c.route_permit_expiry,c.fitness_expiry,c.insurance_expiry,c.token_tax_expiry].filter(Boolean);
     if(ds.some(d=>d<=in30))n++;
   });
-  all('drivers').forEach(d=>{if(d.license_expiry&&d.license_expiry<=in30)n++;});
+  all('employees').forEach(d=>{if(d.license_expiry&&d.license_expiry<=in30)n++;});
   return n;
 }
 function maintenanceLevel(rec){
@@ -2396,7 +2397,7 @@ function carrierAdvanceLedger(cid){
   const totalAdv=rows.filter(r=>r.amount>0).reduce((s,r)=>s+r.amount,0);
   const totalSpent=rows.filter(r=>r.amount<0).reduce((s,r)=>s-r.amount,0);
   const bal=rows.length?rows[rows.length-1].balance:0;
-  openModal(`<h2>Driver Advance Ledger — ${esc(c.name)}</h2>
+  openModal(`<h2>Employee Advance Ledger — ${esc(c.name)}</h2>
   <div class="small mut" style="margin-bottom:10px">Running balance of every driver advance (company, customer, or payee) vs. actual trip expenses, across all of this carrier's trips — shows how much cash is still in the driver's hands regardless of who gave it.</div>
   <div class="tblwrap" style="margin:0"><table><thead><tr><th>Date</th><th>Trip</th><th>Description</th><th class="num">Amount</th><th class="num">Running balance</th></tr></thead><tbody>
   ${rows.length?rows.map(r=>`<tr><td>${esc(fmtDate(r.date))}</td><td>${esc(r.trip_no)}</td><td class="wrap">${esc(r.desc)}</td>
@@ -2414,7 +2415,7 @@ function carrierAdvanceLedgerPrint(cid){
   const c=byId('carriers',cid); if(!c)return;
   const rows=carrierAdvanceRows(cid);
   const bal=rows.length?rows[rows.length-1].balance:0;
-  const body=`<div class="hd"><h1>${esc(CO_NAME)}</h1><div class="t">Driver Advance Ledger — ${esc(c.name)}</div></div>
+  const body=`<div class="hd"><h1>${esc(CO_NAME)}</h1><div class="t">Employee Advance Ledger — ${esc(c.name)}</div></div>
   <table><tr><th>Date</th><th>Trip</th><th>Description</th><th class="r">Amount</th><th class="r">Running balance</th></tr>
   ${rows.map(r=>`<tr><td>${esc(fmtDate(r.date))}</td><td>${esc(r.trip_no)}</td><td>${esc(r.desc)}</td><td class="r">${r.amount<0?'−':''}${pkr(Math.abs(r.amount))}</td><td class="r">${pkr(r.balance)}</td></tr>`).join('')}
   <tr><td colspan="4" class="r"><b>${bal>=0?'Outstanding — owed by carrier':'Outstanding — owed to carrier'}</b></td><td class="r"><b>${pkr(Math.abs(bal))}</b></td></tr>
@@ -3439,7 +3440,7 @@ function pageTrips(){
   const rows=allRows.filter(t=>
     (!stF||t.status===stF)&&
     (!dupF||(dupF==='dups'?dupIds.has(t.id):!dupIds.has(t.id)))&&
-    (!q||tfTextMatch(q,t.bilty_no,nm('customers',t.customer_id),t.route,nm('carriers',t.carrier_id),nm('drivers',t.driver_id),t.veh_chassis,t.veh_engine,t.veh_reg))
+    (!q||tfTextMatch(q,t.bilty_no,nm('customers',t.customer_id),t.route,nm('carriers',t.carrier_id),nm('employees',t.driver_id),t.veh_chassis,t.veh_engine,t.veh_reg))
   );
   const byMonth=new Map();
   rows.forEach(t=>{
@@ -3465,7 +3466,7 @@ function pageTrips(){
       ${items.map(t=>`<tr>
         <td class="stack2"><a href="#/trip/${t.id}"><b>${esc(t.bilty_no)}</b></a><span class="s2-sub">${t.entry_mode==='digital'?'Digital':'Manual'}</span></td>
         <td title="${esc(fmtDate(t.date))}">${esc(fmtDateShort(t.date))}</td><td>${esc(nm('customers',t.customer_id))}</td><td class="routecell" title="${esc(t.route||'')}">${esc(t.route)}</td>
-        <td class="stack2" title="${esc(nm('carriers',t.carrier_id))} — ${esc(nm('drivers',t.driver_id))}"><b>${esc(nm('carriers',t.carrier_id))}</b><span class="s2-sub">${esc(nm('drivers',t.driver_id))}</span></td>
+        <td class="stack2" title="${esc(nm('carriers',t.carrier_id))} — ${esc(nm('employees',t.driver_id))}"><b>${esc(nm('carriers',t.carrier_id))}</b><span class="s2-sub">${esc(nm('employees',t.driver_id))}</span></td>
         ${money?`<td class="num">${freightVisible(t)?pkr(t.freight_paisa):'<span class="mut small">—</span>'}</td>`:''}
         <td>${t.journey_id?`<a href="#/journey/${t.journey_id}">${esc(nm('journeys',t.journey_id,'trip_no'))}</a>`
           :(can('journeys')?'<span class="badge b-amber">Unloaded</span>':'<span class="badge b-gray">—</span>')}</td>
@@ -3510,7 +3511,7 @@ function tripForm(id,pre){
     <div class="frow"><label>Consignee</label><input id="f_consignee" value="${esc(rec.consignee||'')}"></div>
     <div class="frow full"><label>Consignee address</label><input id="f_consignee_addr" value="${esc(rec.consignee_address||'')}"></div>
     <div class="frow"><label>Carrier</label><select id="f_carrier_id">${fkOptions('carriers',rec.carrier_id)}</select></div>
-    <div class="frow"><label>Driver</label><select id="f_driver_id">${fkOptions('drivers',rec.driver_id)}</select></div>
+    <div class="frow"><label>Driver</label><select id="f_driver_id">${fkOptions('employees',rec.driver_id)}</select></div>
     <div class="frow"><label>Return load</label><select id="f_return_load">${optHTML(RETURN_LOAD,rec.return_load_type)}</select></div>
     <div class="frow"><label>Status</label><select id="f_status">${optHTML(TRIP_STATUS,rec.status)}</select></div>
     <div class="frow full"><label><input type="checkbox" id="f_open_market" ${rec.open_market?'checked':''} onchange="rateSuggestToggle()" style="width:auto;margin-right:6px">Private / Open market booking (no company rate agreement)</label></div>
@@ -3716,14 +3717,14 @@ function advanceForm(jid,id){
   const jj=byId('journeys',jid); if(!jj){toast('Trip not found',true);return;}
   const loads=jLoads(jid);
   const src=rec.advance_source||'company';
-  openModal(`<h2>${id?'Edit':'Add'} Driver Advance — ${esc(jj.trip_no)}</h2>
+  openModal(`<h2>${id?'Edit':'Add'} Employee Advance — ${esc(jj.trip_no)}</h2>
   <div class="fgrid">
     <div class="frow"><label>Bilty (optional)</label>
       <select id="adv_trip" onchange="advTripChange()"><option value="">— Whole trip —</option>
       ${loads.map(t=>`<option value="${t.id}" ${String(rec.trip_id)===String(t.id)?'selected':''}>${esc(t.bilty_no)} — ${esc(nm('customers',t.customer_id))}</option>`).join('')}</select></div>
     <div class="frow"><label class="req">Paid to (Driver)</label>
-      <select id="adv_driver">${fkOptions('drivers',rec.paid_to_driver_id||jj.driver_id)}</select>
-      <div class="hint">Driver receiving this advance.</div></div>
+      <select id="adv_driver">${fkOptions('employees',rec.paid_to_driver_id||jj.driver_id)}</select>
+      <div class="hint">Employee receiving this advance.</div></div>
     <div class="frow"><label class="req">Date</label><input type="date" id="adv_date" value="${esc(rec.date||jj.date||today())}"></div>
     <div class="frow"><label class="req">Given by</label>
       <select id="adv_source" onchange="advSourceChange()">
@@ -3783,9 +3784,9 @@ function advanceSave(id,jid){
   else if(source==='customer')lines.push({account_code:'1100',subsidiary_type:'customer',subsidiary_id:rec.advance_customer_id,debit_paisa:0,credit_paisa:amount});
   else lines.push({account_code:'2900',subsidiary_type:'payee_name',subsidiary_id:null,debit_paisa:0,credit_paisa:amount});
   const entryId=repostEntry(rec.journal_entry_id,'driver_advance','expenses',rec.id,lines,
-    'Driver advance — '+advSourceRaw(rec)+(rec.notes?' — '+rec.notes:''));
+    'Employee advance — '+advSourceRaw(rec)+(rec.notes?' — '+rec.notes:''));
   upd('expenses',rec.id,{journal_entry_id:entryId});
-  toast(id?'Driver advance updated':'Driver advance recorded');
+  toast(id?'Employee advance updated':'Employee advance recorded');
   closeModal();render();
 }
 function jFuel(jid){return all('fuel').filter(f=>f.journey_id==jid);}
@@ -3921,7 +3922,7 @@ function pageJourneys(){
         <td class="mut">${tripNum.get(j.id)}</td>
         <td><a href="#/journey/${j.id}"><b>${esc(j.trip_no)}</b></a></td>
         <td title="${esc(fmtDate(j.date))}">${esc(fmtDateShort(j.date))}</td>
-        <td class="stack2" title="${esc(nm('carriers',j.carrier_id))} — ${esc(nm('drivers',j.driver_id))}"><b>${esc(nm('carriers',j.carrier_id))}</b>${j.carrier_log&&j.carrier_log.length?' <span class="badge b-amber">changed</span>':''}<span class="s2-sub">${esc(nm('drivers',j.driver_id))}</span></td>
+        <td class="stack2" title="${esc(nm('carriers',j.carrier_id))} — ${esc(nm('employees',j.driver_id))}"><b>${esc(nm('carriers',j.carrier_id))}</b>${j.carrier_log&&j.carrier_log.length?' <span class="badge b-amber">changed</span>':''}<span class="s2-sub">${esc(nm('employees',j.driver_id))}</span></td>
         <td class="routecell" title="${esc(journeyRouteText(j))}">${journeyRouteDisplay(j)}</td>
         <td>${jLoads(j.id).length}</td>
         <td>${returnBadge(j.id)}</td>
@@ -3949,7 +3950,7 @@ function journeyForm(id){
     <div class="frow"><label>Chalan #</label><input id="j_chalan" value="${esc(rec.chalan_no||nextChalanNo())}">
       <div class="hint">Auto-numbered — overwrite this if you're using your own pre-printed/numbered chalan pad.</div></div>
     <div class="frow"><label class="req">${bi('Carrier','کیریئر')}</label><select id="j_carrier" onchange="filterDriversByCarrier()">${fkOptions('carriers',rec.carrier_id)}</select></div>
-    <div class="frow"><label>${bi('Driver','ڈرائیور')}</label><select id="j_driver" onchange="updateOpeningBalance()">${fkOptions('drivers',rec.driver_id)}</select></div>
+    <div class="frow"><label>${bi('Driver','ڈرائیور')}</label><select id="j_driver" onchange="updateOpeningBalance()">${fkOptions('employees',rec.driver_id)}</select></div>
     <div class="frow" id="j_opening_balance_row" style="${rec.driver_id&&!id?'':'display:none'}"><label style="color:#d97706">📌 Carried forward from previous trip</label><div style="font-size:16px;font-weight:700;color:#0f766e;padding:8px 0" id="j_opening_balance_display">${rec.driver_id&&!id?pkr(getPreviousDriverBalance(rec.driver_id)):''}</div><input type="hidden" id="j_opening_balance" value="${esc(rec.opening_balance_paisa||0)}"></div>
     <div class="frow"><label>${bi('Status','حالت')}</label><select id="j_status" onchange="jStatusToggle()">${optHTML(JOURNEY_STATUS,rec.status)}</select></div>
     <div class="frow" id="j_date_end_row" style="${rec.status==='finished'?'':'display:none'}">
@@ -4029,12 +4030,12 @@ function filterDriversByCarrier(){
 
   if(!carrierId){
     // If no carrier selected, show all drivers
-    driverSelect.innerHTML=fkOptions('drivers',currentDriverId);
+    driverSelect.innerHTML=fkOptions('employees',currentDriverId);
     return;
   }
 
   // Get all drivers and filter by carrier
-  const filteredDrivers=all('drivers').filter(d=>d.carrier_id===carrierId);
+  const filteredDrivers=all('employees').filter(d=>d.carrier_id===carrierId);
 
   // Build options HTML
   let html='<option value="">— Select driver —</option>';
@@ -4106,7 +4107,7 @@ function pageJourneyDetail(id){
     <div class="rowline"><span class="mut">Chalan #</span><span>${esc(j.chalan_no||'—')}</span></div>
     <div class="rowline"><span class="mut">${biShort('Date','تاریخ')}</span><span>${esc(fmtDate(j.date))}${j.date_end?' → '+esc(fmtDate(j.date_end)):''}</span></div>
     <div class="rowline"><span class="mut">${biShort('Carrier','کیریئر')}</span><span>${esc(nm('carriers',j.carrier_id))} ${(()=>{const c=byId('carriers',j.carrier_id);if(!c)return '';const badge=c.ownership==='hired'?'<span class="badge b-amber">Hired</span>':'<span class="badge b-gray">Company</span>';const paytype=c.pay_type==='flat_rate'?' — Flat: '+pkr(c.monthly_paisa||0)+'/mo':' — Cost+';return badge+paytype;})()}</span></div>
-    <div class="rowline"><span class="mut">${biShort('Driver','ڈرائیور')}</span><span>${esc(nm('drivers',j.driver_id))}</span></div>
+    <div class="rowline"><span class="mut">${biShort('Driver','ڈرائیور')}</span><span>${esc(nm('employees',j.driver_id))}</span></div>
     <div class="rowline"><span class="mut">${biShort('Route','روٹ')}</span><span>${journeyRouteDisplay(j)}</span></div>
     <div class="rowline"><span class="mut">${biShort('Stations','اسٹیشنز')}</span><span>${(j.stations||[]).map(s=>`<span class="badge b-gray">${esc(s)}</span>`).join(' ')}</span></div>
     <div class="rowline"><span class="mut">${biShort('Return load','واپسی لوڈ')}</span><span>${returnBadge(j.id)}</span></div>
@@ -4119,7 +4120,7 @@ function pageJourneyDetail(id){
     <div class="rowline"><span class="mut">Earning (return load)</span><span>${earnVisible?pkr(jReturnEarning(j.id)):'<span class="mut small">Hidden — visible to Admin</span>'}</span></div>
     <div class="rowline"><span class="mut">Total earning</span><span><b>${earnVisible?pkr(jEarning(j.id)):'<span class="mut small">Hidden — visible to Admin</span>'}</b></span></div>`
     :`<div class="rowline"><span class="mut">Earning (loads freight)</span><span>${earnVisible?pkr(jEarning(j.id)):'<span class="mut small">Hidden — visible to Admin</span>'}</span></div>`}
-    <div class="rowline"><span class="mut">Driver advance</span><span>${pkr(jDriverAdvance(j.id))}</span></div>
+    <div class="rowline"><span class="mut">Employee advance</span><span>${pkr(jDriverAdvance(j.id))}</span></div>
     <div class="rowline"><span class="mut">Expenses</span><span>${pkr(jExpensesExclAdvance(j.id))}</span></div>
     ${jDriverAdvance(j.id)>0?`<div class="rowline"><span class="mut">${jAdvanceBalance(j.id)>=0?'Balance to recover from driver':'Balance owed to driver'}</span><span><b class="${jAdvanceBalance(j.id)>=0?'':'mut'}">${pkr(Math.abs(jAdvanceBalance(j.id)))}</b></span></div>`:''}
     <div class="rowline"><span class="mut">Diesel / fuel</span><span>${pkr(jFuel(j.id).reduce((s,f)=>s+(f.total_paisa||0),0))}</span></div>
@@ -4136,12 +4137,12 @@ function pageJourneyDetail(id){
     <div class="rowline"><span class="mut">Net</span><span><b>${earnVisible?pkr(jEarning(j.id)-jCostTotal(j.id)-jClaimsCost(j.id)):'<span class="mut small">Hidden</span>'}</b></span></div>
     <div style="margin-top:10px">
       <button class="btn sm" onclick="expenseForm(null,null,${j.id})">+ Expense</button>
-      <button class="btn ghost sm" onclick="advanceForm(${j.id})">+ Driver Advance</button>
+      <button class="btn ghost sm" onclick="advanceForm(${j.id})">+ Employee Advance</button>
       <button class="btn ghost sm" onclick="fuelForm(null,${j.id})">+ Fuel</button>
       <button class="btn ghost sm" onclick="consumablesForm(${j.id})">+ Consumables</button>
       ${can('payables')?`<button class="btn ghost sm" onclick="fuelTransferForm(null,${j.id})">🔀 Fuel Transfer</button>`:''}</div>
   </div></div>
-  <div class="card"><h2>Driver Advances (${jAdvances(j.id).length})
+  <div class="card"><h2>Employee Advances (${jAdvances(j.id).length})
     ${j.carrier_id?`<button class="btn ghost sm" style="margin-left:8px" onclick="carrierAdvanceLedger(${j.carrier_id})">View full ledger for ${esc(nm('carriers',j.carrier_id))} →</button>`:''}</h2>
     ${jAdvances(j.id).length?`<div class="tblwrap" style="border:0;margin:0"><table><thead><tr><th>Date</th><th>Given by</th><th>Bilty</th><th class="num">Amount</th><th>Notes</th><th></th></tr></thead><tbody>
     ${jAdvances(j.id).map(a=>`<tr><td>${esc(fmtDate(a.date))}</td><td>${advSourceLabel(a)}</td>
@@ -4325,7 +4326,7 @@ function jChangeCarrier(jid){
   Use when the carrier faults mid-route and another carrier completes the job. Undelivered loads move to the new carrier.</div>
   <div class="fgrid">
     <div class="frow"><label class="req">New carrier</label><select id="cc_carrier">${fkOptions('carriers',null)}</select></div>
-    <div class="frow"><label>New driver</label><select id="cc_driver">${fkOptions('drivers',null)}</select></div>
+    <div class="frow"><label>New driver</label><select id="cc_driver">${fkOptions('employees',null)}</select></div>
     <div class="frow full"><label class="req">Reason</label><input id="cc_reason" placeholder="e.g. breakdown at Multan"></div>
   </div>
   <div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button>
@@ -4451,7 +4452,7 @@ function pageTripDetail(id){
     <div class="rowline"><span class="mut">${biShort('Consigner','بھیجنے والا')}</span><span>${esc(t.consigner||'—')}</span></div>
     <div class="rowline"><span class="mut">${biShort('Consignee','وصول کنندہ')}</span><span>${esc(t.consignee||'—')}${t.consignee_address?`<div class="small mut">${esc(t.consignee_address)}</div>`:''}</span></div>
     <div class="rowline"><span class="mut">${biShort('Carrier','کیریئر')}</span><span>${esc(nm('carriers',t.carrier_id))}</span></div>
-    <div class="rowline"><span class="mut">${biShort('Driver','ڈرائیور')}</span><span>${esc(nm('drivers',t.driver_id))}</span></div>
+    <div class="rowline"><span class="mut">${biShort('Driver','ڈرائیور')}</span><span>${esc(nm('employees',t.driver_id))}</span></div>
     <div class="rowline"><span class="mut">${biShort('Return load','واپسی لوڈ')}</span><span>${esc(enumLbl(RETURN_LOAD,t.return_load_type))}</span></div>
     <div class="rowline"><span class="mut">Media</span><span>${esc(t.media_ref||'—')}</span></div>
     ${t.notes?`<div class="rowline"><span class="mut">Notes</span><span>${esc(t.notes)}</span></div>`:''}
@@ -4649,7 +4650,7 @@ function expenseForm(id,tripId,journeyId){
   }else{
     openModal(`<h2>Add Trip Expenses</h2>
     <div class="fgrid">${shared}</div>
-    <div class="hint" style="margin:8px 0">To log a driver advance (from company, customer, or another payee), close this and use the <b>+ Driver Advance</b> button on the trip page instead.</div>
+    <div class="hint" style="margin:8px 0">To log a driver advance (from company, customer, or another payee), close this and use the <b>+ Employee Advance</b> button on the trip page instead.</div>
     <div style="margin:14px 0 6px"><b class="small">Expense heads — actual spending, enter amounts where applicable</b></div>
     <div class="fgrid">
       ${EXP_TYPE.filter(x=>x[0]!=='driver_advance').map(x=>`<div class="frow"><label>${esc(x[1])}</label>
@@ -4994,7 +4995,7 @@ function pageEmployeeAdvances(){
     <button class="btn" onclick="employeeAdvanceNewForm()">+ Give Advance</button></div>
     ${byDriver.size===0?'<div class="empty">No advances recorded.</div>':''}
     ${Array.from(byDriver.entries()).map(([driverId,advList])=>{
-      const d=byId('drivers',driverId);
+      const d=byId('employees',driverId);
       const total=advList.reduce((s,a)=>s+(a.amount_paisa||0),0);
       const outstanding=advList.filter(a=>a.status!=='settled').reduce((s,a)=>s+(a.amount_paisa||0),0);
       return `<div class="card" style="border-left:4px solid var(--warn)">
@@ -5010,7 +5011,7 @@ function pageEmployeeAdvances(){
     }).join('')}`;
 }
 function employeeAdvanceNewForm(){
-  const drivers=all('drivers').sort((a,b)=>a.name<b.name?-1:1);
+  const drivers=all('employees').sort((a,b)=>a.name<b.name?-1:1);
   openModal(`<h2>Give Employee Advance</h2>
     <div class="fgrid">
       <div class="full"><label class="req">Driver</label><select id="adv_driver"><option value="">— Select —</option>
@@ -5316,7 +5317,7 @@ function pageExpenses(){
   <div class="pagehead"><h1>${state.user.role==='driver'?'My Expenses':'Trip Expenses'}</h1><div class="sp"></div>
     <button class="btn" onclick="expenseForm()">+ Add Expense</button></div>
   ${monthCardsWrap(rows,e=>e.date,'expenses',expInner,'No expenses yet.')}
-  <div class="pagehead" style="margin-top:20px"><h2>Driver Advances</h2></div>
+  <div class="pagehead" style="margin-top:20px"><h2>Employee Advances</h2></div>
   ${monthCardsWrap(advRows,a=>a.date,'advances',advInner,'No driver advances yet.')}`;
 }
 function advToggle(jid){
@@ -7368,7 +7369,7 @@ function newPayrollMonth(){
 
 function editPayrollMonth(id){
   const m=byId('payroll_months',id)||{month:today().slice(0,7)};
-  const staff=all('drivers')||[];
+  const staff=all('employees')||[];
   let html='<h2>Payroll: '+esc(m.month)+'</h2>';
   html+='<p>Select staff to process:</p>';
   html+='<div style="max-height:300px;overflow:auto;border:1px solid #ddd;padding:10px;border-radius:8px">';
@@ -7399,7 +7400,7 @@ function genPayslips(monthId){
   const slips=all('payslips').filter(p=>p.payroll_month_id===monthId);
   let total=0;
   slips.forEach(slip=>{
-    const staff=byId('drivers',slip.staff_id);
+    const staff=byId('employees',slip.staff_id);
     if(!staff)return;
     const basic=staff.salary_basic_paisa||0;
     const gross=Math.round(basic*1.15);
@@ -7423,7 +7424,7 @@ function pagePayslips(){
   let html='<div class="pagehead"><h1>📋 Payslips</h1></div>';
   html+='<div class="tblwrap"><table><thead><tr><th>Staff Member</th><th>Month</th><th class="num">Gross</th><th class="num">Deductions</th><th class="num">Net</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
   slips.forEach(s=>{
-    const staff=byId('drivers',s.staff_id);
+    const staff=byId('employees',s.staff_id);
     const month=byId('payroll_months',s.payroll_month_id);
     html+='<tr><td>'+esc(staff?.name||'Unknown')+'</td><td>'+esc(month?.month||'—')+'</td>';
     html+='<td class="num">'+pkr(s.gross_salary_paisa||0)+'</td><td class="num">'+pkr(s.deductions_paisa||0)+'</td>';
@@ -7437,7 +7438,7 @@ function pagePayslips(){
 
 function viewPayslip(id){
   const slip=byId('payslips',id);
-  const staff=byId('drivers',slip.staff_id);
+  const staff=byId('employees',slip.staff_id);
   const month=byId('payroll_months',slip.payroll_month_id);
   let html='<div style="max-width:600px">';
   html+='<h2>Payslip</h2>';
@@ -7938,7 +7939,7 @@ function pageVouchers(){
     rows.push({jid:String(g.jid),kind:'adv_trip',lbl:'Advance',cls:'b-teal',
       no:'AV-'+(g.journey?g.journey.trip_no:'LEGACY'),date:g.date,
       desc:g.items.length+' item(s)',
-      amount:g.total,id:g.jid,account:'Driver advance'});
+      amount:g.total,id:g.jid,account:'Employee advance'});
   });
   all('fuel').forEach(f=>rows.push({jid:f.journey_id?String(f.journey_id):'none',kind:'fuel',lbl:'Fuel',cls:'b-blue',no:'FV-'+f.id,date:f.date,
     desc:'Fuel — '+(f.pump||'')+(f.litres?' ('+f.litres+' L)':''),amount:f.total_paisa,id:f.id,account:nm('accounts',f.account_id)}));
@@ -8052,7 +8053,7 @@ function voucherPrint(kind,id){
     const j=jid?byId('journeys',jid):null;
     const items=all('expenses').filter(e=>(e.journey_id||null)===jid&&e.type==='driver_advance').sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
     if(!items.length)return;
-    title='Driver Advance Voucher — Trip Total';
+    title='Employee Advance Voucher — Trip Total';
     no='AV-'+(j?j.trip_no:'LEGACY');date=items[items.length-1].date;
     party=j?(nm('carriers',j.carrier_id)+' — Trip '+j.trip_no):'Legacy (no trip)';
     amount=items.reduce((s,e)=>s+(e.amount_paisa||0),0);
@@ -8169,7 +8170,7 @@ function biltyPrint(tid){
   </table>
   <table><tr><td class="l">Note</td><td>${esc(t.notes||'—')}</td></tr>
   <tr><td class="l">Clearing agent</td><td>${esc(agentLine)}</td></tr></table>
-  <div class="sig"><div>Driver / Carrier signature</div><div>Received in good order</div></div>`;
+  <div class="sig"><div>Employee / Carrier signature</div><div>Received in good order</div></div>`;
   printOpen('Bilty '+t.bilty_no,body,true);
 }
 /* The document that actually travels with the driver — one row per vehicle/bilty on this carrier
@@ -8187,7 +8188,7 @@ function chalanPrint(jid){
   <table>
   <tr><td class="l">Chalan #</td><td><b>${esc(j.chalan_no||'—')}</b></td><td class="l">Date</td><td>${esc(fmtDate(j.date))}</td></tr>
   <tr><td class="l">Trip no.</td><td>${esc(j.trip_no)}</td><td class="l">Carrier</td><td>${esc(nm('carriers',j.carrier_id))}</td></tr>
-  <tr><td class="l">Driver</td><td>${esc(nm('drivers',j.driver_id))}</td><td class="l">Route</td><td>${journeyRouteDisplay(j)}</td></tr>
+  <tr><td class="l">Driver</td><td>${esc(nm('employees',j.driver_id))}</td><td class="l">Route</td><td>${journeyRouteDisplay(j)}</td></tr>
   </table>
   <table><tr>
     <th>Bilty #</th><th>Vehicle details</th><th>Destination</th><th>Consignor</th><th>Consignee</th>
@@ -8201,7 +8202,7 @@ function chalanPrint(jid){
   }).join(''):`<tr><td colspan="${cols}">No loads on this trip yet.</td></tr>`}
   ${showFreight&&loads.length?`<tr><td colspan="5" class="r"><b>Total freight</b></td><td class="r"><b>${pkr(totalFreight)}</b></td><td></td></tr>`:''}
   </table>
-  <div class="sig"><div>Driver signature</div><div>Received in good order (consignee)</div></div>`;
+  <div class="sig"><div>Employee signature</div><div>Received in good order (consignee)</div></div>`;
   printOpen('Chalan '+(j.chalan_no||j.trip_no),body,true);
 }
 function tripManifestPrint(jid){
@@ -8234,7 +8235,7 @@ function tripManifestPrint(jid){
   <div class="hd"><h1>${esc(CO_NAME)}</h1><div class="t">Trip Report — ${esc(j.trip_no)}</div></div>
   <table>
   <tr><td class="l">Trip no.</td><td>${esc(j.trip_no)}</td><td class="l">Date</td><td>${esc(fmtDate(j.date))}${j.date_end?' → '+esc(fmtDate(j.date_end)):''}</td></tr>
-  <tr><td class="l">Carrier</td><td>${esc(nm('carriers',j.carrier_id))}</td><td class="l">Driver</td><td>${esc(nm('drivers',j.driver_id))}</td></tr>
+  <tr><td class="l">Carrier</td><td>${esc(nm('carriers',j.carrier_id))}</td><td class="l">Driver</td><td>${esc(nm('employees',j.driver_id))}</td></tr>
   <tr><td class="l">Route</td><td colspan="3">${journeyRouteDisplay(j)}</td></tr>
   <tr><td class="l">Return load</td><td colspan="3">${esc(enumLbl(RETURN_LOAD,jReturnEffective(jid)))}</td></tr>
   </table>
@@ -8250,7 +8251,7 @@ function tripManifestPrint(jid){
     <tr><td class="r">Return load freight</td><td class="r">${pkr(returnEarning)}</td></tr>`:''}
     ${earnVisible?`<tr><td class="r"><b>Total freight</b></td><td class="r"><b>${pkr(earning)}</b></td></tr>`:''}
     </table>`;})()}
-  <table><tr><th colspan="4">Driver advances</th></tr>
+  <table><tr><th colspan="4">Employee advances</th></tr>
   <tr><th>Given by</th><th>Date</th><th>Bilty</th><th class="r">Amount</th></tr>
   ${advs.length?advs.map(a=>`<tr><td>${advSourceLabel(a)}</td><td>${esc(fmtDate(a.date))}</td><td>${a.trip_id?esc(nm('trips',a.trip_id,'bilty_no')):'Whole trip'}</td><td class="r">${pkr(a.amount_paisa)}</td></tr>`).join('')
     :'<tr><td colspan="4">No driver advances recorded.</td></tr>'}
@@ -8309,7 +8310,7 @@ function tripManifestPrint(jid){
   ${ftGivenTotal>0?`<tr><td>Fuel transfer given</td><td class="r">+${pkr(ftGivenTotal)}</td></tr>`:''}
   <tr><td><b>Net income</b></td><td class="r"><b>${pkr(net)}</b></td></tr>
   </table>`:''}
-  <div class="sig"><div>Driver signature</div><div>Dispatcher</div></div>`;
+  <div class="sig"><div>Employee signature</div><div>Dispatcher</div></div>`;
   printOpen('Trip '+j.trip_no,body,true);
 }
 /* Matches UTN's real Sales Tax Invoice format exactly (verified against issued, stamped invoices
@@ -8522,7 +8523,7 @@ function userForm(id){
   <div class="fgrid">
     <div class="frow full"><label class="req">Name</label><input id="u_name" value="${esc(rec.name||'')}"></div>
     <div class="frow"><label class="req">Role</label><select id="u_role" onchange="userRoleToggle()">${optHTML(USER_ROLES,rec.role)}</select></div>
-    <div class="frow" id="u_driver_row" style="${rec.role==='driver'?'':'display:none'}"><label>Driver record</label><select id="u_driver_id">${fkOptions('drivers',rec.driver_id)}</select></div>
+    <div class="frow" id="u_driver_row" style="${rec.role==='driver'?'':'display:none'}"><label>Employee record</label><select id="u_driver_id">${fkOptions('employees',rec.driver_id)}</select></div>
     <div class="frow" id="u_carrier_row" style="${rec.role==='carrier'?'':'display:none'}"><label>Carrier record</label><select id="u_carrier_id">${fkOptions('carriers',rec.carrier_id)}</select></div>
     <div class="frow full"><label>Login type</label>
       <select id="u_auth_mode" onchange="userAuthToggle()">
@@ -8781,7 +8782,7 @@ function openHelpFAQ(){
         <h3 onclick="toggleTopic(this)">🚗 Trips & Journeys</h3>
         <div class="faq-items" style="display:none">
           <div class="faq"><strong onclick="toggleFAQ(this)">What's the difference between Trip and Journey?</strong><div style="display:none"><strong>Trip:</strong> Single bilty (shipment)<br><strong>Journey:</strong> Multiple trips in one driver's run</div></div>
-          <div class="faq"><strong onclick="toggleFAQ(this)">How do I create a journey?</strong><div style="display:none">1. Go to Create Trips<br>2. Select Driver and Carrier<br>3. Click "+ Add Bilty"<br>4. Select bilties and click Save Journey</div></div>
+          <div class="faq"><strong onclick="toggleFAQ(this)">How do I create a journey?</strong><div style="display:none">1. Go to Create Trips<br>2. Select Employee and Carrier<br>3. Click "+ Add Bilty"<br>4. Select bilties and click Save Journey</div></div>
           <div class="faq"><strong onclick="toggleFAQ(this)">When do I complete the checklist?</strong><div style="display:none">BEFORE trip starts. Click bilty > Checklist tab > mark all 28 items. If fail, note in Remarks</div></div>
         </div>
       </div>
