@@ -1728,9 +1728,6 @@ function navItems(){
   const r=state.user.role;
   const items=[];
 
-  // ===== DASHBOARD (TOP LEVEL) =====
-  items.push(['#/dashboard','Dashboard']);
-
   // ===== OPERATIONS =====
   items.push(['DROP','Operations']);
   if(can('bookings'))items.push(['#/bookings','Booking / Bilty','بکنگ / بلٹی']);
@@ -1812,7 +1809,8 @@ function render(){
   <div class="shell">
     <nav class="side">
       <div class="brand"><img src="${UTN_LOGO_3D}" alt="${esc(CO_NAME)}" class="brand-logo"><span class="ver">TMS CRM · MVP ${APP_VER}</span></div>
-      ${navItemsList.reduce((html,it,i,arr)=>{
+      <a href="#/dashboard" class="${cur==='#/dashboard'?'on':''}" style="display:block;color:#fff;padding:7px 10px;border-radius:8px;font-weight:500;margin-bottom:8px;background:${cur==='#/dashboard'?'var(--warn)':'transparent'}">Dashboard</a>
+      ${navItemsList.filter(it=>it[0]!=='#/dashboard').reduce((html,it,i,arr)=>{
         if(it[0]==='SEP')return html+`<div class="sep">${esc(it[1])}</div>`;
         if(it[0]==='DROP')return html+`<div class="nav-group" data-open="false"><div class="nav-toggle" onclick="this.parentElement.dataset.open=this.parentElement.dataset.open==='true'?'false':'true'">${esc(it[1])} <span class="nav-caret">▼</span></div><div class="nav-items">`;
         if(it[0]==='ENDROP')return html+`</div></div>`;
@@ -1838,7 +1836,7 @@ function render(){
   const after=window._afterRender; window._afterRender=null; if(after)after();
   // Close all sections then open only the one with the active link (use setTimeout to ensure DOM is ready)
   window._updateNavSections=()=>{
-    document.querySelectorAll('.nav-group').forEach(g=>g.dataset.open='false');
+    document.querySelectorAll('.nav-group').forEach(g=>g.dataset.open='true');
     const activeLink=document.querySelector('.side a.on');
     if(activeLink){
       let section=activeLink.closest('.nav-group');
